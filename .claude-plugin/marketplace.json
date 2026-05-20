@@ -8,8 +8,13 @@
   "plugins": [
     {
       "name": "cs-end",
-      "description": "🏁 Session Closer — 4-Agent analysis + TIL save + CS_V7 knowledge write (Phase 2.1) + plugin version-up + GitHub push (/cs-end)",
+      "description": "🏁 Session Closer — 4-Agent analysis + TIL save + CS_V7 knowledge write (Phase 2.1) + error note capture (Phase 2.2) + plugin version-up + GitHub push (/cs-end)",
       "source": "./plugins/cs-end-v3"
+    },
+    {
+      "name": "cs-error-notes",
+      "description": "📝 Error Note Manager — Captures errors with 상황/문제점/시도/원인/해결점 5-field structure. Auto-integrates with cs-end Phase 2.2. Search, pattern analysis, and human-readable archive. (/cs-error-notes)",
+      "source": "./plugins/cs-error-notes-v1"
     },
     {
       "name": "cs-ceo",
