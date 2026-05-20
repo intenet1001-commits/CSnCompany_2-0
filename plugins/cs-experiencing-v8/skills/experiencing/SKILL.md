@@ -565,3 +565,21 @@ done
 - **상황**: Next.js 프로젝트에서 `bg-slate-900`(테이블 헤더), `bg-white`(카드 배경), `bg-blue-600`(버튼) 등 Tailwind 하드코딩 색상과 CSS 변수(`var(--bg-elev)`) 기반 컴포넌트가 혼재해 다크모드 대응 불가.
 - **발견**: `globals.css`에 정의된 `.card`, `.chip`, `.banner`, `.btn` 유틸 클래스를 재사용하면 하드코딩 색상을 제거하고 라이트/다크 테마 자동 대응 가능. Tailwind arbitrary value(`bg-[var(--bg-subtle)]`)는 완전한 문자열 리터럴로만 써야 purge 방지.
 - **교훈**: UI 작업 시 `globals.css` 유틸 클래스 목록을 먼저 확인 후 재사용. 하드코딩 색상보다 CSS 변수 토큰이 테마/다크모드 대응에 우월. 동적 클래스 조합(`bg-[var(--${var})]`)은 Tailwind purge 대상이 되므로 금지.
+
+### 29. Git Worktree 파일 격리 — 수정은 해당 브랜치에만 적용 (2026-05-20)
+<!-- tier: principle -->
+- **상황**: portmanagement 프로젝트에서 `worktrees/otherai/src/App.tsx`를 수정하고 포트 9000(main 브랜치 Vite 서버)에서 테스트했으나 변경이 반영되지 않음. Playwright 검증은 통과했으나 사용자 브라우저에선 구버전이 표시됨.
+- **발견**: `git worktree add`는 완전히 독립된 파일 시스템 경로를 생성한다. `worktrees/otherai/src/App.tsx`와 `src/App.tsx`는 별개 파일 — 심볼릭 링크 없음. 한쪽 수정이 다른 쪽에 전혀 영향 없음.
+- **교훈**: 워크트리에서 버그 수정 후 반드시 main 브랜치 동일 파일도 수정해야 함. 두 브랜치가 동일 수정을 요구하면 cherry-pick 또는 양쪽 직접 편집. 수정 후 서버 포트(9000 vs 10493)가 일치하는지 반드시 확인.
+
+### 30. Vite Dev Server는 자신의 소스 디렉토리만 Watch (2026-05-20)
+<!-- tier: principle -->
+- **상황**: main 브랜치 Vite 서버(localhost:9000)가 실행 중일 때 `worktrees/otherai/src/App.tsx` 수정 → HMR 없음. Playwright(새 브라우저 컨텍스트)는 최신 파일을 보고 버튼 있음으로 감지했으나 사용자 브라우저는 구버전.
+- **발견**: Vite는 실행된 디렉토리의 파일만 watch한다. main에서 실행된 서버는 `worktrees/otherai/` 변경을 절대 감지하지 못함. Playwright가 headless로 가져온 파일과 사용자 브라우저 HMR 캐시가 다를 수 있음.
+- **교훈**: 워크트리 개발 시 반드시 해당 워크트리 디렉토리에서 별도 dev 서버 실행. `bunx vite --port N`으로 parent `node_modules` 없이도 실행 가능(bunx는 상위 디렉토리 탐색). Playwright 테스트가 통과해도 사용자 브라우저가 구버전 캐시를 보고 있을 수 있으므로 실제 브라우저 확인 필수.
+
+### 31. Object Spread 시 commandPath 등 상위 속성 상속 차단 패턴 (2026-05-20)
+<!-- tier: tactical -->
+- **상황**: 워크트리 실행 버튼에서 `{...portItem, port:wtPort, folderPath:wt.path}`로 임시 객체 생성. portItem의 `commandPath`(메인 프로젝트의 `실행.command`)가 상속되어 실행 시 9000 포트를 kill하고 새 서버를 기동하는 버그 발생.
+- **발견**: `{...portItem}`은 `commandPath`, `terminalCommand` 등 메인 포트의 모든 필드를 복사한다. `executeCommand`/`forceRestartCommand`는 `item.commandPath`를 우선 사용하므로 폴더 경로만 바꿔도 원래 실행 스크립트가 실행됨.
+- **교훈**: 다른 역할의 객체를 스프레드로 생성할 때 불필요한 필드는 명시적으로 `undefined`로 차단: `{...portItem, commandPath:undefined, terminalCommand:undefined, folderPath:wt.path}`. 이후 auto-detect 로직이 올바른 폴더에서 실행 명령을 탐지.
