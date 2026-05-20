@@ -16,6 +16,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, Agent, AskUserQuestion
 
 **v3 신규 (CS_V7 지식 루프 연동):**
 - **CS_V7 Knowledge Write** (Phase 2.1) — principle-tier 학습을 CS_V7/raw/에 자동 저장 → graphify-sync 트리거 → 다음 ingest에서 위키 컴파일
+- **Error Note 점검 + 캡처** (Phase 2.2) — open 에러노트 항상 점검 + 에러→해결 시퀀스 감지 시 ~/.claude/error-notes/ 에 자동 저장 제안
 
 ## ⚠️ Author-Only Command
 
@@ -30,6 +31,7 @@ If you are not the author, Phase 4 (git push) is automatically skipped — your 
 1. **Phase 1 — 4-Agent 병렬 분석** (Digest 공유 컨텍스트 주입)
 2. **Phase 2 — 학습 영속화 + Learning Gate** (3-axis 품질 스코어)
 2.1. **Phase 2.1 — CS_V7 Knowledge Write** ← v3 신규 (principle-tier → CS_V7/raw/)
+2.2. **Phase 2.2 — Error Note 점검 + 캡처** ← 신규 (open 노트 항상 점검 + 에러→해결 캡처)
 2.5. **Phase 2.5 — Knowledge Decay Check** ← 신규 (Forget Gate, 항목 있을 때만)
 3. **Phase 3 — Selective 버전업** (DOMAINS_USED 기반 필터링)
 4. **Phase 4 — Git commit + push** (atomic commit, marketplace.json 동기화)
@@ -222,6 +224,72 @@ CS_V7_RAW="$HOME/CS_V7/raw"
    CS_V7 /llm-wiki ingest 실행 권장 (신규 session learning 저장됨)
    ```
 
+## Phase 2.2 — Error Note 점검 + 캡처 (cs-error-notes 연동)
+
+**`--no-error-notes` 플래그가 있으면 이 Phase를 조용히 스킵합니다. 없으면 항상 실행합니다.**
+
+### Part A — 기존 Open 에러노트 점검 (항상 실행)
+
+```bash
+ERROR_NOTES_DIR="$HOME/.claude/error-notes"
+INDEX="$ERROR_NOTES_DIR/INDEX.md"
+```
+
+INDEX.md가 존재하면 open 상태 노트를 집계합니다:
+
+```bash
+OPEN_COUNT=$(grep -c "| open |" "$INDEX" 2>/dev/null || echo 0)
+```
+
+**open 노트가 1개 이상이면** 다음을 출력합니다:
+
+```
+📝 Error Notes 점검:
+   미해결 에러노트 [OPEN_COUNT]개 — /cs-error-notes list --open 으로 확인
+   최근 open: [최신 open 노트 ID + 제목 1줄]
+```
+
+**open 노트가 0개이면** 한 줄만 출력합니다:
+```
+📝 Error Notes: 미해결 없음 ✅
+```
+
+이번 세션에서 해결한 에러가 있다면 `resolve` 추천:
+```
+   💡 이번 세션에서 해결한 에러가 있다면: /cs-error-notes resolve ERR-xxx
+```
+
+---
+
+### Part B — 신규 에러→해결 캡처 (감지 시에만)
+
+`learning-extractor` 결과에서 에러→해결 시퀀스를 감지합니다:
+- 상황 필드에 "에러", "오류", "실패", "error", "bug", "crash" 포함
+- 발견 필드에 "해결", "수정", "fix", "resolved" + 원인 분석 포함
+
+감지 시 제안:
+
+```
+AskUserQuestion(
+  question: "에러→해결 시퀀스 감지됨. 에러노트로 저장할까요?",
+  options: [
+    "저장 — ~/.claude/error-notes/ 에 기록",
+    "건너뛰기 — 이번 세션은 생략"
+  ]
+)
+```
+
+저장 선택 시:
+- learning-extractor 결과를 5-필드 포맷으로 변환 (상황/문제점/시도/원인/해결점)
+- ERR-YYYY-MM-DD-NNN ID 자동 부여
+- `~/.claude/error-notes/` 에 Write, INDEX.md 갱신
+- Learning Gate PASS 항목에 `<!-- error-ref: [ID] -->` 태그 추가
+- 출력: `📝 에러노트 저장: [ID]`
+
+미감지 → 조용히 Phase 2.5로 진행.
+
+---
+
 ## Phase 2.5 — Knowledge Decay Check (Forget Gate 패턴)
 
 **`--no-decay-check` 플래그가 있거나 `STALE_COUNT == 0`이면 이 Phase를 조용히 스킵합니다.**
@@ -381,6 +449,7 @@ BTWS    : 0개 pending — 없음
 /cs-end --no-compact                          # Phase 6 생략
 /cs-end --learning-only                       # 학습 추출/저장만 (버전업/push/compact 생략)
 /cs-end --no-decay-check                      # Phase 2.5 Forget Gate 스킵
+/cs-end --no-error-notes                      # Phase 2.2 Error Note 점검 스킵
 /cs-end --domains test,design                 # 버전업 도메인 수동 지정 (자동 탐지 오버라이드)
 /cs-end --project ~/Documents/GitHub/myproduct_v4/easyconversion_web1  # 프로젝트 명시
 ```

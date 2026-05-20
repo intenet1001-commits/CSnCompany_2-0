@@ -20,3 +20,4 @@ Key routing rules:
 - Save progress, checkpoint, resume → invoke checkpoint
 - "목표", complex multi-step task, unsure which domain, /goal → invoke cs-ceo
 - Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
+- Error capture, error note, 에러노트, 에러 기록, 오류 정리 → invoke cs-error-notes
