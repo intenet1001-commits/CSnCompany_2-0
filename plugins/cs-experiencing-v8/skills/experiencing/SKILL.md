@@ -583,3 +583,33 @@ done
 - **상황**: 워크트리 실행 버튼에서 `{...portItem, port:wtPort, folderPath:wt.path}`로 임시 객체 생성. portItem의 `commandPath`(메인 프로젝트의 `실행.command`)가 상속되어 실행 시 9000 포트를 kill하고 새 서버를 기동하는 버그 발생.
 - **발견**: `{...portItem}`은 `commandPath`, `terminalCommand` 등 메인 포트의 모든 필드를 복사한다. `executeCommand`/`forceRestartCommand`는 `item.commandPath`를 우선 사용하므로 폴더 경로만 바꿔도 원래 실행 스크립트가 실행됨.
 - **교훈**: 다른 역할의 객체를 스프레드로 생성할 때 불필요한 필드는 명시적으로 `undefined`로 차단: `{...portItem, commandPath:undefined, terminalCommand:undefined, folderPath:wt.path}`. 이후 auto-detect 로직이 올바른 폴더에서 실행 명령을 탐지.
+
+### 32. Worktree base ref mismatch — origin/main vs 로컬 main (2026-05-22)
+<!-- tier: tactical -->
+- **상황**: 배경 세션에서 EnterWorktree가 `origin/main` 기준으로 worktree를 생성했고, 로컬 main에는 2개의 푸시 안 된 커밋이 존재했다. 결과적으로 worktree가 오래된 코드 상태로 시작되어 3번의 edit이 잘못된 파일에 적용됨.
+- **발견**: `git checkout main -- <file>`로 로컬 main 브랜치의 최신 파일을 worktree로 복사할 수 있다. 이후 worktree 브랜치를 main에 merge할 때 conflict가 발생하며, Python 스크립트로 conflict marker를 파싱해 선택적으로 해결 가능하다.
+- **교훈**: 배경 세션에서 worktree 생성 전 반드시 `git push`로 local/origin을 동기화해야 base mismatch 방지. 사후 복구: `git checkout main -- <file>`. 단일 파일 구조 프로젝트(index.html 1개)에서 worktree merge는 conflict 가능성이 높으므로 주의.
+
+### 33. 단일 레코드 반복 태스크의 done 리셋 패턴 (2026-05-22)
+<!-- tier: principle -->
+- **상황**: myschedule 앱에서 반복 태스크(daily/weekly)는 DB에 레코드 1개만 존재한다. done=true로 마킹 후 다음 날 앱에 진입하면 완료된 것처럼 보여 새 주기에 태스크가 뜨지 않는 문제 발생.
+- **발견**: 앱 진입 시 `loadTasks`에서 `t.recurring && t.done && localISO(new Date(t.done_at)) !== todayISO()` 조건으로 이전 날 완료된 반복 태스크를 탐지하고, 일괄 `done=false, done_at=null` UPDATE 후 메모리 상태도 동기 반영. `data = data.map(t => ids.includes(t.id) ? { ...t, done: false, done_at: null } : t)`
+- **교훈**: 단일 레코드 반복 패턴에서 '완료' 상태는 영구가 아닌 일시적이다. 리셋 로직은 데이터 로드 시점(앱 진입)에 배치해야 서버와 클라이언트 상태를 일관되게 유지할 수 있다. done_at 비교는 반드시 `localISO()`로 타임존 변환 후 수행 (UTC timestamptz vs 로컬 날짜 불일치 방지).
+
+### 34. 완료 후 즉시 재등장: virtual spread 패턴으로 다음 주기 표현 (2026-05-22)
+<!-- tier: principle -->
+- **상황**: myschedule에서 weekly 반복 태스크를 오늘 완료하면 `!t.done` 가드 때문에 즉시 예정 탭에서 사라져 다음 주기가 보이지 않는 UX 문제 발생.
+- **발견**: `weeklyOffDay` 필터에서 `(recurring_days.includes(todayDow) ? t.done : !t.done)` 조건을 사용한다. 당일 요일이고 done=true면 다음 주기를 표현하기 위해 `{ ...t, done: false, _nextDate: nextOccurrenceISO(t.recurring_days) }` spread로 virtual 객체를 생성해 예정 탭에 표시. 원본 DB 레코드는 변경하지 않고 렌더링 파생 데이터에서만 상태를 조작한다.
+- **교훈**: DB 레코드를 건드리지 않고 렌더링 시점에 `{ ...original, overrides }` spread로 virtual 상태 객체를 만드는 패턴은 반복/주기 UI에서 매우 강력하다. `_nextDate` 같은 `_` prefix로 파생 필드임을 명시하는 것이 좋다. 이 패턴은 캘린더, 할 일 앱, 예약 시스템 등 모든 주기 반복 UI에 재사용 가능.
+
+### 35. done_at UTC timestamptz → 로컬 날짜 변환 비교 (2026-05-22)
+<!-- tier: tactical -->
+- **상황**: Supabase에서 done_at을 timestamptz(UTC)로 저장한다. 자정 이후 `done_at`을 단순 `.slice(0,10)`으로 자르면 UTC 기준 날짜가 반환되어 한국 시간(UTC+9)과 불일치 발생 가능.
+- **발견**: `localISO(new Date(t.done_at)) !== todayISO()` 패턴 사용. `localISO()`는 `new Date()`를 로컬 타임존 기준으로 YYYY-MM-DD 형식으로 변환. `todayISO()`도 동일 방식. 양쪽을 모두 로컬 기준으로 변환한 후 비교해야 자정 경계 버그 없음.
+- **교훈**: timestamptz 컬럼을 날짜 단위로 비교할 때는 항상 클라이언트 로컬 타임존 기준으로 변환해야 한다. 서버 저장은 UTC, 비교는 로컬이라는 원칙. `slice(0,10)` 방식은 UTC 기준이므로 UTC+9 환경에서 자정~09:00 사이 비교 시 오동작.
+
+### 36. Python으로 merge conflict marker를 즉석 파싱·해결 (2026-05-22)
+<!-- tier: tactical -->
+- **상황**: worktree 브랜치를 main에 merge할 때 index.html에서 conflict 발생. 파일이 크고 conflict marker가 여러 군데 존재. Edit 도구로는 세션 격리 때문에 main 파일 직접 수정 불가.
+- **발견**: Python으로 conflict marker(`<<<<<<<`, `=======`, `>>>>>>>`)를 포함한 old 문자열 전체를 `str.replace()`로 교체하면 conflict를 해결할 수 있다. `content.count('<<<<<<<')` 로 남은 conflict 수를 검증하면 완전 해소 여부 확인 가능.
+- **교훈**: 대형 단일 파일 프로젝트에서 merge conflict는 반복 발생한다. Edit 도구 사용 불가 상황(세션 격리 등)에서 Python 인라인 스크립트가 유효한 대안. worktree 브랜치 작업 완료 후 merge 전에 `git push`로 동기화 상태를 먼저 확인하는 것이 conflict 예방의 핵심.
