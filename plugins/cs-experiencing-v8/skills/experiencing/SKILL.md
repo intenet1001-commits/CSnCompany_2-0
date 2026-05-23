@@ -661,3 +661,27 @@ done
 - **상황**: GCP 콘솔 가이드 페이지를 개발할 때 스크린샷/SVG가 아직 준비되지 않은 상태에서도 레이아웃 완성이 필요했다.
 - **발견**: `src` prop이 없으면 "Screenshot coming soon" placeholder를 렌더링하고, `.svg` 확장자면 `<img>` 태그, `.png`면 `next/image`로 라우팅하는 단일 컴포넌트 패턴. 에셋 준비 단계와 페이지 구조 완성 단계를 분리할 수 있어 병렬 작업이 가능하다.
 - **교훈**: 문서 가이드 페이지 개발 시 `ScreenshotPlaceholder src={undefined}`로 먼저 레이아웃을 완성하고 에셋를 나중에 추가하는 워크플로우가 효율적. 이 컴포넌트는 그대로 다른 Next.js 가이드 프로젝트(vibe2 등)에 이식 가능.
+
+### 45. 마켓플레이스 플러그인 폴더명 vs 캐노니컬 이름 — 항상 manifest 우선 (2026-05-23)
+<!-- tier: principle -->
+- **상황**: skill-manager의 CSnCompany_2-0 플러그인이 14개 스킬 중 3개만 감지하는 버그. 인덱스 빌더가 marketplaceDefinedPlugins 집합을 폴더 이름(cs-ceo-v13)으로 채웠는데 캐시 키는 캐노니컬 이름(cs-ceo)이라 집합 조회가 항상 false였다.
+- **발견**: 마켓플레이스 플러그인 폴더는 버전 suffix가 붙은 배포 아티팩트(cs-ceo-v13)이고, marketplace.json의 plugins[].name이 의미적 캐노니컬 이름이다. 단일 버전 폴더 안에 여러 플러그인이 있을 수도 있다. 해결: marketplace.json 먼저 읽어 Map(folderName@mkt → canonicalName)을 만들고, 이후 모든 집합 조회를 캐노니컬 이름으로 수행.
+- **교훈**: 파일시스템에서 읽은 플러그인 식별자는 절대 캐노니컬로 취급하지 말 것. 마켓플레이스에 marketplace.json이 있으면 반드시 먼저 읽어 이름을 해소한 뒤 비교. 폴더명→캐노니컬 매핑은 first-write-wins.
+
+### 46. claude --bg 플래그: CLI 내장 백그라운드 에이전트 실행 (2026-05-23)
+<!-- tier: principle -->
+- **상황**: skill-manager AI 추천의 "bg" 모드를 OS 레벨 detached spawn으로 구현했으나 Claude 에이전트가 실제로 실행되지 않았다.
+- **발견**: Claude Code CLI에는 --bg 플래그가 있다. `execFile('claude', ['--bg', prompt], { cwd, env })`로 호출하면 클로드가 내부적으로 백그라운드 에이전트를 생성하고 즉시 종료한다. 터미널 창 없이 프롬프트를 실행하는 공식 방법이다. shell을 거치지 않으므로 execFile(shell: false)과 args 배열을 사용해야 한다.
+- **교훈**: 백그라운드 Claude 에이전트 실행 = --bg 플래그. OS 프로세스 detach(detached: true, stdio: ignore)와 혼동 금지. 특수문자 보호를 위해 execFile에 args 배열로 전달.
+
+### 47. Next.js에서 useState 초기화에 localStorage 사용 금지 — useEffect 패턴 필수 (2026-05-23)
+<!-- tier: principle -->
+- **상황**: Next.js 클라이언트 컴포넌트에서 `useState(() => localStorage.getItem('key'))` 패턴으로 로컬스토리지 기본값을 로드하려 했으나 토글들이 기본값으로 초기화되지 않았다.
+- **발견**: Next.js는 'use client' 컴포넌트도 서버에서 초기 렌더링을 수행한다. Node.js 환경에는 localStorage가 없어 ReferenceError가 발생하거나 조용히 실패한다. 올바른 패턴: `useState(defaultValue)` + `useEffect(() => { const v = localStorage.getItem('key'); if (v !== null) setValue(...) }, [])`.
+- **교훈**: Next.js에서 localStorage, window, navigator 등 브라우저 전용 API는 반드시 useEffect 안에서만 접근. useState 지연 초기화, 컴포넌트 최상위에서 직접 호출 모두 금지. 기본값은 항상 SSR-safe한 하드코딩 값으로.
+
+### 48. 터미널 선택자 UI — TYPE(라디오)과 MODE(토글) 분리 패턴 (2026-05-23)
+<!-- tier: tactical -->
+- **상황**: skill-manager AI 패널에서 cmux/iterm/terminal/bg/tmux를 하나의 라디오 그룹으로 구현했는데, bg와 tmux는 터미널 앱 선택이 아니라 실행 방식 수정자라 UX가 혼란스러웠다.
+- **발견**: portmanagement의 패턴: 터미널 TYPE(어느 앱에서 열 것인가 — 배타적 라디오)과 실행 MODE(어떻게 실행할 것인가 — 독립 토글)를 분리. 상호작용 규칙(cmux에서는 tmux 무시)은 실행 시점에 한 줄로 처리(`if (tmuxMode && terminalType !== 'cmux')`).
+- **교훈**: 선택지가 "어디서"(exclusive)와 "어떻게"(composable)로 구분될 때 단일 라디오 그룹보다 TYPE+MODE 분리가 훨씬 명확하다. 상호배제 규칙은 UI state에 묶지 말고 실행 로직에 배치.
