@@ -685,3 +685,9 @@ done
 - **상황**: skill-manager AI 패널에서 cmux/iterm/terminal/bg/tmux를 하나의 라디오 그룹으로 구현했는데, bg와 tmux는 터미널 앱 선택이 아니라 실행 방식 수정자라 UX가 혼란스러웠다.
 - **발견**: portmanagement의 패턴: 터미널 TYPE(어느 앱에서 열 것인가 — 배타적 라디오)과 실행 MODE(어떻게 실행할 것인가 — 독립 토글)를 분리. 상호작용 규칙(cmux에서는 tmux 무시)은 실행 시점에 한 줄로 처리(`if (tmuxMode && terminalType !== 'cmux')`).
 - **교훈**: 선택지가 "어디서"(exclusive)와 "어떻게"(composable)로 구분될 때 단일 라디오 그룹보다 TYPE+MODE 분리가 훨씬 명확하다. 상호배제 규칙은 UI state에 묶지 말고 실행 로직에 배치.
+
+### 49. known_marketplaces.json은 신뢰할 만한 source-of-truth가 아니다 — 자동 기록된 URL은 잘못될 수 있음 (2026-05-23)
+<!-- tier: principle -->
+- **상황**: /doctor가 ~/.claude/settings.json의 extraKnownMarketplaces 14개 항목에 대해 "source 필드 누락" 오류를 보고했다. known_marketplaces.json의 source URL을 참조해 객체 형태(`{source: "github", repo: "owner/name"}`)로 복원하려는데, `claude-code-plugins → anthropics/claude-code`(CLI 본체 레포)와 `cli → googleworkspace/cli`(Claude 마켓플레이스 아님) 두 항목이 명백히 틀린 값을 가리키고 있었다.
+- **발견**: known_marketplaces.json의 `source` 필드는 최초 설치 시 사용자가 전달한 URL을 그대로 기록한다 — 마켓플레이스의 실제 정체성을 검증하지 않는다. enabledPlugins에서 실제로 쓰이는 prefix(예: `frontend-design@claude-code-plugins`)와 source URL이 가리키는 repo의 일치 여부는 별도 확인이 필요하다. CLAUDE.md의 "GitHub 마켓플레이스 플러그인 자동 설치" 루틴처럼 사용자 입력을 그대로 기록하는 경로일수록 잘못된 값이 잠복하기 쉽다.
+- **교훈**: known_marketplaces.json을 복원/마이그레이션 source로 쓰기 전에 각 entry를 검증하라. ① enabledPlugins prefix와 marketplace name이 매칭되는지, ② source repo가 실제 `.claude-plugin/marketplace.json`을 가진 마켓플레이스인지, ③ 의심스러우면 AskUserQuestion으로 사용자에게 표면화. 일괄 변환 스크립트는 검증 게이트 없이 절대 돌리지 말 것.
