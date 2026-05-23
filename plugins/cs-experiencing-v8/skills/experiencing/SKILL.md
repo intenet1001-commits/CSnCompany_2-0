@@ -691,3 +691,21 @@ done
 - **상황**: /doctor가 ~/.claude/settings.json의 extraKnownMarketplaces 14개 항목에 대해 "source 필드 누락" 오류를 보고했다. known_marketplaces.json의 source URL을 참조해 객체 형태(`{source: "github", repo: "owner/name"}`)로 복원하려는데, `claude-code-plugins → anthropics/claude-code`(CLI 본체 레포)와 `cli → googleworkspace/cli`(Claude 마켓플레이스 아님) 두 항목이 명백히 틀린 값을 가리키고 있었다.
 - **발견**: known_marketplaces.json의 `source` 필드는 최초 설치 시 사용자가 전달한 URL을 그대로 기록한다 — 마켓플레이스의 실제 정체성을 검증하지 않는다. enabledPlugins에서 실제로 쓰이는 prefix(예: `frontend-design@claude-code-plugins`)와 source URL이 가리키는 repo의 일치 여부는 별도 확인이 필요하다. CLAUDE.md의 "GitHub 마켓플레이스 플러그인 자동 설치" 루틴처럼 사용자 입력을 그대로 기록하는 경로일수록 잘못된 값이 잠복하기 쉽다.
 - **교훈**: known_marketplaces.json을 복원/마이그레이션 source로 쓰기 전에 각 entry를 검증하라. ① enabledPlugins prefix와 marketplace name이 매칭되는지, ② source repo가 실제 `.claude-plugin/marketplace.json`을 가진 마켓플레이스인지, ③ 의심스러우면 AskUserQuestion으로 사용자에게 표면화. 일괄 변환 스크립트는 검증 게이트 없이 절대 돌리지 말 것.
+
+### 50. 아이콘 Morph — absolute+scale/opacity 토글 패턴 (2026-05-23)
+<!-- tier: tactical -->
+- **상황**: GWC-Help-Site CopyButton에서 Copy 아이콘이 Checkmark로 교체되는 상태 전환을 자연스럽게 표현해야 했다. 단순 조건부 렌더링(`{copied ? <Check/> : <Copy/>}`)은 애니메이션 없이 순간 교체된다.
+- **발견**: 두 아이콘을 `position: absolute; inset: 0`으로 같은 공간에 쌓고, `scale-0 opacity-0` ↔ `scale-100 opacity-100`을 `transition-all duration-200`으로 전환하면 Cross-fade 없이 부드러운 아이콘 교체가 된다. 부모 `<span>`에 `size-*`로 공간을 명시적으로 예약해야 레이아웃 시프트가 없다.
+- **교훈**: boolean 상태(copied/saved/liked)에 따라 아이콘이 교체되어야 하는 모든 버튼에 적용. Save/Saved, Star/Unstar, Send/Sent 패턴 모두 동일. 부모 크기 예약 누락 시 레이아웃 시프트 발생 주의.
+
+### 51. Tailwind v4 `@theme inline` — CSS 변수 → 유틸리티 브리지 필수 (2026-05-23)
+<!-- tier: principle -->
+- **상황**: GWC-Help-Site globals.css에서 `--primary: 217 91% 50%`로 Google Blue를 주입했는데 `bg-primary` 유틸리티가 반응하지 않았다. `@layer base`에 변수 선언만으로는 Tailwind v4에서 부족하다.
+- **발견**: Tailwind v4는 CSS 변수와 유틸리티 클래스 사이에 `@theme inline { --color-primary: hsl(var(--primary)); }` 브리지 블록이 필수다. 이 블록 없이는 커스텀 CSS 변수가 Tailwind 유틸리티 생성 파이프라인에 포함되지 않는다. 표준 패턴: `@layer base`에 raw 값(`217 91% 50%`), `@theme inline`에서 `hsl(var(...))`로 변환.
+- **교훈**: Tailwind v4 프로젝트에서 커스텀 색상 토큰이 `bg-*`/`text-*`로 안 잡힐 때 첫 번째로 `@theme inline` 블록 유무를 확인하라. AGENTS.md의 "This is NOT the Next.js you know" 경고와 직결되는 v4 breaking change.
+
+### 52. `navigator.clipboard` 비보안 컨텍스트 Fallback 패턴 (2026-05-23)
+<!-- tier: tactical -->
+- **상황**: CopyButton 구현 시 `navigator.clipboard.writeText()`가 개발 환경 http에서 실패하는 케이스를 처리해야 했다.
+- **발견**: `navigator.clipboard`는 `window.isSecureContext`(HTTPS 또는 localhost)에서만 동작. 비보안 컨텍스트나 iframe에서는 `document.execCommand('copy')` fallback이 필요. 패턴: `if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(v) } else { /* textarea + execCommand fallback */ }`. textarea를 `position: fixed`로 해야 스크롤 위치 변화 없음.
+- **교훈**: clipboard API를 쓰는 모든 컴포넌트에 isSecureContext 분기 추가. `execCommand`는 deprecated이지만 모든 브라우저에서 여전히 동작.
