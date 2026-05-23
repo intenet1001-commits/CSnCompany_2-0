@@ -613,3 +613,15 @@ done
 - **상황**: worktree 브랜치를 main에 merge할 때 index.html에서 conflict 발생. 파일이 크고 conflict marker가 여러 군데 존재. Edit 도구로는 세션 격리 때문에 main 파일 직접 수정 불가.
 - **발견**: Python으로 conflict marker(`<<<<<<<`, `=======`, `>>>>>>>`)를 포함한 old 문자열 전체를 `str.replace()`로 교체하면 conflict를 해결할 수 있다. `content.count('<<<<<<<')` 로 남은 conflict 수를 검증하면 완전 해소 여부 확인 가능.
 - **교훈**: 대형 단일 파일 프로젝트에서 merge conflict는 반복 발생한다. Edit 도구 사용 불가 상황(세션 격리 등)에서 Python 인라인 스크립트가 유효한 대안. worktree 브랜치 작업 완료 후 merge 전에 `git push`로 동기화 상태를 먼저 확인하는 것이 conflict 예방의 핵심.
+
+### 37. Claude Code CLI를 Bun 서버 서브프로세스로 AI 추론 백엔드로 활용 (2026-05-23)
+<!-- tier: principle -->
+- **상황**: portmanagement 앱에서 AI 이름 추천 기능(`/api/suggest-batch`) 원리를 분석. Anthropic API 키 없이 로컬에서 AI 기능을 서버사이드로 구현하는 방식이 궁금했음.
+- **발견**: `claude -p <prompt>` (-p = print/non-interactive 모드)를 `Bun.spawn([CLAUDE_PATH, '-p', prompt])` 로 서브프로세스 실행하여 stdout에서 응답을 수집. CLAUDE_PATH는 서버 시작 시 1회 탐지(`zsh -l -c 'which claude'` → 하드코딩 경로 fallback). CLAUDE_PATH 미탐지 시 503 반환. suggest-batch는 N개 포트를 단일 프롬프트로 묶어 CLI 1회 호출 → O(N) 호출을 O(1)로 최적화.
+- **교훈**: Anthropic API 키가 없어도 로컬에 Claude Code CLI가 설치·로그인된 환경이라면 Bun/Node 서버에서 서브프로세스로 AI 추론을 수행할 수 있다. 503 vs 500 구분으로 "CLI 미설치"와 "런타임 오류"를 의미론적으로 분리하는 것이 디버깅에 유리.
+
+### 38. 사이드바 버튼 중복 — 메인 영역이 primary, 사이드바는 secondary (2026-05-23)
+<!-- tier: tactical -->
+- **상황**: portmanagement 사이드바 헤더에 "+ 프로젝트" 버튼이 생김. 메인 영역에 이미 "New project" 버튼 존재.
+- **발견**: 동일 기능 버튼이 사이드바와 메인 영역 두 곳에 존재할 때, 메인 영역 버튼이 canonical primary. 사이드바 버튼은 컨텍스트 특정(선택된 항목 기준)이면 존치, 전역 동작 중복이면 제거 대상.
+- **교훈**: 새 기능 추가 시 사이드바에 편의 버튼을 반사적으로 붙이는 패턴이 이 코드베이스에서 반복됨. 버튼 추가 전 메인 영역 동일 기능 여부를 먼저 확인할 것.
