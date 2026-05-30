@@ -733,3 +733,27 @@ done
 - **상황**: freeparking-1 프로젝트 배포를 위해 auto-mode 세션에서 `vercel --prod --yes`를 여러 차례 시도했으나 매번 안전 분류기에 차단되었다.
 - **발견**: Claude Code auto-mode의 안전 분류기는 `vercel --prod`를 "프로덕션 외부 서비스 변경"으로 분류해 자동 차단한다. 이는 허용 목록이나 권한 설정으로 우회 불가능한 hard block이다.
 - **교훈**: Vercel 프로덕션 배포는 반드시 사용자가 직접 실행해야 함. `! cd <project> && vercel --prod --yes` 형태로 Claude Code 프롬프트에서 직접 실행하거나 별도 터미널 사용. 에이전트 세션에서 자동화 불가 — 세션 마무리 시 항상 사용자에게 배포 명령을 전달할 것.
+
+### 57. content 컬럼 센티넬 접두사로 스키마 마이그레이션 없이 새 콘텐츠 타입 추가 (2026-05-30)
+<!-- tier: principle -->
+- **상황**: 기존 `meokgo_chat_messages.content TEXT` 컬럼만 있는 채팅 테이블에 스티커 기능을 추가해야 했음. DB 컬럼 추가 시 RLS 정책 업데이트 + Realtime 스키마 리프레시 필요.
+- **발견**: `content`에 `:sticker:🎂` 센티넬 접두사로 저장하면 DB/RLS/Realtime 파이프라인을 전혀 건드리지 않아도 됨. `isSticker()` 한 줄 + 렌더 분기만 추가로 구현 완료.
+- **교훈**: 새 콘텐츠 타입이 "여전히 문자열이고 메시지당 하나"인 경우 센티넬 접두사로 기존 컬럼을 재사용한다. 컬럼 추가는 진짜 직교적 데이터(외래키·숫자·boolean 플래그)일 때만 사용.
+
+### 58. window CustomEvent로 React 레이어 밖에서 컴포넌트 간 느슨한 결합 (2026-05-30)
+<!-- tier: principle -->
+- **상황**: BirthdayPopup과 ChatBubble이 서로 독립적으로 레이아웃에 마운트. 팝업이 채팅창을 열고 메시지를 프리필해야 했지만 두 컴포넌트가 서로를 import하면 순환 의존성 발생.
+- **발견**: `window.dispatchEvent(new CustomEvent('open-chat', {detail:{prefill:'...'}}))` + `window.addEventListener('open-chat', handler)` 패턴. 두 컴포넌트가 서로 모른 채 통신 가능. useEffect cleanup으로 리스너 해제 필수.
+- **교훈**: 공통 부모 state를 올리기 비용이 큰 leaf 컴포넌트 간 통신에는 window CustomEvent가 최경량 pub/sub. 상태 관리 라이브러리나 Context 오버엔지니어링 없이 해결. 단, 남용 시 이벤트 추적이 어려우므로 컴포넌트 2개 내외의 단방향 트리거에만 사용.
+
+### 59. Next.js App Router에서 인증 사용자 전용 UI는 (main)/layout에 마운트 (2026-05-30)
+<!-- tier: tactical -->
+- **상황**: BirthdayPopup을 `app/page.tsx`(로그인 랜딩)에 마운트했더니 Google OAuth 로그인 후 즉시 `/order`로 리다이렉트되어 팝업이 보이지 않는 문제.
+- **발견**: NextAuth 세션 있는 사용자는 `app/page.tsx`를 지나치지 않고 바로 `(main)/layout`으로 진입. 팝업을 `(main)/layout.tsx`로 옮기니 `/order`, `/today`, `/my`, `/where` 모든 인증 라우트에서 정상 표시.
+- **교훈**: Next.js App Router에서 "로그인 후 모든 페이지에 보여야 하는 UI"는 route-group layout에 마운트. `page.tsx`에 마운트하면 해당 URL을 실제로 렌더링하는 경우에만 표시됨.
+
+### 60. 기능 구현 전 코드베이스에서 기존 구현 탐색 필수 (2026-05-30)
+<!-- tier: principle -->
+- **상황**: CEO 에이전트가 "앱 내 실시간 채팅방" 구현을 시작하려 했음. 실제로는 `components/chat-bubble.tsx`에 Supabase Realtime 채팅이 이미 구현되어 있었음.
+- **발견**: 도메인 명사(chat, message, realtime)로 `components/`와 `lib/`를 grep했더라면 370줄짜리 기존 구현을 즉시 발견했을 것. 실제 작업은 기존 파일에 ~20줄 추가가 전부.
+- **교훈**: 새 기능 구현 전 `grep -rn "도메인명사" components/ lib/`로 기존 구현 여부를 반드시 확인. false-negative 시 중복 테이블 생성 + 충돌 RLS 정책 리스크. 이 프로젝트는 `meokgo_` prefix 테이블이 여러 앱과 공존하므로 특히 중요.
