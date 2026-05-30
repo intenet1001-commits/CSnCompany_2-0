@@ -19,17 +19,17 @@
     {
       "name": "cs-ceo",
       "description": "🧭 CEO — Estimates effort and autonomously dispatches across CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run. v5.5 adds Dynamic Resolve v2: partner type auto-detection (AGENT/SKILL/PROTOCOL) + external agent direct call support.",
-      "source": "./plugins/cs-ceo-v13"
+      "source": "./plugins/cs-ceo-v15"
     },
     {
       "name": "goal",
       "description": "🎯 Goal — /goal with Goal Gate built-in. Clarifies goal first, then auto-dispatches to the best CS-series domain via cs-ceo.",
-      "source": "./plugins/cs-ceo-v13"
+      "source": "./plugins/cs-ceo-v15"
     },
     {
       "name": "cs-partnership",
       "description": "🤝 Partnership — /cs-partnership with [skills/agents] [goal]. v5.5: AGENT type (executor, debugger, architect) directly calls external plugin agents via Task(subagent_type). SKILL/PROTOCOL types use Skill() or direct execution.",
-      "source": "./plugins/cs-ceo-v13"
+      "source": "./plugins/cs-ceo-v15"
     },
     {
       "name": "cs-clarify",

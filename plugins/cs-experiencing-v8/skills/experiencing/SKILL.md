@@ -757,3 +757,39 @@ done
 - **상황**: CEO 에이전트가 "앱 내 실시간 채팅방" 구현을 시작하려 했음. 실제로는 `components/chat-bubble.tsx`에 Supabase Realtime 채팅이 이미 구현되어 있었음.
 - **발견**: 도메인 명사(chat, message, realtime)로 `components/`와 `lib/`를 grep했더라면 370줄짜리 기존 구현을 즉시 발견했을 것. 실제 작업은 기존 파일에 ~20줄 추가가 전부.
 - **교훈**: 새 기능 구현 전 `grep -rn "도메인명사" components/ lib/`로 기존 구현 여부를 반드시 확인. false-negative 시 중복 테이블 생성 + 충돌 RLS 정책 리스크. 이 프로젝트는 `meokgo_` prefix 테이블이 여러 앱과 공존하므로 특히 중요.
+
+### 61. 메모리 불만 시 먼저 어느 프로세스가 RSS를 소유하는지 확인 (2026-05-30)
+<!-- tier: principle -->
+- **상황**: 사용자가 30GB+ 메모리 사용 보고 → React/Bun 포트 매니저 앱을 의심하고 adversarial 워크플로우로 19개 후보 조사.
+- **발견**: 앱 JS heap은 15-18MB로 안정적. 실제 주범은 cmux + `claude agents` 외부 Swift 프로세스. `ps aux | sort -k6 -rn | head -20`으로 즉시 확인 가능했던 사실.
+- **교훈**: 메모리 디버깅 첫 번째 단계는 `ps aux | sort -k6 -rn | head -10`으로 RSS 기준 프로세스 순위 확인. 앱이 spawn하는 외부 CLI(Swift, Python, Node 서브프로세스)는 webview/JS heap과 별도로 측정해야 함. 의심 프로세스를 확정하기 전에 React 코드를 뒤지지 말 것.
+
+### 62. manualChunks는 캐시 효율이지 런타임 메모리 감소가 아니다 (2026-05-30)
+<!-- tier: principle -->
+- **상황**: vite manualChunks로 react-vendor/supabase/icons 청크를 분리해 메모리를 줄이려 시도.
+- **발견**: manualChunks는 바이트를 여러 파일로 분산하지만 모든 청크가 시작 시 eager-evaluate됨. 총 런타임 메모리는 단일 번들과 동일. 실제 메모리 감소는 React.lazy (dynamic import + 지연 평가)만 가능.
+- **교훈**: 두 목표를 구분: (1) 캐시 효율 → manualChunks; (2) 런타임 메모리 감소 → React.lazy. 메모리가 목표라면 manualChunks는 관련 없음. lazy loading만이 heap을 줄임.
+
+### 63. document.hidden으로 setInterval 폴링 게이팅 — Playwright로 검증 (2026-05-30)
+<!-- tier: principle -->
+- **상황**: 10초 포트 상태 폴링이 창이 숨겨져 있을 때도 실행되어 불필요한 CPU/네트워크 소비.
+- **발견**: setInterval 콜백 첫 줄에 `if (document.hidden) return;` 추가로 완전 차단. Playwright로 검증: visible 12초 → 34회 API 호출, hidden 12초 → 0회.
+- **교훈**: 모든 폴링 루프(포트 상태, 로그 테일링, 빌드 상태)는 콜백 상단에 `if (document.hidden) return;` 추가. `visibilitychange` 이벤트로 재포커스 시 즉시 복구. 5줄 미만의 무비용 최적화.
+
+### 64. React.lazy + Suspense는 Tauri WebKit 웹뷰에서 정상 동작 (2026-05-30)
+<!-- tier: tactical -->
+- **상황**: Tauri 내장 WebKit이 dynamic import()를 지원하는지 불확실. 코드 스플리팅 호환성 우려.
+- **발견**: `React.lazy(() => import('./SetupWizard'))` + `<Suspense fallback={null}>` 패턴이 Tauri WebKit에서 정상 동작. SetupWizard가 초기 번들에서 제외되고 필요 시 로드됨.
+- **교훈**: Tauri/WebKit이 최신 JS 기능과 비호환이라 가정하지 말 것. React.lazy + Suspense는 위저드 플로우, 설정 패널, 무거운 탭 등 큰 컴포넌트의 초기 번들 축소에 안전하게 사용 가능. Playwright로 lazy 청크가 초기 network 요청에 없는지 확인하면 됨.
+
+### 65. Playwright adversarial 워크플로우로 메모리 누수 후보 기각 (2026-05-30)
+<!-- tier: tactical -->
+- **상황**: 19개 메모리 누수 후보 중 실제 문제가 얼마나 되는지 체계적으로 검증 필요.
+- **발견**: `performance.memory.usedJSHeapSize`로 heap 스냅샷 + `page.on('request', ...)`로 API 호출 수 카운트하는 Playwright 스크립트가 19개 중 18개를 객관적으로 기각. 힙 증가 -3MB(GC), 백그라운드 폴링 0회로 확인.
+- **교훈**: 메모리 감사 시 전용 Playwright 스크립트 작성: 시나리오 전후 heap 측정 + 시간창 내 API 요청 수 카운트 + 임계값(예: 2MB) 초과 여부 플래그. DevTools 수동 세션보다 빠르고 재현 가능.
+
+### 66. 포트 매니저 앱 JS heap 기준값 — 15-18MB 안정 (2026-05-30)
+<!-- tier: tactical -->
+- **상황**: Tauri+React 포트 매니저 앱의 실제 메모리 사용량 기준값 측정 필요.
+- **발견**: Playwright 30초 측정: 초기 heap ~17MB, 30초 후 heap 증가 -3MB (GC 정상). 폴링/로그/포털 모든 시나리오에서 누수 없음.
+- **교훈**: 이 앱의 JS heap 정상 범위는 15-18MB. 30GB+ 불만은 앱이 아닌 외부 프로세스(cmux). 추후 메모리 이슈 제기 시 이 기준값으로 먼저 비교.
