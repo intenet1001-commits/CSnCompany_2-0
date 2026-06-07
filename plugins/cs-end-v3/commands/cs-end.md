@@ -41,7 +41,7 @@ If you are not the author, Phase 4 (git push) is automatically skipped — your 
 ## Phase 0 — 플래그 파싱 + Origin 확인
 
 ```bash
-PREPASS_RUNNER="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/shared/run_prepass.sh"
+PREPASS_RUNNER="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/shared/run_prepass.sh"
 PREFLIGHT=$(bash "$PREPASS_RUNNER" end-preflight "$@" 2>/dev/null)
 _f() { printf '%s' "$PREFLIGHT" | python3 -c "import sys,json;print(json.load(sys.stdin)$1)" 2>/dev/null; }
 

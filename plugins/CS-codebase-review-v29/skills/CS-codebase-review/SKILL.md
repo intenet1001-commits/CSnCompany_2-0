@@ -16,6 +16,7 @@ Python이 없으면 이 Phase를 건너뛰고 기존 방식(Read+Grep)으로 진
 BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
 export CSN_SHARED_DIR="$BASE/shared"
 source "$CSN_SHARED_DIR/_bootstrap.sh" 2>/dev/null
+TARGET_DIR="${1:-$PWD}"
 
 if [ "$CSN_USE_PYTHON" = "true" ]; then
   # 파일 구조 + import 그래프 추출 (LLM Read 대체)

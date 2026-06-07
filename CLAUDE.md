@@ -8,12 +8,13 @@ Key routing rules:
 - Web testing, playwright, site QA, find bugs on a URL → invoke CS-test
 - TDD plan, clean architecture plan, coding plan for a feature → invoke CS-plan
 - Codebase review, architecture review, code quality check → invoke CS-codebase-review
-- Sync plugins, push to GitHub, update marketplace → invoke cs-sync
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
-- Bugs, errors, "why is this broken" → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- Code review, check my diff → invoke review
-- Architecture review, plan review → invoke plan-eng-review
-- Save progress, checkpoint, resume → invoke checkpoint
-- "목표", complex multi-step task, unsure which domain, /goal → invoke cs-ceo
-- Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
+- Design review, UI audit, UX analysis, 디자인 리뷰 → invoke cs-design
+- Crextio style components, --audit/--apply design file → invoke cs-design-sample1
+- Requirements unclear, 요구사항 정리, 스펙 명확화 → invoke cs-clarify
+- Session ending, 세션 마무리, 오늘 작업 끝내자 → invoke cs-end
+- Error capture, 에러 저장, 에러노트 → invoke cs-error-notes
+- Know-how lookup, 이전 학습, 경험 조회 → invoke cs-experiencing
+- Pre-PR validation, 배포 전 검증, ship, create PR → invoke cs-ship
+- Opus plan + parallel Sonnet execution, 플랜실행 → invoke smart-run
+- English conversation, session to dialog → invoke convo-maker
+- Complex multi-step task, 목표 설정, unsure which domain, /goal → invoke cs-ceo
