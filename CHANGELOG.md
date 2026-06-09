@@ -1,5 +1,14 @@
 # Changelog
 
+## [session] 2026-06-09
+
+### Added
+- `plugins/cs-experiencing-v8/skills/experiencing/SKILL.md`: 학습 #67~68 추가
+  - #67 (tactical): Vercel CDN bundle mismatch artifact — tsc+build 통과 시 CDN 불일치 의심, 재배포로 해결
+  - #68 (principle): 대형 JSX 파일에서 `</>}` vs `})()}` 구조 추적 패턴 — 인덴테이션+토큰 타입 동시 추적
+- `plugins/cs-experiencing-v8/VERSION`: 8.0.0 → 8.0.1
+- `CS_V7/raw/cs-session-2026-06-09-large-jsx-fragment-iife-tracing.md`: principle-tier 학습 CS_V7 저장
+
 ## [session] 2026-05-23
 
 ### Added
