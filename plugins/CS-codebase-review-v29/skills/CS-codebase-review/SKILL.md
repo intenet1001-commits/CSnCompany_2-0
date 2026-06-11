@@ -7,6 +7,8 @@ version: 1.0.0
 
 # CS-codebase-review 실행 프로토콜
 
+검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다. (verdict 산출 시 plugins/shared/GATE-LOOP.md 추가 적용)
+
 ## Phase 0 — Python Pre-Pass (선택적, 토큰 절감)
 
 5-agent를 스폰하기 전에 Python 스크립트로 구조 데이터를 추출한다.
@@ -67,16 +69,55 @@ fi
 ## 노하우 참고
 [관련 SKILL.md 노하우 항목]
 
-5점 척도(A~F)로 평가하고 우선순위별 수정사항을 제시하세요.
+발견한 모든 이슈를 빠짐없이 보고하세요. 확신이 낮은 이슈도 제외하지 말고 보고합니다 (필터링·우선순위 선정은 Phase 2에서 수행).
+각 이슈는 다음 형식으로:
+- 파일:라인 | 심각도(HIGH/MEDIUM/LOW) | 확신도(높음/중간/낮음) | 근거(해당 줄에서 그대로 복사한 코드 1-2줄 인용) | 제안 수정
+file:line과 코드 인용이 불가능한 이슈는 LOW로 강등하여 보고하세요.
+등급(A~F) 평가는 하지 마세요 — 등급 산정은 Phase 2에서만 수행합니다.
+마지막에 검토한 파일 목록(reviewed_files)을 반드시 출력하세요.
 ```
+
+## Phase 1.5 — 커버리지 게이트 & 적대적 검증
+
+### 1.5a 커버리지 게이트 (조건부 2라운드, 최대 1회 추가)
+
+1. 5개 에이전트의 reviewed_files 합집합을 Phase 0 extract_summary.py의 파일 목록과 비교한다 (`fallback:true`이면 빠른 glob으로 파일 목록 생성). 생성물/vendor 디렉토리는 제외.
+2. 추가 라운드 트리거 (둘 중 하나, **최대 1회 추가 — 하드 캡**):
+   - 커버리지 < 80% (non-trivial 소스 파일 기준), 또는
+   - Round 1에서 어떤 렌즈도 커버하지 않은 디렉토리에서 HIGH 이슈 ≥1건 발생
+3. 추가 라운드는 관련 렌즈만 재디스패치하고, 미커버 파일/디렉토리로 범위를 명시한다 ("다음 파일만 검토: ..."). 이미 검토된 파일은 재검토하지 않는다.
+4. 종료 조건: 추가 라운드가 새 HIGH 이슈 0건이거나 라운드 캡 도달 → Phase 1.5b로 진행. 총 라운드 수, 최종 커버리지 %, 미검토 파일 목록을 Phase 2 리포트에 기록한다.
+
+### 1.5b 적대적 검증 (Refuter — plugins/shared/agents/verifier.md 의미론)
+
+모든 HIGH/MEDIUM finding에 대해 verifier 에이전트 1개를 스폰한다 (>10건이면 2개로 배치 분할). 프롬프트:
+
+```
+당신의 임무는 아래 발견사항을 반박하는 것입니다.
+인용된 파일의 해당 라인을 직접 Read하고, 가능하면 Phase 0 스크립트(abspath_check.py, ts_rust_diff.py)를 해당 경로에 재실행하여 확인하세요.
+각 finding에 CONFIRMED / REFUTED / UNCERTAIN 판정과 한 줄 counter-evidence를 부여하세요.
+기본값은 REFUTED — 코드에서 직접 확인된 것만 CONFIRMED.
+줄번호 ±5줄 오차는 허용 (에이전트 분석 시점 차이).
+Python pre-pass(abspath_check, ts_rust_diff) 결정론적 출력으로 이미 뒷받침된 finding은 건너뛰고 CONFIRMED 처리.
+```
+
+판정 규칙:
+- REFUTED → 리포트에서 제외 (조용히 삭제하지 말 것 — REFUTED 건수를 검증 요약에 기록)
+- UNCERTAIN → 심각도 1단계 강등 + "(미확인)" 표기
+- CONFIRMED만 전체 등급(A~F)과 상위 5개 액션 아이템 산정에 반영
 
 ## Phase 2 — 종합 리포트
 
-5개 에이전트 결과를 취합:
-- 전체 등급 (A~F)
-- 발견된 이슈 (HIGH/MEDIUM/LOW)
-- 우선순위 상위 5개 액션 아이템
+5개 에이전트 + Phase 1.5 검증 결과를 취합:
+- 전체 발견 목록 취합·중복 제거 (LOW 포함 — 필터링은 여기서만 수행)
+- 전체 등급 (A~F, 6단계) — **CONFIRMED 이슈만으로 산정** (등급 산정은 Phase 2가 유일한 지점)
+- 모든 이슈에 출처 태그 부여: `[verified]` = Python pre-pass(TS↔Rust, abspath) 탐지 또는 Phase 1.5b CONFIRMED / `[model-claimed]` = 에이전트 주장, 미검증(LOW 등 검증 범위 밖)
+- 전체 등급 옆에 검증 비율 표기 (예: B — 12건 중 9건 verified)
+- 검증 요약 1줄 (예: "검증: 12건 중 9 CONFIRMED / 2 REFUTED / 1 미확인")
+- 리포트 헤더에 커버리지 % + 총 라운드 수 + 미검토 파일 (LOOP-PROTOCOL [d] — N/A/미응답 에이전트는 등급 상한 적용)
+- 우선순위 상위 5개 액션 아이템 (CONFIRMED 기준)
 - Python 자동 탐지 이슈 (TS↔Rust, 절대경로) 별도 강조
+- critical/high는 본문, 나머지는 부록 배치 (LOOP-PROTOCOL [e])
 
 ---
 

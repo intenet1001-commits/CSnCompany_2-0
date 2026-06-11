@@ -2,7 +2,7 @@
 name: CS-test
 user-invocable: true
 description: |
-  14-agent AI Teams web testing skill. Use when user types "/CS-test", "웹 테스트", "playwright test",
+  15-agent AI Teams web testing skill. Use when user types "/CS-test", "웹 테스트", "playwright test",
   "테스트 실행", "사이트 테스트", or wants comprehensive web app testing covering security, SEO,
   performance, DB, touch interaction, and image optimization with AI agent teams.
 version: 1.0.0
@@ -12,9 +12,11 @@ version: 1.0.0
 
 ## 개요
 
-14개의 전문 Claude AI 에이전트로 구성된 팀이 대상 웹 앱을 심층 테스트합니다.
+15개의 전문 Claude AI 에이전트로 구성된 팀이 대상 웹 앱을 심층 테스트합니다.
 v5에서는 **터치 인터랙션 검증** + **이미지 최적화 분석**이 추가됩니다.
 (MWC 2026 세션에서 발견된 실제 버그 패턴 기반)
+
+검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다. (verdict 산출 플러그인 — plugins/shared/GATE-LOOP.md 추가 적용)
 
 ## 사용법
 
@@ -27,7 +29,7 @@ v5에서는 **터치 인터랙션 검증** + **이미지 최적화 분석**이 �
 | 에이전트 | 역할 | Phase | v5 변경 |
 |----------|------|-------|---------|
 | **build-validator** | 빌드/보안/의존성 사전 검증 | 0 | v4 유지 |
-| **test-lead** | 팀 리더 - 오케스트레이션 및 리포트 생성 | 전체 | 14개 에이전트 관리 |
+| **test-lead** | 팀 리더 - 오케스트레이션 및 리포트 생성 | 전체 | 15개 에이전트 관리 |
 | **page-explorer** | 페이지 탐색 및 구조 분석 | 1 | v4 유지 |
 | **functional-tester** | 기능/인터랙션 + DB 반영 테스트 | 2 | v4 유지 |
 | **visual-inspector** | UI/접근성/반응형 검사 | 2 | v4 유지 |
@@ -40,6 +42,7 @@ v5에서는 **터치 인터랙션 검증** + **이미지 최적화 분석**이 �
 | **security-auditor** | HTTP 보안 헤더·쿠키 플래그·민감정보 노출 감사 | 2 | **v5 신규** |
 | **seo-auditor** | 메타태그·canonical·sitemap·구조화 데이터 분석 | 2 | **v5 신규** |
 | **error-resilience** | 404 페이지·콘솔에러·깨진링크·에러바운더리 검사 | 2 | **v5 신규** |
+| **finding-verifier** | critical/high finding 적대적 재검증 (confirmed/refuted/unreproducible) | 2.5 | **신규** |
 
 ## 실행 프로토콜
 
@@ -80,11 +83,17 @@ fi
 ### 사전 준비
 
 1. URL 인자 확인. 없으면 사용자에게 요청.
-2. 결과 디렉토리 생성:
+2. **서빙 대상 검증 (localhost/127.0.0.1 URL인 경우만)**: `lsof -ti :[포트]` + `ps aux | grep -E "vite|next|node"` 로 해당 포트가 실제 dev 서버인지, 구버전 production build인지 확인. 불일치 의심 시(예: 포트는 살아있는데 dev 프로세스가 다른 포트) 사용자에게 1회 확인. (노하우 #23)
+3. **성공 기준 1문장 출력 (필수)**: 사용자가 기준·중점 라우트·인증 정보를 제공했으면 그대로 사용, 없으면 기본값을 추론해 출력하고 진행 — 예: "성공 기준: P0 에러 0건, 성능 점수 70+, SEO 등급 B 이상". 원격 URL이면 추가 질문 없이 기본 기준으로 시작한다(불필요한 인터랙션 방지). (노하우 #21)
+4. 결과 디렉토리 생성:
 
 ```bash
 mkdir -p tests/results tests/screenshots
 ```
+
+> 📐 **성공 기준 전파 (필수)**: Phase 1·2의 **모든** Task() 프롬프트 템플릿에 한 줄 추가 —
+> "성공 기준: [기준 문장] — 리포트 JSON에 `\"passFail\": \"pass|fail\"` 필드로 이 기준 대비 판정을 포함하세요."
+> Phase 3에서 test-lead가 REPORT.md 상단에 선언된 성공 기준과 종합 pass/fail을 명시한다.
 
 ### 브라우저 사전 검증 (Phase 1-2용)
 
@@ -184,6 +193,7 @@ Task(name: "error-resilience", ...)   # 404/콘솔에러/에러바운더리 (v5 
 
 > 💡 **에이전트 실패 처리**: 개별 에이전트가 타임아웃(10분) 또는 오류로 실패하면,
 > 해당 에이전트의 결과 파일을 `{"grade": "N/A", "error": "에이전트 실패 또는 타임아웃"}` 으로 생성 후 계속 진행.
+> 단, 에이전트 이름을 `incomplete_agents` 리스트에 기록 — Phase 3가 커버리지 라인과 등급 상한 계산에 반드시 사용한다.
 
 **touch-interaction-validator 프롬프트**:
 ```
@@ -217,19 +227,54 @@ agents/image-optimizer.md의 프로토콜을 따르세요.
 6. WebP 변환 가이드 생성
 ```
 
+### Phase 2.5: 발견 검증 (finding-verifier)
+
+```bash
+[ -n "$CMUX_SOCKET_PATH" ] && cmux set-progress 0.8 --label "Phase 2.5: 발견 검증"
+```
+
+11개 병렬 에이전트 완료 후, 13개 결과 JSON에서 critical/high finding 존재 여부 확인:
+
+- **0건이면 Phase 2.5 전체 건너뜀** — REPORT.md에 "검증 생략 — critical/high 발견 없음" 표기 (클린 사이트 경로 비용 0)
+- 1건 이상이면 finding-verifier 단일 에이전트 스폰 (동일 Task 템플릿):
+
+```
+Task(
+  subagent_type: "general-purpose",
+  name: "finding-verifier",
+  team_name: "playwright-test-v5",
+  prompt: """당신은 playwright-test-v5의 finding-verifier입니다.
+tests/results/*.json 의 critical/high finding을 원본 증거를 무시하고 처음부터 재현하세요.
+agents/finding-verifier.md의 프로토콜을 따르세요 (최대 15건, 10분 타임아웃, $BROWSER_MODE 준수).
+결과를 tests/results/verification-report.json에 저장하세요.
+완료 후 test-lead에게 confirmed/refuted/unreproducible 요약을 SendMessage로 전송하세요."""
+)
+```
+
 ### Phase 3: 결과 취합 및 REPORT.md 생성
 
 ```bash
 [ -n "$CMUX_SOCKET_PATH" ] && cmux set-progress 0.9 --label "Phase 3: 리포트 생성"
 ```
 
-13개 JSON 파일 읽기 후 REPORT.md 생성 (touch + image 섹션 포함).
+13개 JSON 파일 + `verification-report.json`(Phase 2.5 실행 시) 읽기 후 REPORT.md 생성 (touch + image 섹션 포함).
+
+**검증 결과 반영**: confirmed + unverified finding만 등급에 반영. refuted finding은 등급에서 제외하고
+부록 "검증에서 기각된 항목"에 반증 증거와 함께 나열. 등급 섹션에 한 줄 추가: "검증: N건 확인 / N건 기각 / N건 미검증".
+
+**등급 산정 규칙** (LOOP-PROTOCOL [d] COVERAGE HONESTY — agents/test-lead.md Phase 3과 동일):
+- 커버리지 = 완료 에이전트 / 13. REPORT.md 헤더에 `**커버리지**: N/13 에이전트 완료 (X%)` 출력 + `incomplete_agents` 목록 표기
+- N/A 1-2개 → 최대 B / 3-5개 → 최대 C / 6개 이상 → **Incomplete** (cmux 알림에도 등급 대신 Incomplete)
+- confirmed critical finding 1건 이상 → 종합 등급 상한 C (노하우 #17)
+- REPORT.md 상단에 선언된 성공 기준 + 종합 pass/fail 명시
+- 증거 위생: 비-N/A JSON이 유효하고 >200 bytes인지, functional/visual pass 시 tests/screenshots/ 비어있지 않은지 확인. 빈/깨진 파일은 N/A 취급
+
 팀 종료: shutdown_request → shutdown_response 확인 → TeamDelete.
 
 ```bash
 # cmux 환경: 완료 알림
 if [ -n "$CMUX_SOCKET_PATH" ]; then
-  GRADE=$(cat tests/results/REPORT.md | grep -o "등급: [A-F]" | head -1 || echo "등급: -")
+  GRADE=$(cat tests/results/REPORT.md | grep -oE "등급: ([A-F]|Incomplete)" | head -1 || echo "등급: -")
   cmux set-progress 1.0 --label "CS-test 완료"
   cmux notify --title "CS-test 완료" --body "REPORT.md 생성됨 — $GRADE"
   cmux set-status "cs-test" "done" --icon "checkmark"
@@ -311,6 +356,7 @@ if (dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { ... }
 | `tests/results/security-report.json` | security-auditor | 보안 감사 *(v5 신규)* |
 | `tests/results/seo-report.json` | seo-auditor | SEO 분석 *(v5 신규)* |
 | `tests/results/error-resilience-report.json` | error-resilience | 오류 복원력 *(v5 신규)* |
+| `tests/results/verification-report.json` | finding-verifier | critical/high finding 재검증 결과 *(Phase 2.5)* |
 | `tests/results/REPORT.md` | test-lead | 종합 리포트 |
 
 ---
@@ -362,6 +408,7 @@ if (dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { ... }
 - **상황**: 현재 리포트는 모든 이슈를 동등하게 나열. 사용자가 우선순위 파악 어려움.
 - **발견**: antigravity-awesome-skills의 9-section SKILL.md 템플릿에서 `risk: safe|warn|critical` 레이블링 패턴 발견. 각 발견 항목에 위험도를 명시하면 test-lead의 등급화(A/B/C/D)가 더 정밀해짐.
 - **교훈**: 각 에이전트 JSON 리포트에 `"risk": "critical|warn|safe"` 필드 추가. test-lead가 critical 이슈 수를 기반으로 최종 등급 결정하도록 프로토콜 업데이트.
+- → ✅ 반영됨 (2026-06): Phase 3 등급 산정 규칙 (confirmed critical → 등급 상한 C) + finding-verifier의 critical/high 필터 기준으로 적용.
 
 ### 18. 에이전트 역할 경계 명세 강화 (2026-04-13)
 
@@ -394,6 +441,7 @@ if (dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { ... }
 - **상황**: 14-agent 팀을 실행했지만 "성공"이 무엇인지 불명확해 결과 판단이 어려웠음
 - **발견**: Karpathy의 "goal-driven execution" — 실행 전 `[Step] → verify: [check]` 형태의 성공 기준을 명시하면 에이전트가 목표 지향적으로 동작하고 결과 판단이 명확해짐
 - **교훈**: test-lead가 URL 확인 직후 "성공 기준: [1문장]"을 출력하고 시작. 예: "P0 에러 0건, 성능 점수 70+, SEO 등급 B 이상"
+- → ✅ 반영됨 (2026-06): 실행 프로토콜 사전 준비 3단계 + 전 에이전트 프롬프트 `passFail` 필드 전파로 승격 (중복 승격 방지).
 
 ### 22. 수정 후 핵심 경로 재검증 패턴 (gstack canary 학습, 2026-04-20)
 
@@ -406,6 +454,7 @@ if (dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { ... }
 - **상황**: port 9000 앱을 Playwright로 테스트했는데 V3 디자인 변경이 반영 안 됨
 - **발견**: port 9000은 구버전 production build를 서빙, 실제 개발 서버는 vite --port 10089로 별도 실행 중. `ps aux | grep vite`로 실제 dev 포트 확인 필요. lsof -ti로 PID 확인 후 포트 특정.
 - **교훈**: 테스트 전 항상 dev server 포트 확인 (`lsof -ti :포트` 또는 `ps aux | grep vite`). production build와 dev server가 공존하는 프로젝트에서 특히 주의.
+- → ✅ 반영됨 (2026-06): 실행 프로토콜 사전 준비 2단계(서빙 대상 검증)로 승격 (중복 승격 방지).
 
 ### 24. Vercel 빌드 로그 warning을 테스트 신호로 검사 (2026-04-21)
 

@@ -78,7 +78,7 @@ clarify-lead가 내부에서 순차적으로 3개 서브에이전트를 오케�
 Task(
   subagent_type: "general-purpose",
   name: "clarify-lead",
-  model: "claude-opus-4-5",
+  model: "opus",
   prompt: "당신은 CS-clarify의 clarify-lead입니다. 아래 컨텍스트로 요구사항 명료화를 실행하세요.
 
 FEATURE: [FEATURE]
@@ -89,7 +89,10 @@ OUTPUT_DIR: [OUTPUT]
 
 CRITICAL: 순차 실행을 강제합니다.
 - QUICK_MODE=false: STEP 1 → STEP 2 → STEP 3 순서로 실행. 이전 STEP 완료 확인 후 다음 스폰.
-- QUICK_MODE=true: STEP 1 스킵, STEP 2 → STEP 3 순서로 실행."
+- QUICK_MODE=true: STEP 1 스킵, STEP 2 → STEP 3 순서로 실행.
+
+노하우 섹션의 과거 학습을 인터뷰 질문 우선순위에 반영하세요.
+검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md를 따른다."
 )
 ```
 
@@ -99,7 +102,15 @@ CRITICAL: 순차 실행을 강제합니다.
 
 clarify-lead는 아래 프로토콜을 따릅니다.
 
-### Phase 0: 컨텍스트 수집
+### Phase 0: 팀 생성 + 컨텍스트 수집
+
+먼저 팀을 생성합니다:
+
+```
+TeamCreate(team_name: "CS-clarify")
+```
+
+이어서 컨텍스트를 수집합니다:
 
 ```bash
 # README, PLAN.md, CLARIFY.md 등 존재 시 읽어 인터뷰 컨텍스트 보강
@@ -130,8 +141,11 @@ CONTEXT_BRIEF: [context_brief]
 2. 최저 차원에 대해 1개 질문 → AskUserQuestion
 3. 답변 반영 → 재평가
 4. 모든 차원 ≥70 또는 3라운드 완료 시 종료
-5. requirements_summary를 clarify-interview.md에 저장
-6. SendMessage(recipient: 'clarify-lead', content: requirements_summary)"
+5. requirements_summary + 최종 차원별 점수 4개를 clarify-interview.md에 저장
+6. SendMessage(recipient: 'clarify-lead', content: requirements_summary)
+
+CRITICAL: AskUserQuestion이 실패하거나 사용 불가하면 답변을 지어내지 말 것.
+해당 차원을 UNANSWERED로 표시하고 그대로 clarify-lead에 보고할 것."
 )
 ```
 
@@ -192,7 +206,7 @@ SendMessage(recipient: 'clarify-lead', content: assumption_report)"
 
 ### Phase 2: CLARIFY.md 합성
 
-3개 에이전트 완료 후 clarify-lead가 합성:
+모든 스폰된 에이전트 완료 후 (QUICK_MODE: 2개) clarify-lead가 합성:
 
 ```markdown
 # CLARIFY.md — [FEATURE]
@@ -255,20 +269,57 @@ SendMessage(recipient: 'clarify-lead', content: assumption_report)"
 - `clarify_score`: 3개 차원 평균
 - `ready_for_plan`: `clarify_score >= 7`이면 `true`
 
-### Phase 3: 완료 메시지
+### Phase 2.5: Self-audit (점수 산정은 반드시 아티팩트에서)
+
+clarify-lead는 자기 출력에 자기 점수를 매기지 않습니다. 점수 JSON 산출 전에:
+
+1. **Artifact check** (Bash): `wc -c [OUTPUT_DIR]/clarify-interview.md [OUTPUT_DIR]/clarify-scope.md [OUTPUT_DIR]/clarify-assumptions.md`
+   — 파일 누락 또는 200바이트 미만이면 `ready_for_plan=false`로 설정하고 실패 파일을 보고 후 중단 (clarify_score 미출력).
+   (`--quick` 모드: clarify-interview.md 면제)
+2. **점수 재계산** — 기억이 아니라 파일 내용에서 도출:
+   - `requirements_clarity`: clarify-interview.md에 기록된 최종 차원별 점수
+   - `assumptions_mapped`: `grep -c '| HIGH' [OUTPUT_DIR]/clarify-assumptions.md` — 가정 목록 테이블 행만 카운트 (섹션 헤더 '### HIGH 위험 가정'은 매칭되지 않음) → 0개=10, 1-2개=7, 3+개=4
+   - `scope_defined`: clarify-scope.md의 "MVP Phase 1" 섹션 + 구체 항목 1개 이상=10 / 과대설계 플래그+MVP 존재=5 / MVP 섹션 없음=1
+3. **Refutation pass**: 미래 CS-plan 작성자 입장에서 질문 3개 작성 → 각각 CLARIFY.md에서 답이 되는 라인 인용.
+   인용 불가 질문 존재 → `ready_for_plan=false`, clarify_score 상한 6, 완료 메시지에 "⚠️ 미해결 질문" 목록 출력.
+
+### Phase 3: 품질 게이트 + 완료 메시지
 
 ```
 ✅ CS-clarify 완료
 📄 CLARIFY.md 생성됨: [OUTPUT]/CLARIFY.md
 📊 Clarify Score: [N]/10
+🔁 Clarify Cycles: [cycle_count]
 🚀 ready_for_plan: [true/false]
 
 [ready_for_plan=true인 경우]
 ➡️  다음 단계: /CS-plan "[FEATURE]" 로 진행하세요.
-
-[ready_for_plan=false인 경우]
-⚠️  추가 명료화가 필요합니다. HIGH 위험 가정을 먼저 확인하세요.
 ```
+
+**`ready_for_plan=false`인 경우 — 경계 있는 재명료화 루프** (단순 종료 금지):
+
+`cycle_count < 2`이면 (`--quick`: `cycle_count < 1`):
+
+1. 후속 질문 세트 구성 (최대 3개):
+   (a) clarify-assumptions.md의 HIGH 위험 가정, (b) 7 미만 최약 차원에서 도출
+2. AskUserQuestion 1라운드 — **"현재 상태로 종료" opt-out 옵션 필수**.
+   opt-out 시 `ready_for_plan=false`로 확정, CLARIFY.md의 '미해결 가정' 섹션에 미해결 HIGH 가정 나열 후 종료.
+3. 답변 수신 시 전체 파이프라인 재실행 금지 — **델타만 재실행**:
+   - requirements_summary 인라인 갱신
+   - assumption-mapper만 새 답변으로 재스폰 → 영향받은 가정 재등급 (다운그레이드/해소)
+   - 답변이 범위를 바꿨을 때만 scope_report 조정
+4. CLARIFY.md 재합성 → Phase 2.5 재채점 → `cycle_count` 증가 → 게이트 재확인
+5. 한 라운드가 델타(점수 변화/가정 해소)를 만들지 못하면 즉시 루프 중단
+
+상한 도달 후에도 `clarify_score < 7`이면 `ready_for_plan=false`로 확정:
+
+```
+⚠️ 2회 추가 명료화 후에도 미달 (Clarify Score: [N]/10)
+미해결 HIGH 가정 (수동 확인 필요):
+- [가정]: [확인 방법]
+```
+
+사이클 이력은 CLARIFY.md frontmatter에 `clarify_cycles: N`으로 기록 — CS-plan이 요구사항이 얼마나 분쟁적이었는지 볼 수 있습니다.
 
 ---
 
@@ -289,10 +340,10 @@ SendMessage(recipient: 'clarify-lead', content: assumption_report)"
 
 | 에이전트 | 모델 | 역할 | 실행 순서 |
 |----------|------|------|-----------|
-| clarify-lead | claude-opus-4-5 | 팀 오케스트레이터 + 합성 | 항상 먼저 |
-| requirements-interviewer | claude-sonnet-4-5 | Socratic 인터뷰 (AskUserQuestion) | STEP 1 |
-| scope-validator | claude-sonnet-4-5 | 과대설계 탐지 + MVP 제안 | STEP 2 (STEP 1 후) |
-| assumption-mapper | claude-sonnet-4-5 | 숨겨진 가정 + 위험도 | STEP 3 (STEP 2 후) |
+| clarify-lead | opus | 팀 오케스트레이터 + 합성 | 항상 먼저 |
+| requirements-interviewer | sonnet | Socratic 인터뷰 (AskUserQuestion) | STEP 1 |
+| scope-validator | sonnet | 과대설계 탐지 + MVP 제안 | STEP 2 (STEP 1 후) |
+| assumption-mapper | sonnet | 숨겨진 가정 + 위험도 | STEP 3 (STEP 2 후) |
 
 ---
 
@@ -304,3 +355,13 @@ SendMessage(recipient: 'clarify-lead', content: assumption_report)"
 ```
 
 CLARIFY.md가 PWD에 있으면 CS-plan이 자동으로 컨텍스트로 활용합니다.
+
+---
+
+## cs-clarify 노하우
+
+> 누적 학습 저장소. `/cs-experiencing version-up clarify`로 세션 학습을 캡처해 여기에 추가한다.
+> 이 섹션은 스킬 호출 시 자동 로드되므로, 과거 학습이 인터뷰 질문 우선순위의 prior로 작용한다.
+> 형식: `### [N]. [제목] ([YYYY-MM-DD])`
+
+(아직 기록된 학습 없음)

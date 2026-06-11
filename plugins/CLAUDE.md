@@ -1,8 +1,9 @@
 ## Skill routing
 
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
+When the user's request matches an available skill, prefer invoking it via the Skill
+tool over answering ad-hoc — skills have specialized workflows that produce better results.
+Route directly when confidence is high; when the match is ambiguous, confirm with ONE
+short question before routing instead of guessing.
 
 Key routing rules:
 - Web testing, playwright, site QA, find bugs on a URL → invoke CS-test
@@ -21,3 +22,14 @@ Key routing rules:
 - "목표", complex multi-step task, unsure which domain, /goal → invoke cs-ceo
 - Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
 - Error capture, error note, 에러노트, 에러 기록, 오류 정리 → invoke cs-error-notes
+
+## Loop Engineering (공통 프로토콜)
+
+- 모든 CS 리드(lead) 에이전트는 plugins/shared/LOOP-PROTOCOL.md를 따른다
+  (EVIDENCE / SUCCESS CRITERIA FIRST / BOUNDED LOOP / COVERAGE HONESTY / REPORT FULL, FILTER DOWNSTREAM).
+  verdict 산출 플러그인(cs-ship, CS-test, CS-codebase-review)은 plugins/shared/GATE-LOOP.md를 추가로 따른다.
+- 학습 반영 규칙: 교훈이 프로토콜 변경을 지시하면 같은 커밋에서 해당 SKILL/agents/*.md에
+  반영하고 ✅ 반영됨 표시한다. 미반영 교훈은 실행되지 않는다.
+- 에러 회상: 새로운 에러(stack trace, 실패 명령, 반복 실패)를 디버깅하기 전에
+  ~/.claude/error-notes/INDEX.md를 해당 에러의 핵심 키워드로 grep하여
+  (즉 /cs-error-notes recall) 매칭되는 resolved 노트를 먼저 surface한 뒤 수정에 착수한다.

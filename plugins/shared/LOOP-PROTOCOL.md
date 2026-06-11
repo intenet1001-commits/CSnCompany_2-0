@@ -1,0 +1,63 @@
+# LOOP-PROTOCOL — CS 플러그인 공통 루프 엔지니어링 프로토콜
+
+모든 CS 리드(lead) 에이전트는 이 5가지 규칙을 따른다.
+참조 방법(리드 파일에 한 줄): `검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다.`
+(런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석한다. 절대 경로 금지.)
+
+## [a] EVIDENCE — 모든 발견은 증거를 인용한다
+
+모든 finding/claim은 command+output 스니펫 또는 file:line 인용을 포함해야 한다.
+증거 없는 주장은 `UNVERIFIED` 태그를 달고 grade/verdict 계산에서 제외한다.
+
+**이유**: 그럴듯하지만 틀린 발견(plausible-but-wrong)이 단일 패스를 그대로 통과하는 것이 전 플러그인 공통 실패 모드다. 증거 의무화가 가장 싼 방어선이다.
+
+> 예시: ❌ "로그인 폼에 validation이 없음" → ✅ "로그인 폼에 validation 없음 — `src/Login.tsx:42` `<input type=\"text\" name=\"email\">` (required/pattern 속성 부재)"
+
+## [b] SUCCESS CRITERIA FIRST — 성공 기준을 먼저 선언한다
+
+fan-out 전에 한 줄짜리 성공 기준(success criterion)을 출력하고, 보고 전에 그 기준에 대해 채점한다.
+
+**이유**: 기준 없이 실행하면 "다 했다"는 자기 선언만 남는다. 기준을 먼저 박아야 약한 모델도 채점 가능한 목표를 갖는다.
+
+> 예시: fan-out 직전 `성공 기준: 결제 플로우 3단계 모두 실제 클릭으로 통과하고 콘솔 에러 0건` 출력 → 보고서 첫 줄에 `기준 대비: PASS (3/3 통과, 콘솔 에러 0)` 채점.
+
+## [c] BOUNDED LOOP — 실패 시 실패 범위만, 최대 2-3라운드
+
+채점 FAIL 시 실패한 범위(scope)만 grade feedback을 첨부해 재디스패치한다.
+최대 2-3라운드. 한 라운드가 델타(새 수정/새 통과)를 만들지 못하면 즉시 중단하고 루프 대신 **STUCK 리포트**(시도 이력 + 막힌 지점 + 필요한 결정)를 낸다.
+
+**이유**: 무한 루프는 비용 폭주, 0회 루프는 단일 패스 품질. 경계 있는 루프가 "약한 모델 + 반복 > 강한 모델 1회"를 만든다.
+
+> 예시: round 1에서 criterion 2/3 PASS → round 2는 실패한 criterion #3 담당 에이전트만 재디스패치(피드백: "FAIL 사유: 주문 확인 페이지 404"). round 2도 동일 결과면 round 3 없이 STUCK 리포트.
+
+## [d] COVERAGE HONESTY — N/A는 등급을 깎는다
+
+N/A 또는 죽은(무응답) 에이전트는 전체 grade에 상한을 건다:
+- N/A 1-2개 → 최대 B
+- N/A 3-5개 → 최대 C
+- N/A 6개 이상 → Incomplete
+
+커버리지 %는 리포트 헤더에 반드시 출력한다. (예: `커버리지: 12/14 에이전트 (86%)`)
+
+**이유**: 14개 중 6개가 침묵했는데 A를 주는 것은 채점이 아니라 장식이다. 커버리지를 등급에 묶어야 누락이 보인다.
+
+## [e] REPORT FULL, FILTER DOWNSTREAM — 워커는 전부 보고, 필터는 리드가
+
+워커(worker)는 발견한 모든 finding을 severity+confidence와 함께 보고한다.
+필터링은 리드/verifier만 수행한다. 워커에게 "high-severity만 보고하라"고 지시하는 것을 금지한다.
+
+**이유**: 워커 단계에서 필터하면 리드가 패턴(저심각도 발견 10개 = 구조적 문제 1개)을 볼 기회 자체가 사라진다. 정보 손실은 가장 늦은 단계에서 일어나야 한다.
+
+> 예시: 워커 출력 `[{finding, severity: low, confidence: 0.9, evidence: ...}, ...]` 전체 전달 → 리드가 종합 후 리포트에는 critical/high만 본문, 나머지는 부록으로 배치.
+
+## Prescription Policy — 처방 정책
+
+프로토콜/프롬프트를 작성·수정할 때:
+
+**KEEP (유지할 처방)**: 루브릭, 숫자 임계값(점수 컷, 라운드 상한), 출력 스키마(JSON 필드 정의), 소유권 계약(📌 OWNS / ❌ DOES NOT OWN), worked example, 결정적 스크립트를 구동하는 bash(pre_pass.py 호출 등).
+
+**PREFER 목표 진술 (리터럴 레시피 대신)**: grep 레시피, 이모지 박스 리포트 템플릿, AskUserQuestion 문구 고정, 단계별 클릭 순서 같은 것은 "목표 + 증거 요건 + 품질 기준"으로 바꾸고 방법은 모델이 고르게 한다.
+
+> 예시: ❌ `grep -rn "font-family" src/ | grep -v Inter` → ✅ "금지 폰트 사용을 탐지하고 file:line 증거를 인용하라. 탐지 방법은 자유."
+
+**이유**: 강한 모델에게 레시피는 족쇄, 약한 모델에게 품질 기준 부재는 함정이다. 기계적 정확성이 필요한 곳만 처방하고, 나머지는 기준으로 묶는다.

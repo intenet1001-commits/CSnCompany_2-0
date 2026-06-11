@@ -22,4 +22,14 @@ CS-design 도메인의 5-agent 병렬 디자인 리뷰를 실행합니다.
 
 ## 실행
 
-`../cs-design-v1/skills/cs-design/SKILL.md` 프로토콜을 따라 design-lead 에이전트를 스폰합니다.
+이 커맨드는 최신 `cs-design-v*` 도메인의 SKILL.md 프로토콜을 실행합니다.
+(도메인은 cs-experiencing-v*과 같은 레벨의 plugins/ 디렉토리에 위치 — 버전은 디렉토리명이 단일 진실, `ls -d ... | sort -V`로 항상 최신을 해석)
+
+```bash
+BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
+LATEST_DESIGN=$(ls -d "$BASE/cs-design-v"* 2>/dev/null | sort -V | tail -1)
+```
+
+1. `$LATEST_DESIGN/VERSION` 읽기 → 현재 버전 확인
+2. `$LATEST_DESIGN/skills/cs-design/SKILL.md` 프로토콜 실행
+3. design-lead 에이전트를 스폰하여 5-agent 병렬 리뷰 실행

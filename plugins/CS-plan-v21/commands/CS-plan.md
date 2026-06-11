@@ -54,5 +54,5 @@ TDD + Clean Architecture 기반의 즉시 실행 가능한 코딩 플랜을 자�
 
 ## 참고
 
-자세한 실행 프로토콜은 `domains/CS-plan-v1/skills/CS-plan/SKILL.md`를 참조하세요.
-각 에이전트의 동작 정의는 `domains/CS-plan-v1/agents/*.md` 파일에 명시되어 있습니다.
+자세한 실행 프로토콜은 `skills/CS-plan/SKILL.md`를 참조하세요 (`${CLAUDE_PLUGIN_ROOT}/skills/CS-plan/SKILL.md`).
+각 에이전트의 동작 정의는 `agents/*.md` 파일에 명시되어 있습니다 (`${CLAUDE_PLUGIN_ROOT}/agents/*.md`).

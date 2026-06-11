@@ -282,9 +282,14 @@ def cmd_session_digest(argv: list) -> dict:
         i += 1
 
     # ── 1. Knowhow index (titles + dates only, no full body) ──────────────────
+    # Scans SKILL.md itself PLUS sibling knowledge/*.md topic files (the 2026-06
+    # restructure moved project-specific entries out of SKILL.md into knowledge/).
     skill_snapshot: list[dict] = []
     if skill_path and Path(skill_path).is_file():
-        text = Path(skill_path).read_text(encoding="utf-8", errors="ignore")
+        scan_files = [Path(skill_path)]
+        knowledge_dir = Path(skill_path).parent / "knowledge"
+        if knowledge_dir.is_dir():
+            scan_files += sorted(knowledge_dir.glob("*.md"))
         # Match: ### N. Title (YYYY-MM-DD)
         # Also capture optional <!-- tier: principle|tactical --> comment
         header_re = re.compile(
@@ -292,14 +297,20 @@ def cmd_session_digest(argv: list) -> dict:
             re.MULTILINE,
         )
         tier_re = re.compile(r"<!--\s*tier:\s*(principle|tactical)\s*-->")
-        entries = list(header_re.finditer(text))
-        for m in entries:
-            n, title, date_str = m.group(1), m.group(2).strip(), m.group(3)
-            # Look for tier comment in the 3 lines after the header
-            after = text[m.end():m.end() + 200]
-            tier_match = tier_re.search(after)
-            tier = tier_match.group(1) if tier_match else "tactical"  # default = tactical
-            skill_snapshot.append({"n": int(n), "title": title, "date": date_str, "tier": tier})
+        seen_n: set[int] = set()
+        for f in scan_files:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+            for m in header_re.finditer(text):
+                n, title, date_str = m.group(1), m.group(2).strip(), m.group(3)
+                if int(n) in seen_n:  # global numbering — skip duplicates (e.g. INDEX rows)
+                    continue
+                seen_n.add(int(n))
+                # Look for tier comment in the 3 lines after the header
+                after = text[m.end():m.end() + 200]
+                tier_match = tier_re.search(after)
+                tier = tier_match.group(1) if tier_match else "tactical"  # default = tactical
+                skill_snapshot.append({"n": int(n), "title": title, "date": date_str, "tier": tier})
+        skill_snapshot.sort(key=lambda e: e["n"])
 
     # ── 2. BTW pending items ──────────────────────────────────────────────────
     btw_pending: list[dict] = []

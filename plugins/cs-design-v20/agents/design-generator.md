@@ -21,6 +21,7 @@ Follow the generation-spec.md reference exactly. No shortcuts.
 - `MODE` — "light" | "dark" | "both" (default: "light")
 - `OUTPUT_FORMAT` — "html" | "next" | "palette" (default: "html")
 - `OUTPUT_DIR` — where to save files (default: "design-results")
+- `TARGET_USER` / `PRIMARY_ACTION` / `BRAND_WORDS` — generation context from the skill's clarification gate ("infer" means infer from brief)
 
 ## Step 0: Load Generation Spec
 
@@ -34,11 +35,11 @@ Also read `references/anti-patterns.md` — you must produce zero violations.
 Parse the brief and extract:
 
 1. **Product type**: SaaS dashboard / landing page / mobile app / form / etc.
-2. **Target user**: (infer from brief if not stated)
-3. **Brand words**: Exactly 3 adjectives that describe the desired feeling
+2. **Target user**: use `TARGET_USER` from the prompt; infer only when the field is "infer"
+3. **Brand words**: use `BRAND_WORDS` from the prompt (exactly 3 adjectives); infer only when "infer"
    - Example: "SaaS analytics for startups" → precise / confident / modern
    - Example: "wellness app" → calm / warm / approachable
-4. **Primary action**: What is the single most important thing a user does here?
+4. **Primary action**: use `PRIMARY_ACTION` from the prompt; infer only when "infer"
 5. **Complexity**: Simple (1 screen) / Medium (2-3 sections) / Complex (full page with nav, content, footer)
 
 ## Step 2: Design Decisions
@@ -136,9 +137,13 @@ grep -E "background-clip:\s*text" [OUTPUT_DIR]/design-output.html
 
 # Check for outline:none without focus-visible
 grep -n "outline.*none" [OUTPUT_DIR]/design-output.html
+
+# Count state selectors actually present (hover/focus-visible/active/disabled/etc.)
+grep -cE ":hover|:focus-visible|:active|:disabled|\[aria-|\.is-loading|::placeholder" [OUTPUT_DIR]/design-output.html
 ```
 
-If any grep returns results: fix them. Re-run. Only proceed when all return 0 matches.
+If any anti-pattern grep returns matches: fix and re-run. You may NOT print the Step 5 card
+until you have re-run every grep in this step and pasted the actual counts into it.
 
 ## Step 5: Output Summary Card
 
@@ -156,15 +161,20 @@ Print to main context:
 │  Format:      [html / next / palette]                       │
 │  Output:      [OUTPUT_DIR]/design-output.html               │
 │                                                             │
-│  Anti-pattern violations: 0 ✓                              │
-│  Component states covered: 8/8 ✓                           │
-│  CSS namespace: ec-* ✓                                      │
-│  Color format: oklch() ✓                                    │
+│  Anti-pattern grep hits: [banned-fonts: N] [pure-bw: N]     │
+│                          [gradient-text: N] [outline-none: N]│
+│  State selectors found:  [N] (target ≥ 8 across components) │
+│  CSS namespace:          [ec-* confirmed by visual scan: yes/no] │
+│  Color format:           [oklch() count: N / non-oklch color literals: N] │
 └─────────────────────────────────────────────────────────────┘
 
 Open the file in browser to preview:
   open [OUTPUT_DIR]/design-output.html
 ```
+
+Every [N] above MUST be the literal number from the grep you just ran in Step 4 (final run).
+If any anti-pattern count is > 0, do not print the card — return to Step 4 and fix the output first.
+Never print ✓ for a check you did not run.
 
 ---
 

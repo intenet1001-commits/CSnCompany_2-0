@@ -13,7 +13,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, AskUserQuestion
 |--------|------|
 | `/cs-ship` | 현재 디렉토리 전체 검증 |
 | `/cs-ship [path]` | 지정 경로 검증 |
-| `/cs-ship --fix` | 발견된 이슈 자동 수정 활성화 |
+| `/cs-ship --fix` | BLOCKED/WARNINGS 시 MISSING 항목 자동 수정 후 재검증 (최대 2라운드, 커밋은 수동) |
 
 ## 에이전트 팀
 
@@ -27,7 +27,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, AskUserQuestion
 ## 합격 기준 (Pass = ship 승인)
 
 - 스펙 준수: PLAN.md 항목 ≥ 90% 구현됨
-- 커버리지: Critical 경로 테스트 존재
+- 커버리지: Critical 경로 테스트 존재 AND 실행 green (FAILING 1개라도 있으면 BLOCKED)
 - 커밋: 의미 있는 메시지 (WIP/fix misc 금지)
 
 ## 실행 흐름

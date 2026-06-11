@@ -74,7 +74,21 @@ FIX_MODE    = --fix (선택: 안티패턴 자동 수정 활성화)
 OUTPUT_DIR  = "design-results"
 ```
 
-> **GEN_MODE = true 이면 → Step 2-GEN으로 분기. 리뷰 프로토콜(Step 2~4) 건너뜀.**
+> **GEN_MODE = true 이면 → Step 2-GEN-0으로 분기. 리뷰 프로토콜(Step 2~4) 건너뜀.**
+
+---
+
+### Step 2-GEN-0: 생성 컨텍스트 게이트
+
+GEN_MODE가 true일 때만 실행. (리뷰 모드 Step 2와 동일한 impeccable 원칙 — 생성도 컨텍스트 없이는 제네릭한 결과만 나옴)
+
+1. `design-results/design-context.md`가 있으면 읽고 대상 사용자 / 핵심 작업 / 브랜드 톤을 재사용 — 다시 묻지 않는다.
+2. 없으면 BRIEF에서 3가지 신호 확인: (a) 대상 사용자, (b) 사용자가 수행할 핵심 액션, (c) 브랜드 톤(형용사 ~3개).
+   BRIEF에 **빠진** 신호만 AskUserQuestion 1회로 질문 (최대 1-3개 질문; BRIEF가 이미 답한 것은 건너뜀 —
+   예: "SaaS 분석 대시보드 — 스타트업 창업자용"은 대상 사용자가 이미 명시됨).
+   각 질문에 "잘 모름 — 알아서 추론" 선택지를 포함해 사용자가 추론에 위임할 수 있게 한다.
+3. 답변을 design-generator Task 프롬프트의 `TARGET_USER` / `PRIMARY_ACTION` / `BRAND_WORDS` 필드로 주입
+   (위임 시 "infer"). 선택적으로 `design-results/design-context.md`를 작성/갱신해 다음 실행 시 게이트를 건너뛴다.
 
 ---
 
@@ -105,6 +119,9 @@ BRIEF: [BRIEF]
 MODE: [DARK_MODE ? 'dark' : 'light']
 OUTPUT_FORMAT: [OUTPUT_FMT]
 OUTPUT_DIR: design-results
+TARGET_USER: [Step 2-GEN-0 답변 또는 'infer']
+PRIMARY_ACTION: [Step 2-GEN-0 답변 또는 'infer']
+BRAND_WORDS: [Step 2-GEN-0 답변 또는 'infer']
 
 반드시 references/generation-spec.md의 모든 규칙을 따르세요:
 - oklch() 색상 필수 (hex/rgb 팔레트 금지)
@@ -152,7 +169,7 @@ design-lead 에이전트가 [N]개 분석 에이전트 팀을 조율합니다...
 Task(
   subagent_type: "general-purpose",
   name: "design-lead",
-  model: "sonnet",
+  model: "opus",
   prompt: "당신은 CS-design의 design-lead입니다. 아래 컨텍스트로 디자인 리뷰를 수행하세요.
 
 DESIGN_PATH: [DESIGN_PATH]
@@ -161,7 +178,8 @@ FIX_MODE: [true/false]
 OUTPUT_DIR: [OUTPUT_DIR]
 DESIGN_CONTEXT: [컨텍스트 내용 또는 "not provided"]
 
-agents/design-lead.md 프로토콜을 따라 분석 에이전트 팀을 오케스트레이션하고 DESIGN-REVIEW.md를 생성하세요."
+agents/design-lead.md 프로토콜을 따라 분석 에이전트 팀을 오케스트레이션하고 DESIGN-REVIEW.md를 생성하세요.
+SKILL.md의 'CS-design v1 노하우' 섹션 중 분석에 적용 가능한 패턴(특히 5, 6, 12번)을 에이전트 프롬프트에 반영하세요."
 )
 ```
 
@@ -200,13 +218,13 @@ design-lead가 5개 에이전트 조율, 결과 수집, DESIGN-REVIEW.md 합성�
 - **발견**: fontFamily: "monospace" 지정 시 Edge Runtime에서 한글 미지원으로 글씨 깨짐. MAU/problems OG 이미지는 fontFamily 미지정으로 문제 없음.
 - **교훈**: next/og Edge Runtime 한글 텍스트에 fontFamily 명시 금지(특히 monospace). 한글 필요 시 fetch()로 Noto Sans KR 로드 후 fonts 옵션 전달. MAU/problems 스타일 전체너비 레이아웃이 렌더링 안정적.
 
-### 5. 디자인 방향 결정 시 3가지 변형 제시 패턴 (gstack design-shotgun 학습, 2026-04-20)
+### 5. 디자인 방향 결정 시 3가지 변형 제시 패턴 (gstack design-shotgun 학습, 2026-04-20) ✅ 반영됨 (2026-06)
 
 - **상황**: design-lead가 단일 방향 권장안만 제시하여 사용자가 비교 선택 기회가 없음
 - **발견**: gstack `/design-shotgun`은 3가지 시각적 변형(현재 스타일 개선 / 대안 스타일 / 최소 개입)을 생성하고 사용자가 비교 선택하게 함. 승인 패턴 학습으로 이후 제안을 편향시킴.
 - **교훈**: 새 디자인 방향 요청 시 visual-hierarchy 에이전트가 "방향 A/B/C" 3선택지를 명시. 선택 후 해당 방향으로 집중.
 
-### 6. CSS vs JS 수정 리스크 버짓 분리 (gstack risk-budget 학습, 2026-04-20)
+### 6. CSS vs JS 수정 리스크 버짓 분리 (gstack risk-budget 학습, 2026-04-20) ✅ 반영됨 (2026-06)
 
 - **상황**: --fix 모드에서 CSS 변경과 JS 컴포넌트 변경을 동일 비중으로 처리해 불필요한 리스크 발생
 - **발견**: gstack `/design-review`는 CSS-only 수정은 "free-pass"(무조건 실행), JSX/컴포넌트 변경은 20% 리스크 버짓 차감, 전체 30건 하드캡 적용.

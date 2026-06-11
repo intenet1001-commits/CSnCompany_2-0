@@ -46,19 +46,27 @@ CEO는 이 스킬을 모든 요청에서 Phase -3 이전에 가장 먼저 실행
 
 ### STEP 2: 불명확 시 1회 질문
 
+요청 맥락에서 **구체적 해석 옵션 2-4개를 생성**해 제시한다. "현재 요청 그대로 진행" 같은 옵션은 금지 — 게이트를 발동시킨 모호함을 그대로 되돌려주는 탈출구이기 때문이다.
+
 ```
 AskUserQuestion(
   question: "어떤 목표를 달성하고 싶으신가요?\n현재 요청: '[원문 요청]'",
   options: [
-    "현재 요청 그대로 진행 (목표 생략)",
+    "[해석 옵션 1 — 맥락 기반 구체적 목표]",
+    "[해석 옵션 2 — 맥락 기반 구체적 목표]",
+    "[해석 옵션 3 — 있으면]",
     "작업 취소"
   ]
 )
 ```
 
-- **Other(직접 입력)**: 입력한 텍스트를 goal_statement로 사용 → STEP 3
-- **"현재 요청 그대로 진행"**: 원문을 goal_statement로 사용 → STEP 3 (was_clarified: false)
+> 예: UI 파일에 대한 "개선해줘" → "UI 반응속도 개선" / "코드 품질 리팩토링" / "디자인/UX 개선" / "작업 취소"
+
+- **해석 옵션 선택**: 선택된 해석을 goal_statement로 사용 → STEP 3 (was_clarified: true)
+- **Other(직접 입력)**: 입력한 텍스트를 goal_statement로 사용 → STEP 3 (was_clarified: true)
 - **"작업 취소"**: CEO 즉시 종료
+
+scope가 fan-out에 실질적 영향을 주는 경우(예: 특정 파일 vs 전체 코드베이스)는 별도 질문을 추가하지 말고 **같은 질문의 옵션에 scope를 녹여서** 제시한다. 예산/마감 등 별도 제약 질문은 하지 않는다.
 
 ---
 
@@ -74,6 +82,11 @@ GOAL = {
 ```
 
 이 GOAL 객체가 Phase G의 반환값이며, CEO의 Phase -3 이후 전체 흐름에 사용된다.
+특히 `success_criteria`는 **CEO Phase 3.6 Goal Gate Check가 PASS/FAIL 채점에 직접 소비**하므로, 채점 가능한(검증 가능한) 형태로 작성해야 한다.
+
+**확정 후 확인 규칙:**
+- **was_clarified: true** (STEP 2가 발동한 경우): 도출된 GOAL을 한 줄로 echo — "goal_statement / success_criteria — 이대로 진행할까요?" — 빠른 확인 후 Phase -3으로 복귀.
+- **명확 요청** (STEP 2 생략): 질문 없이 즉시 반환하되, CEO가 kickoff 메시지에 GOAL 객체를 출력해 추론된 success_criteria가 틀렸으면 사용자가 중단할 수 있게 한다.
 
 ---
 

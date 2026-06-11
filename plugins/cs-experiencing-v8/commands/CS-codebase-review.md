@@ -18,11 +18,16 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, TaskCreate, TaskUpdate
 
 ## 실행
 
-이 커맨드는 `CS-codebase-review-v1/skills/CS-codebase-review/SKILL.md` 프로토콜을 실행합니다.
-(CS-codebase-review-v1은 cs-experiencing-v1과 같은 레벨의 plugins/ 디렉토리에 위치)
+이 커맨드는 최신 `CS-codebase-review-v*` 도메인의 SKILL.md 프로토콜을 실행합니다.
+(도메인은 cs-experiencing-v*과 같은 레벨의 plugins/ 디렉토리에 위치 — 버전은 디렉토리명이 단일 진실, `ls -d ... | sort -V`로 항상 최신을 해석)
 
-1. `../CS-codebase-review-v1/VERSION` 읽기 → 현재 버전 확인
-2. `../CS-codebase-review-v1/skills/CS-codebase-review/SKILL.md` 프로토콜 실행
+```bash
+BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
+LATEST_REVIEW=$(ls -d "$BASE/CS-codebase-review-v"* 2>/dev/null | sort -V | tail -1)
+```
+
+1. `$LATEST_REVIEW/VERSION` 읽기 → 현재 버전 확인
+2. `$LATEST_REVIEW/skills/CS-codebase-review/SKILL.md` 프로토콜 실행
 
 ## 에이전트 팀 (5개 병렬)
 

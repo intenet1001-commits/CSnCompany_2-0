@@ -147,6 +147,8 @@ Clean Architecture + TDD에서 권장하는 구현 순서:
 
 ## 출력 형식
 
+> 📌 **경로 규칙**: 아래 템플릿의 `src/.../*.test.ts` 경로·확장자·테스트 네이밍은 **CONTEXT가 greenfield/TypeScript일 때만 사용하는 TypeScript 기본값**입니다. 그 외에는 프롬프트로 전달받은 CONTEXT의 `SRC_LAYOUT`과 `TEST_FILE_PATTERN`에서 경로를 도출하세요.
+
 `[OUTPUT_DIR]/implementation-checklist.md` 파일을 아래 구조로 작성합니다:
 
 ```markdown
@@ -274,6 +276,19 @@ mkdir -p src/infrastructure/{config,di}
 - [ ] 실제 Repository → Use Case 연결
 - [ ] 환경변수 설정 및 문서화
 - [ ] 전체 E2E 테스트 실행
+
+---
+
+## Critical Files / 충돌 위험
+
+CONTEXT의 `CRITICAL_FILES`(대형/고변경 파일)를 기반으로 작성. CONTEXT가 greenfield면 "해당 없음" 표기.
+
+| 파일 | 위험 | 완화 전략 |
+|------|------|----------|
+| [파일 경로] | [대형 파일 / 고변경 빈도 / 병렬 작업 충돌] | 신규 파일 + 작은 import 라인으로 분리 변경 |
+
+- [ ] 큰 파일 직접 수정 대신 **신규 파일 + 작은 import 라인** 분리 가능 여부 검토
+- [ ] 푸시 전 `git fetch origin && git log HEAD..origin/main --oneline | wc -l`로 원격 차이 확인 (5커밋 이상이면 merge 우선 검토)
 
 ---
 

@@ -36,9 +36,11 @@ PLAN.md 없으면 → git log 역추론 모드 활성화.
 
 ### Step 3: 상태 분류
 
-- **DONE**: 계획대로 구현됨
+- **DONE**: 계획대로 구현됨 — 반드시 file:line 또는 commit hash 증거 인용
 - **PARTIAL**: 일부만 구현됨 (이유 명시)
 - **MISSING**: 미구현 (Blocked 사유)
+
+**규칙**: 검증 가능한 증거(file:line 또는 commit hash) 인용이 없는 DONE은 PARTIAL로 보고해야 한다.
 
 ### 출력 포맷
 
@@ -48,10 +50,10 @@ PLAN.md 없으면 → git log 역추론 모드 활성화.
 준수율: X/Y 항목 DONE (XX%)
 판정: ✅ PASS / ❌ BLOCKED
 
-| 항목 | 상태 | 비고 |
-|------|------|------|
-| [항목 1] | DONE | |
-| [항목 2] | MISSING | [이유] |
+| 항목 | 상태 | 증거 | 비고 |
+|------|------|------|------|
+| [항목 1] | DONE | src/foo.ts:42 | |
+| [항목 2] | MISSING | — | [이유] |
 ```
 
 `ship-spec.md` 생성 후 SendMessage(recipient: "ship-lead") 전송.

@@ -55,9 +55,10 @@ allowed-tools:
   │                       └─ Install 선택 시 `npx skills add -g BenedictKing/context7-auto-research` 자동 실행 후 진행
   │ No  → 그대로 진행
   ↓
-[Phase -2] 파트너십 탐지 → ... → [Phase 4] 종합 리포트 → [Phase 5-B] 버전업 결정
+[Phase -2] 파트너십 탐지 → ... → [Phase 3.5] 발견 스팟체크(조건부) → [Phase 3.6] Goal Gate Check(success_criteria PASS/FAIL 채점, 재디스패치 최대 2라운드)
+                                  → [Phase 4] 종합 리포트(목표 달성도 표 + UNVERIFIED 표시) → [Phase 5-B] 버전업 결정
                                                               │
-                                                              └→ 외부 학습이 판단을 바꿨다면 노하우 후보로 적재 → 다음 version-up에서 영속화
+                                                              └→ 외부 학습이 판단을 바꿨다면 노하우 후보를 .experiencing-btw.json에 append → 다음 version-up에서 영속화
 ```
 
 - 발동 시 알림: `📚 외부 지식 필요 감지: [주제] — context7-auto-research로 학습 후 진행합니다.`

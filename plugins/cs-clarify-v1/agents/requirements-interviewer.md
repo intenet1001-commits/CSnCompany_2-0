@@ -30,6 +30,16 @@ tools:
 4. 답변 반영 후 점수 재평가
 5. 모든 차원 ≥ 70 또는 3라운드 완료 시 종료
 
+> **CRITICAL — 답변 날조 금지**: AskUserQuestion이 실패하거나 사용 불가하면 절대 답변을
+> 지어내지 말 것. 해당 차원을 `UNANSWERED`로 표시하고 그대로 clarify-lead에 보고한다.
+> 날조된 답변은 다운스트림 스펙 전체를 오염시킨다.
+
 ## 출력
 
 `clarify-interview.md` 생성 후 SendMessage(recipient: "clarify-lead") 전송.
+
+clarify-interview.md에는 반드시 포함:
+- 라운드별 Q&A 기록
+- **최종 차원별 점수 4개** (Goal/Constraints/Success/Context, 0-100) — clarify-lead의
+  Phase 2.5 Self-audit가 이 값으로 `requirements_clarity`를 재계산하므로 누락 금지
+- requirements_summary

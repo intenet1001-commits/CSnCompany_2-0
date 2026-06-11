@@ -21,7 +21,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
 /cs-error-notes list                      # 전체 목록
 /cs-error-notes list --open               # 미해결 에러만
 /cs-error-notes list --domain cs-ceo      # 도메인별 필터
-/cs-error-notes search "[키워드]"         # 키워드 검색
+/cs-error-notes search "[키워드]"         # 키워드 검색 (대화형)
+/cs-error-notes recall "[에러 메시지/키워드]"  # 디버깅 전 기존 해결 노트 회상 (비대화형, 에이전트용)
 /cs-error-notes view ERR-2026-05-20-001   # 특정 노트 상세 보기
 /cs-error-notes resolve ERR-xxx           # 해결 완료 마킹
 /cs-error-notes patterns                  # 반복 에러 패턴 분석
@@ -153,9 +154,19 @@ AskUserQuestion(
 )
 ```
 
-#### Step 4 — 5-필드 초안 자동 작성
+#### Step 4 — 5-필드 초안 자동 작성 (증거 규칙)
 
 현재 세션 컨텍스트와 "[에러 제목]" 인수를 참고해 5개 필드 초안을 작성합니다.
+단, 모델이 기억으로 재구성한 내용이 아니라 **세션에 남은 증거**가 근거여야 합니다:
+
+1. **문제점 (Problem)** — 세션 트랜스크립트에 실제로 남은 에러 텍스트(도구 출력, exit code, 스택트레이스)를
+   **verbatim 그대로** fenced code block 안에 복사하고, 그 에러를 발생시킨 정확한 명령/액션을 함께 기록한다.
+   컨텍스트에 verbatim 출력이 없으면 사용자에게 붙여넣어 달라고 요청한다 (요약·재작성 금지).
+2. **원인 (Root Cause)** — 반드시 `확인됨`(이 세션의 증거로 확인) 또는 `가설` 라벨을 붙인다.
+   `가설`인 경우 "무엇을 확인하면 검증되는지"를 한 줄 명시한다.
+3. **해결점 (Solution)** — 검증 증거(실패했던 명령의 재실행 + 통과 출력)를 포함한다.
+   검증하지 못했으면 `검증 안 됨`으로 명시하고, 이 경우 status는 `open`으로 유지한다.
+
 확인 단계:
 
 ```
@@ -201,6 +212,30 @@ grep -rl "[키워드]" "$ERROR_NOTES_DIR"/*.md 2>/dev/null | head -10
 
 ---
 
+### `/cs-error-notes recall "[에러 메시지 또는 키워드]"`
+
+**용도**: 새 에러를 디버깅하기 전, 같은 에러를 이미 해결한 적이 있는지 확인하는 **비대화형** 회상.
+`search`와 달리 다른 에이전트/스킬이 디버깅 도중 자동 호출하는 것을 전제로 설계되었습니다.
+(plugins/CLAUDE.md의 "에러 회상" 규칙이 이 서브커맨드를 가리킵니다.)
+
+프로토콜:
+
+1. **토큰 추출**: 에러 메시지에서 변별력 있는 토큰 2-4개를 추출 — 식별자, 에러 코드, 라이브러리/함수 이름.
+   타임스탬프, 절대 경로, 줄번호 등 세션마다 달라지는 부분은 제거한다.
+2. **매칭**: 각 토큰을 `grep -i`로 `~/.claude/error-notes/INDEX.md`와 노트 본문(`*.md`)에 대조한다.
+   ```bash
+   ERROR_NOTES_DIR="$HOME/.claude/error-notes"
+   grep -i "[토큰]" "$ERROR_NOTES_DIR/INDEX.md"
+   grep -ril "[토큰]" "$ERROR_NOTES_DIR"/ERR-*.md 2>/dev/null
+   ```
+3. **랭킹**: `status: resolved` 노트 우선, 토큰 매칭 수가 많은 순.
+4. **출력**: 상위 **최대 3건**만, 각 한 줄 — `ID | 제목 | 해결점 한 줄 요약(상황/원인 포함 가능)`.
+   매칭 노트가 있으면 새로 디버깅하기 전에 해당 노트의 상황/원인/해결점을 먼저 제시한다.
+5. **히트 없음**: 아무것도 출력하지 않고 그대로 진행한다. **recall은 절대 디버깅을 블로킹하지 않는다**
+   (질문 금지, 에러 시에도 조용히 통과).
+
+---
+
 ### `/cs-error-notes view ERR-xxx`
 
 해당 노트 파일을 Read로 읽어 포맷된 형태로 출력합니다.
@@ -213,7 +248,24 @@ grep -rl "[키워드]" "$ERROR_NOTES_DIR"/*.md 2>/dev/null | head -10
 NOTE_FILE="$HOME/.claude/error-notes/ERR-xxx.md"
 ```
 
-Edit 도구로 frontmatter `status: open` → `status: resolved` 변경.
+status를 바꾸기 전에 검증 근거를 1회 확인합니다:
+
+```
+AskUserQuestion(
+  question: "어떤 확인으로 해결을 검증했나요? (한 줄 근거)",
+  options: [
+    "재실행 통과 — 근거를 입력/붙여넣기",
+    "다른 방식으로 확인 — 근거를 입력",
+    "검증 없이 마킹 — 미검증 상태로 기록"
+  ]
+)
+```
+
+- 근거가 제공되면 노트의 `해결점 (Solution)` 섹션 끝에 `검증: [근거 한 줄]`로 append.
+- "검증 없이 마킹" 선택 시에도 resolve는 진행하되, `해결점`에 `검증: 검증 없이 마킹됨 (YYYY-MM-DD)`을 append해
+  미검증 상태를 노트에 남깁니다 (크로스 세션 resolve 허용).
+
+이후 Edit 도구로 frontmatter `status: open` → `status: resolved` 변경.
 INDEX.md 해당 행도 동일하게 갱신합니다.
 
 ```

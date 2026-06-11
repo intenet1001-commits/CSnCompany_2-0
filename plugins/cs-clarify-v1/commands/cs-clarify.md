@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, AskUserQuestion
 | 커맨드 | 설명 |
 |--------|------|
 | `/cs-clarify "[요청]"` | 전체 명료화 분석 (4-agent) |
-| `/cs-clarify --quick "[요청]"` | 빠른 명료화 (3문항 인터뷰만) |
+| `/cs-clarify --quick "[요청]"` | 빠른 명료화 — 인터뷰 스킵, scope + assumptions만 실행 |
 
 ## 에이전트 팀
 
@@ -22,6 +22,9 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, AskUserQuestion
 | **requirements-interviewer** | Socratic 질문 생성 (최대 3라운드) | sonnet |
 | **scope-validator** | 과대설계 탐지 + 단순화 제안 | sonnet |
 | **assumption-mapper** | 숨겨진 가정 명시화 | sonnet |
+
+> 3개 워커는 **순차 실행** (interviewer → scope-validator → assumption-mapper, 병렬 스폰 금지).
+> ready_for_plan=false 시 최대 2회 재명료화 루프 (--quick: 1회).
 
 ## 실행 흐름
 

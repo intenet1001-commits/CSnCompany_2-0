@@ -76,6 +76,18 @@ Output the conversation in this format:
 ### Why This Sounds American
 - [1-2 notes on specific choices made — idioms used, contractions, etc.]
 
+### Step 4: Self-Check Before Saving
+
+Before saving to Obsidian, re-read the drafted dialogue and verify every item:
+
+- [ ] No textbook connectors anywhere ("Furthermore", "Moreover", "It is important to note", "In conclusion", "Additionally") — if found, rewrite that line in spoken register
+- [ ] Contractions used throughout — no uncontracted "I am", "it is", "do not" in dialogue lines
+- [ ] 6–10 exchanges per topic — trim padding or add a natural follow-up if outside range
+- [ ] Every fact in the dialogue traces to something actually discussed in this session — delete invented details
+- [ ] Every Vocabulary Highlights entry quotes a phrase that literally appears in the dialogue above — fix the table or the dialogue so they match
+
+Rewrite any failing lines, then re-check the rewritten lines once. Only after all items pass, proceed to the auto-save in Rule 5.
+
 ---
 
 ## Example Output
@@ -125,7 +137,7 @@ If the session covered "How does TypeScript help with bugs?":
 2. **Multiple exchanges** — if the session covered multiple topics, create a separate conversation section for each
 3. **Natural length** — 6–10 exchanges per topic is ideal; don't pad, don't cut too short
 4. **No stiff language** — if you catch yourself writing "Furthermore" or "It is important to note", rewrite it
-5. **Auto-save to Obsidian** — after generating, automatically save to `/Users/gwanli/CS볼트V5/00. Inbox/08. 퀵캡쳐/영어메모/1. 영어메모_작업전/` as a `.md` file. File name format: `convo_YYYY-MM-DD_[Topic].md` (e.g., `convo_2026-04-05_TypeScript.md`). Use today's date and the first topic title. Do not ask — just save silently and confirm with the file path at the end.
+5. **Auto-save to Obsidian** — after generating and passing the Step 4 self-check, automatically save to `/Users/gwanli/CS볼트V5/00. Inbox/08. 퀵캡쳐/영어메모/1. 영어메모_작업전/` as a `.md` file. File name format: `convo_YYYY-MM-DD_[Topic].md` (e.g., `convo_2026-04-05_TypeScript.md`). Use today's date and the first topic title. Do not ask — just save silently and confirm with the file path at the end.
 
 ## Completion Signal
 

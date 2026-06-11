@@ -4,7 +4,7 @@ description: |
   Karpathy-inspired preflight gate. Before running expensive multi-agent workflows,
   surfaces ambiguities, defines success criteria, and confirms scope.
   Prevents wasted runs from unclear requirements.
-model: claude-sonnet-4-5
+model: sonnet
 allowed-tools:
   - Read
   - AskUserQuestion

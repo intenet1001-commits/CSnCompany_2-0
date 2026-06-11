@@ -45,6 +45,17 @@ OUTPUT   = --output [경로] (미지정 시 ".tdd-plans")
 예: /CS-plan "사용자 인증 시스템 (이메일+비밀번호, JWT)"
 ```
 
+### Step 1.5: 모호성 프리플라이트 (노하우 #3, #5 반영)
+
+plan-lead는 서브에이전트라 AskUserQuestion을 쓸 수 없으므로, 사용자 질문은 **main context인 이 단계에서만** 수행한다.
+
+1. FEATURE의 모호성을 평가한다: **명확 / 보통 / 모호**
+   - 판단 기준: 목표(무엇을), 제약(언어·범위·외부 시스템), 수용 기준(언제 완료인가) 중 하나라도 추측 없이는 채울 수 없으면 "모호"
+2. **모호**일 때만 AskUserQuestion으로 **정확히 1회** 명확화/반론 질문을 던진다.
+   질문에는 범위 검증용 forcing question 성격을 포함한다 (예: "이 기능의 MVP 버전은 무엇인가요? 더 단순한 대안은 없나요?")
+3. 답변을 FEATURE에 반영(병합)한 후 Step 2로 진행한다.
+4. **명확/보통**이면 질문 없이 조용히 스킵한다. 질문은 최대 1회 — 추가 라운드 금지.
+
 ### Step 2: 시작 안내 출력
 
 ```
@@ -103,6 +114,8 @@ fi
 
 ## CS-plan v1 노하우
 
+> **학습 반영 규칙**: 교훈이 프로토콜 변경을 지시하면(예: "Step 0 추가"), 같은 커밋에서 해당 agents/*.md 또는 SKILL.md 실행 단계에 반영하고 교훈에 "✅ 반영됨" 표시. 미반영 교훈은 문서일 뿐 실행되지 않는다.
+
 - **토큰 효율**: plan-lead가 하위 에이전트 결과를 자체 context에서 처리 → main context 오염 없음
 - **언어 미지정 시**: plan-lead가 코드베이스 컨텍스트에서 자동 추론
 - **VERSION 파일**: 새 학습이 추가될 때마다 `/experiencing version-up plan` 으로 버전 증가
@@ -113,7 +126,7 @@ fi
 - **발견**: gstack `/plan-design-review`는 각 디자인 차원(타이포그래피, 색상, 공간, 인터랙션, 반응형)을 0-10으로 평가 후 플랜을 수정. 코딩 전에 디자인 문제를 잡는 것이 훨씬 저렴.
 - **교훈**: plan-lead가 PLAN.md 생성 시 "## 디자인 시스템 영향도" 섹션 추가. 기능이 UI 컴포넌트를 포함하면 영향받는 디자인 토큰, 컴포넌트 상태, 반응형 분기점 명시.
 
-### 3. 범위 과대 설계 방지를 위한 강제 질문 (gstack /office-hours 학습, 2026-04-13)
+### 3. 범위 과대 설계 방지를 위한 강제 질문 (gstack /office-hours 학습, 2026-04-13) — ✅ 반영됨 (2026-06, SKILL.md Step 1.5)
 
 - **상황**: plan-lead가 기능 설명을 받으면 즉시 full plan을 생성. 과대 설계 위험 있음.
 - **발견**: gstack `/office-hours`는 "이 기능이 정말 필요한가?", "더 단순한 대안은?" 같은 forcing questions를 먼저 던져 범위를 검증함. 이를 통해 불필요한 복잡성을 사전에 제거.
@@ -125,13 +138,13 @@ fi
 - **발견**: 에러가 이번 변경과 무관한 기존 환경 문제였음. subagent가 `DONE_WITH_CONCERNS`로 보고하여 혼동 없이 진행 가능했음.
 - **교훈**: 빌드 검증 실패 시 git diff로 변경 범위 확인 후 pre-existing 에러 여부 판단. subagent는 `DONE_WITH_CONCERNS`로 명확히 구분하여 보고해야 함.
 
-### 5. 플랜 생성 전 Think-Before-Coding 프리플라이트 (Karpathy 학습, 2026-04-20)
+### 5. 플랜 생성 전 Think-Before-Coding 프리플라이트 (Karpathy 학습, 2026-04-20) — ✅ 반영됨 (2026-06, SKILL.md Step 1.5)
 
 - **상황**: 기능 설명이 모호한 채로 플랜을 생성하면 4개 에이전트가 서로 다른 가정 위에서 설계함
 - **발견**: Karpathy의 "Think Before Coding" — 구현 전 모호성을 명시적으로 드러내고 정리해야 함. "if 200 lines could be 50, rewrite it" 원칙: 플랜이 과도하게 복잡하면 단순화 질문을 먼저 던져야 함.
 - **교훈**: plan-lead Step 1(인자 파싱) 직후, 기능 설명의 모호성 평가(명확/보통/모호). 모호하면 AskUserQuestion으로 명확화 질문 1회. 명확하면 스킵.
 
-### 6. 아키텍처 선택 체크포인트 (bkit checkpoint 패턴 학습, 2026-04-20)
+### 6. 아키텍처 선택 체크포인트 (bkit checkpoint 패턴 학습, 2026-04-20) — ✅ 반영됨 (2026-06, plan-lead arch-designer 프롬프트 + PLAN.md "사용자 확인 필요" 섹션)
 
 - **상황**: plan-lead가 아키텍처 옵션 없이 단일 설계만 생성하여 사용자가 방향 조정 기회를 놓침
 - **발견**: bkit Checkpoint 3 패턴 — Design 단계에서 Minimal/Clean/Pragmatic 3가지 옵션을 제시하고 사용자가 선택하게 함. 선택 후 해당 방향으로 깊게 들어감.

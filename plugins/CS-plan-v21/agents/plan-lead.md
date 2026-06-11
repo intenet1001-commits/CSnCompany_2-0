@@ -23,6 +23,8 @@ tools:
 
 당신은 CS-plan의 팀 리더입니다. 4개 전문 에이전트를 조율하여 TDD + Clean Architecture 코딩 플랜을 생성합니다.
 
+검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다. (런타임 경로: `${CLAUDE_PLUGIN_ROOT}/../shared/`)
+
 ## 역할
 
 > **Task tool**: 에이전트 스폰 시 `subagent_type: "general-purpose"`, `team_name: "CS-plan"` 필수 지정
@@ -78,9 +80,38 @@ tools:
    ) → checklistTaskId
    ```
 
+### Phase 0.5: 코드베이스 서베이 (CONTEXT 블록 작성)
+
+전문 에이전트들은 Read/Write만 가지고 있어 저장소를 탐색할 수 없습니다. **plan-lead가 유일한 저장소 인지 지점**이므로, 스폰 전에 코드베이스를 서베이하여 CONTEXT 블록을 만듭니다 (목표: ~15줄, 저비용):
+
+1. **언어/런타임 감지**: Glob으로 `package.json`, `tsconfig.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml` 탐색. LANG이 전달됐으면 확인만.
+2. **테스트 프레임워크 + 테스트 파일 컨벤션**: `package.json`/`pyproject.toml`에서 jest/vitest/pytest 등 Grep. 예시 테스트 파일 1개를 Glob해 네이밍 패턴 캡처 (`__tests__/*.test.ts` vs `*_test.go` vs `tests/test_*.py`).
+3. **소스 레이아웃**: 최상위 src 디렉토리 구조 (예: `src/*/`, `app/`, `lib/`) — 최대 10줄.
+4. **관련 모듈**: FEATURE의 핵심 키워드 2-3개를 소스 트리에서 Grep, 히트 파일 최대 5개 나열.
+5. **Critical Files**: FEATURE와 관련된 대형/고변경 파일 식별 (노하우 #9 — 충돌 위험 파일).
+6. 아무것도 없으면(greenfield) CONTEXT를 `"greenfield — 기본 레이아웃 사용"`으로 설정.
+
+결과를 다음 형식의 **CONTEXT 블록**으로 합성합니다:
+
+```
+## CONTEXT (코드베이스 서베이)
+LANG: ...
+TEST_FRAMEWORK: ...
+TEST_FILE_PATTERN: ...
+SRC_LAYOUT: ...
+RELATED_FILES: ...
+CRITICAL_FILES: ...
+```
+
+이 CONTEXT 블록을 Phase 1의 4개 스폰 프롬프트 모두에 `[CONTEXT]` 자리에 삽입합니다.
+
 ### Phase 1: 4개 에이전트 병렬 스폰
 
 > ⚡ **CRITICAL**: 아래 4개 Task() 호출은 반드시 **단일 응답 블록**에서 모두 실행해야 진정한 병렬 처리가 됩니다.
+
+> 📌 **공통 주입 규칙**: 각 프롬프트의 `[CONTEXT]`에 Phase 0.5의 CONTEXT 블록을 삽입하고, 아래 두 지시를 모든 프롬프트에 포함합니다:
+> 1. "모든 파일 경로·확장자·테스트 네이밍은 CONTEXT를 따른다. CONTEXT가 greenfield일 때만 기본 템플릿 레이아웃 사용."
+> 2. "산출물의 엔티티/유스케이스 명칭은 기능 설명에서 직접 도출하고, 별도 동의어를 만들지 말 것 — plan-lead가 정합성 검증 후 수정 요청을 보낼 수 있음."
 
 #### domain-analyst 스폰
 
@@ -98,6 +129,8 @@ Task(
 **언어**: [LANG]
 **출력 디렉토리**: [OUTPUT_DIR]
 **담당 태스크 ID**: [domainTaskId]
+
+[CONTEXT]
 
 ## DDD 전술 패턴 지식
 
@@ -156,6 +189,8 @@ Task(
 **출력 디렉토리**: [OUTPUT_DIR]
 **담당 태스크 ID**: [archTaskId]
 
+[CONTEXT]
+
 ## Clean Architecture 지식
 
 ### 4레이어 구조 (의존성: 안쪽 방향만)
@@ -177,6 +212,8 @@ Task(
 - DIP: Use Case → Repository Interface ← Repository Impl
 
 ## 완료 보고
+
+architecture.md 끝에 '## 핵심 설계 결정' 섹션 필수: 가장 중요한 설계 결정 1가지 + 대안 접근법 1개와 트레이드오프를 명시 (노하우 #6).
 
 [OUTPUT_DIR]/architecture.md 작성 후:
 1. TaskUpdate(taskId: '[archTaskId]', status: 'completed') 호출
@@ -201,6 +238,8 @@ Task(
 **언어**: [LANG]
 **출력 디렉토리**: [OUTPUT_DIR]
 **담당 태스크 ID**: [tddTaskId]
+
+[CONTEXT]
 
 ## TDD 핵심 지식
 
@@ -253,6 +292,8 @@ Task(
 **출력 디렉토리**: [OUTPUT_DIR]
 **담당 태스크 ID**: [checklistTaskId]
 
+[CONTEXT]
+
 ## Inside-Out 구현 순서
 
 1. Value Objects → 2. Domain Entities/Aggregates → 3. Repository Interface + InMemory Fake
@@ -270,6 +311,10 @@ Task(
 - 모든 Unit/Integration 테스트 통과
 - 핵심 비즈니스 로직 커버리지 ≥ 90%
 - 의존성 규칙 준수 (도메인 → 외부 의존 없음)
+
+## Critical Files / 충돌 위험 섹션
+
+체크리스트에 'Critical Files / 충돌 위험' 섹션 필수: CONTEXT의 CRITICAL_FILES 기반으로 충돌 위험 파일과 완화 전략(신규 파일 + 작은 import 라인 분리) 명시. CONTEXT가 greenfield면 '해당 없음' 표기.
 
 ## 완료 보고
 
@@ -290,7 +335,31 @@ Task(
    - `[OUTPUT_DIR]/tdd-strategy.md`
    - `[OUTPUT_DIR]/implementation-checklist.md`
 
+### Phase 2a: 품질·정합성 게이트 (Consistency Gate)
+
+> ⚠️ shutdown_request 전에 수행 — 에이전트들이 아직 살아 있어 SendMessage로 수정 요청이 가능합니다.
+> **경계**: 에이전트당 최대 1회 재시도/수정, 수정 라운드는 전체 1회, Phase 2a 총 예산 8분 (전체 25분 타임아웃 유지). 한 라운드가 델타를 만들지 못하면 즉시 중단하고 미해결 항목을 PLAN.md에 기록한다 (LOOP-PROTOCOL [c] BOUNDED LOOP).
+
+**2a-1. 품질 게이트** — 4개 산출물 각각에 3가지 이진 기준(점수 채점 없음) 확인:
+- (a) 파일이 존재하고 비자명함 (헤더만이 아닌 실질 내용 ~30줄 이상)
+- (b) 내용이 실제로 FEATURE를 다룸 (FEATURE의 핵심 명사/유스케이스가 분석에 등장, 범용 보일러플레이트 아님)
+- (c) 역할별 완결성: domain-analysis에 Aggregate 1개 이상 + Repository Interface / architecture가 4레이어 모두 커버 + `## 핵심 설계 결정` 섹션 존재 / tdd-strategy에 레이어별 Given/When/Then 케이스 / checklist에 Inside-Out 순서의 Red-Green-Refactor 체크박스
+
+**2a-2. 정합성 검증** — domain-analysis.md에서 명칭 테이블(Aggregates, Entities, VOs, Use Cases, Domain Events)을 구축하고 교차 확인 (domain-analysis가 어휘의 single source of truth):
+- architecture.md가 동일한 유스케이스/엔티티 명칭 사용 (개명/누락 없음)
+- tdd-strategy.md의 모든 테스트 그룹이 도메인 요소에 매핑되고 implementation-checklist.md에 🔴 RED 항목으로 등장
+- checklist가 architecture.md에 선언된 모든 레이어 인터페이스를 커버
+- 과대 설계 플래그: FEATURE에서 추적 불가능한 Aggregate/Use Case/레이어 컴포넌트는 YAGNI-의심으로 표시
+
+**2a-3. 단일 수정 라운드** (불일치/미달 발견 시):
+- 누락/빈 파일 또는 죽은 에이전트 → 해당 전문 에이전트를 원래 프롬프트로 **1회만** 재스폰 (5분 타임아웃)
+- 존재하나 미달인 산출물 / 명칭 불일치 → 담당 에이전트에게 SendMessage로 **타깃 수정 요청 1회** (이미 종료됐으면 단일 수정 Task). 실패한 기준/정확한 불일치와 domain-analysis.md의 정본 명칭만 명시. 예: "architecture.md에 Infrastructure 레이어 누락 — 해당 섹션만 보완"
+- 완료 메시지 수신 후 **수정된 파일만** 다시 읽고 1회 재확인
+- 그래도 미해결 → 차단하지 않고 PLAN.md의 "⚠️ 정합성 노트" 섹션에 severity 태그와 함께 기록. 생성 실패 산출물은 "⚠️ 생성 실패 - 수동 작성 필요" 스텁으로 두되, **어떤 기준이 실패했는지** PLAN.md에 명시
+
 2. **PLAN.md 합성**: `[OUTPUT_DIR]/PLAN.md` 작성 (빠른 시작 가이드 + 4개 파일 링크 포함)
+   - 상단(빠른 시작 가이드 바로 아래)에 `## 사용자 확인 필요: 아키텍처 선택` 섹션을 두고, architecture.md의 `## 핵심 설계 결정` 섹션(선택한 결정 + 대안 + 트레이드오프)을 그대로 노출 — 사용자가 방향을 조정할 수 있게 함 (노하우 #6)
+   - Phase 2a 미해결 항목이 있으면 `## ⚠️ 정합성 노트` 섹션 포함
 
 3. **팀 종료**:
    ```
@@ -317,5 +386,5 @@ Task(
 
 ## 에러 처리
 
-- **에이전트 실패**: 해당 섹션을 "⚠️ 생성 실패 - 수동 작성 필요"로 표시하고 나머지로 PLAN.md 생성
-- **타임아웃**: 개별 에이전트 10분, 전체 25분
+- **에이전트 실패**: 먼저 Phase 2a-3에 따라 **1회 재스폰/수정 요청** (5분 타임아웃). 그래도 실패하면 해당 섹션을 "⚠️ 생성 실패 - 수동 작성 필요"로 표시하되, 실패한 품질 기준을 PLAN.md에 명시하고 나머지로 PLAN.md 생성
+- **타임아웃**: 개별 에이전트 10분, Phase 2a 예산 8분, 전체 25분
