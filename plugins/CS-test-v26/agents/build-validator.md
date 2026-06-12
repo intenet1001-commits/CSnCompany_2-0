@@ -34,224 +34,72 @@ Next.js / React 웹 앱의 배포 전 다음 항목을 검증합니다:
 
 ### Step 1: 프로젝트 구조 파악
 
-```bash
-# package.json 읽기
-cat package.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'deps': d.get('dependencies',{}), 'devDeps': d.get('devDependencies',{})}, indent=2))"
-
-# 기술 스택 감지
-ls *.config.* tsconfig.json 2>/dev/null
-ls next.config.* postcss.config.* tailwind.config.* 2>/dev/null
-```
+package.json의 dependencies/devDependencies와 설정 파일(next.config.*, postcss.config.*, tailwind.config.*, tsconfig.json)을 확인해 기술 스택을 파악하라. 방법은 자유.
 
 ### Step 2: 보안 취약점 스캔 (Critical)
 
 > **실제 사례**: Next.js 15.1.7 → CVE-2025-66478으로 Vercel이 배포 차단
 > 버전 업그레이드 없이는 배포 불가
 
-```bash
-# npm audit - JSON 형태로 취약점 확인
-npm audit --json 2>/dev/null | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-vulns = data.get('vulnerabilities', {})
-critical = {k: v for k, v in vulns.items() if v.get('severity') == 'critical'}
-high = {k: v for k, v in vulns.items() if v.get('severity') == 'high'}
-print(f'Critical: {len(critical)}, High: {len(high)}')
-for name, v in list(critical.items())[:5]:
-    print(f'  [CRITICAL] {name}: {v.get(\"fixAvailable\", False)}')
-for name, v in list(high.items())[:5]:
-    print(f'  [HIGH] {name}: {v.get(\"fixAvailable\", False)}')
-" 2>/dev/null || npm audit 2>&1 | head -30
+`npm audit --json`을 실행해 critical/high 취약점 수와 패키지명·fixAvailable 여부를 추출하라 (파싱 방법은 자유).
 
-# Next.js 버전 확인 (CVE-2025-66478: 15.1.7 이하 취약)
-node -e "try{const v=require('./node_modules/next/package.json').version; const parts=v.split('.').map(Number); const safe=(parts[0]>=16)||(parts[0]==15&&parts[1]>=2&&parts[2]>=3)||(parts[0]==14&&parts[1]>=2&&parts[2]>=25); console.log('Next.js:',v,'->',safe?'✅ 안전':'❌ 취약 (CVE-2025-66478)')}catch(e){console.log('Next.js 미설치')}" 2>/dev/null
-```
+Next.js 설치 버전이 CVE-2025-66478 안전 범위인지 판정하라 — **안전 기준: 16.x 이상, 또는 15.2.3 이상, 또는 14.2.25 이상**. 실제 설치 버전(node_modules/next/package.json)을 증거로 인용한다.
 
 ### Step 3: tsconfig.json Path Alias 검증
 
 > **실제 사례**: 0578c33 커밋에서 `"./src/*"` → `"./*"` 로 잘못 변경
 > → `@/lib/utils`, `@/components/*` 전체가 Module not found
 
-```bash
-# tsconfig.json의 @/* 매핑 확인
-python3 -c "
-import json
-try:
-    with open('tsconfig.json') as f:
-        cfg = json.load(f)
-    paths = cfg.get('compilerOptions', {}).get('paths', {})
-    alias = paths.get('@/*', [])
-    print('@/* 매핑:', alias)
-    if './src/*' in alias:
-        print('✅ 올바름: @/* → ./src/*')
-    elif './*' in alias:
-        print('❌ 오류: @/* → ./* (프로젝트 루트 매핑 - src 하위 컴포넌트 못 찾음)')
-        print('   수정: \"@/*\": [\"./src/*\"] 으로 변경 필요')
-    elif not alias:
-        print('⚠️  @/* 매핑 없음 (경로 별칭 미설정)')
-    else:
-        print('⚠️  비표준 매핑:', alias)
-except Exception as e:
-    print('tsconfig.json 읽기 실패:', e)
-" 2>/dev/null
-```
+tsconfig.json의 `compilerOptions.paths`에서 `@/*` 매핑을 확인하라. 판정 기준:
+- `./src/*` → ✅ 올바름
+- `./*` → ❌ 오류 (프로젝트 루트 매핑 — src 하위 컴포넌트 못 찾음, `"@/*": ["./src/*"]` 로 수정 필요)
+- 매핑 없음/비표준 → ⚠️ 경고
+
+실제 매핑 값을 증거로 인용한다. (단, src/ 없이 루트에 코드를 두는 프로젝트라면 `./*`가 올바를 수 있음 — 실제 디렉토리 구조와 대조)
 
 ### Step 4: Tailwind CSS 버전 호환성 검증
 
 > **실제 사례**: Tailwind v4 (`@tailwindcss/postcss`) + v3 CSS 문법(`@tailwind base`) → 빌드 실패
 > v4에서는 `@import "tailwindcss"` + `@config "../../tailwind.config.ts"` 필요
 
-```bash
-# Tailwind 버전 확인
-python3 -c "
-import json
-with open('package.json') as f:
-    pkg = json.load(f)
-all_deps = {**pkg.get('dependencies',{}), **pkg.get('devDependencies',{})}
-tw_ver = all_deps.get('tailwindcss', 'N/A')
-postcss_tw = all_deps.get('@tailwindcss/postcss', None)
-print(f'tailwindcss: {tw_ver}')
-print(f'@tailwindcss/postcss: {postcss_tw or \"없음\"}')
-is_v4 = tw_ver.startswith('^4') or tw_ver.startswith('4.')
-print(f'Tailwind 버전: {\"v4\" if is_v4 else \"v3 이하\"}')
-if is_v4 and not postcss_tw:
-    print('❌ Tailwind v4인데 @tailwindcss/postcss 없음')
-elif not is_v4 and postcss_tw:
-    print('⚠️  @tailwindcss/postcss가 있는데 Tailwind v4 아님')
-" 2>/dev/null
-
-# globals.css / main.css에서 v3 문법 사용 여부 확인
-for cssfile in src/app/globals.css src/styles/globals.css src/index.css; do
-  if [ -f "$cssfile" ]; then
-    echo "=== $cssfile ==="
-    if grep -q "@tailwind base" "$cssfile"; then
-      echo "❌ v3 문법 발견: @tailwind base/components/utilities"
-      echo "   → v4에서는 @import \"tailwindcss\" 사용 필요"
-    elif grep -q '@import "tailwindcss"' "$cssfile"; then
-      echo "✅ v4 문법: @import \"tailwindcss\" 사용 중"
-      if grep -q "@config" "$cssfile"; then
-        echo "✅ @config 디렉티브 있음 (커스텀 테마 참조)"
-      else
-        echo "⚠️  @config 없음 (tailwind.config.ts의 커스텀값이 @apply에서 안 보일 수 있음)"
-      fi
-    fi
-  fi
-done
-```
+다음 불일치를 탐지하라 (방법 자유, file:line 증거 인용):
+- Tailwind v4 설치인데 `@tailwindcss/postcss` 패키지 없음 → ❌
+- 전역 CSS(globals.css 등)에 v3 문법 `@tailwind base/components/utilities` 잔존 → ❌ (v4는 `@import "tailwindcss"`)
+- v4 문법 사용 중인데 `@config` 디렉티브 없음 → ⚠️ (tailwind.config.ts 커스텀값이 @apply에서 안 보일 수 있음)
 
 ### Step 5: postcss.config 설정 검증
 
-```bash
-for f in postcss.config.mjs postcss.config.js postcss.config.cjs; do
-  if [ -f "$f" ]; then
-    echo "=== $f ==="
-    cat "$f"
-    # Tailwind v4 프로젝트인데 tailwindcss: {} 사용 시 오류
-    if grep -q "tailwindcss" "$f" && ! grep -q "@tailwindcss/postcss" "$f"; then
-      echo ""
-      echo "⚠️  Tailwind v4 프로젝트라면 '@tailwindcss/postcss' 사용 필요"
-      echo "   현재: tailwindcss: {}"
-      echo "   수정: '@tailwindcss/postcss': {}"
-    fi
-  fi
-done
-```
+postcss.config.* 파일에서 Tailwind v4 프로젝트인데 구식 `tailwindcss: {}` 플러그인을 쓰는 경우를 탐지하라 (올바른 설정: `'@tailwindcss/postcss': {}`). 실제 설정 내용을 증거로 인용.
 
 ### Step 6: 위험한 미사용 Import 탐지
 
 > **실제 사례**: `import { cookies } from "next/headers"` 를 import만 하고 미사용 시
 > Next.js 16에서 PageNotFoundError: Cannot find module for page
 
-```bash
-# next/headers에서 import했지만 실제로 사용하지 않는 패턴 탐지
-echo "=== next/headers 미사용 import 탐지 ==="
-for file in $(grep -rl "from 'next/headers'\|from \"next/headers\"" src/ 2>/dev/null); do
-  imports=$(grep -oP "(?<=import \{ ).*?(?= \} from ['\"]next/headers['\"])" "$file" 2>/dev/null | tr ',' '\n' | tr -d ' ')
-  for imp in $imports; do
-    # import한 심볼이 실제로 사용되는지 확인 (import 줄 제외)
-    usages=$(grep -v "^import" "$file" | grep -c "\b${imp}\b" 2>/dev/null || echo 0)
-    if [ "$usages" -eq 0 ]; then
-      echo "❌ $file: '$imp'가 import되었지만 사용되지 않음"
-      echo "   → Next.js 16에서 빌드 실패 원인 가능성 있음"
-    else
-      echo "✅ $file: '$imp' 사용됨 ($usages 회)"
-    fi
-  done
-done
-```
+`next/headers`에서 import한 심볼이 해당 파일에서 실제로 사용되지 않는 패턴을 탐지하라.
+탐지 방법은 자유. 발견 시 file:line + 심볼명을 증거로 인용한다.
 
 ### Step 7: Git 미커밋 필수 파일 확인
 
 > **실제 사례**: postcss.config.mjs, next.config.ts가 로컬엔 있지만 git에 없어서
 > Vercel 빌드는 git 기반이므로 로컬에서만 동작하고 Vercel에서 실패
 
-```bash
-# git이 있는 경우에만 실행
-if git rev-parse --git-dir > /dev/null 2>&1; then
-  echo "=== Git 미커밋 필수 파일 확인 ==="
-  critical_files=(
-    "next.config.ts" "next.config.js" "next.config.mjs"
-    "postcss.config.mjs" "postcss.config.js"
-    "tailwind.config.ts" "tailwind.config.js"
-    "tsconfig.json"
-    "package-lock.json" "yarn.lock" "pnpm-lock.yaml"
-  )
-  for f in "${critical_files[@]}"; do
-    if [ -f "$f" ]; then
-      if git ls-files --error-unmatch "$f" > /dev/null 2>&1; then
-        # 커밋된 파일 - 로컬 수정 여부 확인
-        if ! git diff --quiet "$f" 2>/dev/null; then
-          echo "⚠️  $f: 수정됐지만 미커밋 (git add 필요)"
-        else
-          echo "✅ $f: 커밋됨"
-        fi
-      else
-        echo "❌ $f: 존재하지만 git에 없음! Vercel 빌드 실패 원인"
-      fi
-    fi
-  done
+git 레포인 경우, 빌드 필수 파일(next.config.*, postcss.config.*, tailwind.config.*, tsconfig.json, lock 파일)에 대해:
+- 존재하지만 git에 추적 안 됨 → ❌ Vercel 빌드 실패 원인
+- 추적되지만 미커밋 수정 있음 → ⚠️ git add 필요
+- 그 외 미추적 .ts/.js/.mjs/.json/.css 파일 중 배포에 필요해 보이는 것 → ⚠️ 목록 보고
 
-  # Untracked 파일 중 중요한 것 있는지 확인
-  untracked=$(git ls-files --others --exclude-standard 2>/dev/null | grep -E "\.(ts|js|mjs|json|css)$" | grep -v "node_modules" | grep -v "^src/")
-  if [ -n "$untracked" ]; then
-    echo "⚠️  미추적 파일 (배포에 필요한지 확인):"
-    echo "$untracked"
-  fi
-fi
-```
+확인 방법은 자유 (예: `git ls-files`, `git status`). 파일명과 상태를 증거로 인용.
 
 ### Step 8: TypeScript 컴파일 체크
 
-```bash
-echo "=== TypeScript 컴파일 체크 ==="
-# .next/ 디렉토리 오류는 캐시 오류이므로 필터링
-npx tsc --noEmit 2>&1 | grep -v "^.next/" | grep -v "^$" | head -30
-TS_EXIT=${PIPESTATUS[0]}
-if [ $TS_EXIT -eq 0 ] || [ $(npx tsc --noEmit 2>&1 | grep -v "^.next/" | grep "error TS" | wc -l) -eq 0 ]; then
-  echo "✅ TypeScript 오류 없음 (소스 파일)"
-else
-  echo "❌ TypeScript 오류 발견"
-fi
-```
+`npx tsc --noEmit`을 실행해 소스 파일의 타입 오류 수를 보고하라.
+`.next/` 디렉토리 오류는 캐시 오류이므로 제외하고 집계한다. 오류 발견 시 대표 오류 메시지를 증거로 인용.
 
 ### Step 9: 환경 변수 체크
 
-```bash
-echo "=== 환경 변수 체크 ==="
-# .env.local 또는 .env 파일에서 설정된 키 확인
-env_files=(.env.local .env .env.production)
-for envf in "${env_files[@]}"; do
-  if [ -f "$envf" ]; then
-    echo "--- $envf ---"
-    # 키만 출력 (값은 노출하지 않음)
-    grep -E "^[A-Z_]+=.+" "$envf" | sed 's/=.*/=***/' 2>/dev/null
-  fi
-done
-
-# 소스코드에서 사용하는 env var 목록 추출
-echo "--- 코드에서 참조하는 환경 변수 ---"
-grep -rh "process\.env\." src/ 2>/dev/null | grep -oP "process\.env\.[A-Z_]+" | sort -u
-```
+.env 계열 파일(.env.local, .env, .env.production)에 설정된 키 목록과, 소스코드에서 참조하는 `process.env.*` 변수 목록을 대조해 누락을 탐지하라.
+**값은 절대 노출하지 않는다** (키 이름만 보고). 방법은 자유.
 
 ## 출력 포맷
 

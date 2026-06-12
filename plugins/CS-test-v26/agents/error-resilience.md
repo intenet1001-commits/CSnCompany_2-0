@@ -75,46 +75,17 @@ browser_console_messages()
 
 ### Step 4: 에러 바운더리 감지
 
-```bash
-# React Error Boundary 존재 확인
-echo "=== React Error Boundary 스캔 ==="
-grep -rn "componentDidCatch\|ErrorBoundary\|error-boundary" src/ --include="*.{js,ts,jsx,tsx}" 2>/dev/null | head -10
+프레임워크에 맞는 에러 바운더리 메커니즘이 존재하는지 소스코드에서 탐지하라 (방법 자유, file:line 또는 파일 경로 증거 인용):
+- React: Error Boundary 컴포넌트(componentDidCatch 등)
+- Vue: errorHandler / onErrorCaptured
+- Next.js: app/**/error.tsx 또는 pages/_error.tsx
 
-# Vue errorHandler 확인
-grep -rn "errorHandler\|onErrorCaptured" src/ --include="*.{js,ts,vue}" 2>/dev/null | head -5
-
-# Next.js error.tsx / _error.tsx 확인
-ls app/**/error.tsx pages/_error.tsx 2>/dev/null && echo "✅ Next.js 에러 페이지 존재" || echo "⚠️ Next.js 에러 페이지 없음"
-```
+부재 시 "JS 크래시 시 전체 앱 흰 화면 위험"으로 보고.
 
 ### Step 5: 깨진 외부 링크 검사 (샘플링)
 
-page-map에서 수집된 외부 링크 중 상위 10개 검사:
-
-```bash
-echo "=== 외부 링크 상태 확인 ==="
-# page-map.json에서 외부 링크 추출 후 상위 10개만 확인
-LINKS=$(python3 -c "
-import json, sys
-with open('tests/results/page-map.json') as f:
-    data = json.load(f)
-links = []
-for page in data.get('pages', []):
-    for link in page.get('links', []):
-        if link.startswith('http') and not '[BASE_DOMAIN]' in link:
-            links.append(link)
-print('\n'.join(list(set(links))[:10]))
-" 2>/dev/null)
-
-for link in $LINKS; do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$link" 2>/dev/null)
-  if [ "$STATUS" -ge 400 ] 2>/dev/null; then
-    echo "❌ $link → HTTP $STATUS"
-  else
-    echo "✅ $link → HTTP $STATUS"
-  fi
-done
-```
+page-map에서 수집된 외부 링크 중 최대 10개를 샘플링해 실제 HTTP 응답 상태를 확인하라 (방법 자유, 타임아웃 짧게).
+4xx/5xx는 깨진 링크로 보고하고, 각 링크의 URL + HTTP 상태 코드를 증거로 인용한다.
 
 ### Step 6: 서비스 워커 / 오프라인 지원 확인
 

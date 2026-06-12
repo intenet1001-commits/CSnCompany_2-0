@@ -31,58 +31,15 @@ Supabase, REST API, 댓글/좋아요 등 사용자 생성 데이터가 실제로
 
 ### Step 1: 앱 기술 스택 및 DB 환경 파악
 
-```bash
-# Supabase 설정 확인
-if [ -f "package.json" ]; then
-  python3 -c "
-import json
-with open('package.json') as f:
-    pkg = json.load(f)
-all_deps = {**pkg.get('dependencies',{}), **pkg.get('devDependencies',{})}
-dbs = {
-    'Supabase': '@supabase/supabase-js' in all_deps,
-    'Prisma': 'prisma' in all_deps,
-    'Drizzle': 'drizzle-orm' in all_deps,
-    'MongoDB': 'mongodb' in all_deps or 'mongoose' in all_deps,
-    'Vercel KV': '@vercel/kv' in all_deps,
-    'Vercel Postgres': '@vercel/postgres' in all_deps,
-}
-for db, present in dbs.items():
-    if present:
-        print(f'✅ {db} 사용 중')
-  "
-fi
-
-# 환경 변수 확인 (값은 숨기고 존재 여부만)
-echo "=== DB 환경 변수 존재 여부 ==="
-for var in NEXT_PUBLIC_SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY DATABASE_URL MONGODB_URI KV_REST_API_URL KV_REST_API_TOKEN; do
-  if grep -q "^${var}=" .env.local 2>/dev/null || grep -q "^${var}=" .env 2>/dev/null; then
-    echo "✅ $var 설정됨"
-  else
-    echo "❌ $var 미설정"
-  fi
-done
-```
+package.json 의존성에서 DB 스택(Supabase/Prisma/Drizzle/MongoDB/Vercel KV/Vercel Postgres 등)을 감지하고,
+관련 환경 변수(NEXT_PUBLIC_SUPABASE_URL, DATABASE_URL 등)가 .env 계열 파일에 설정돼 있는지 **존재 여부만** 확인하라.
+**값은 절대 노출하지 않는다.** 방법은 자유.
 
 ### Step 2: API 라우트 자동 탐색
 
-```bash
-echo "=== API 라우트 탐색 ==="
-# Next.js App Router API routes
-find src/app/api -name "route.ts" -o -name "route.js" 2>/dev/null | while read f; do
-  # HTTP 메서드 추출
-  methods=$(grep -oP "export async function (GET|POST|PUT|PATCH|DELETE)" "$f" | grep -oP "(GET|POST|PUT|PATCH|DELETE)" | tr '\n' ',')
-  # 라우트 경로 추출
-  path=$(echo "$f" | sed 's|src/app||' | sed 's|/route\.[tj]s||' | sed 's|\[|\[|g')
-  echo "  $path [$methods]"
-done
-
-# pages/api routes (Pages Router)
-find src/pages/api pages/api -name "*.ts" -o -name "*.js" 2>/dev/null | while read f; do
-  path=$(echo "$f" | sed 's|src/pages||' | sed 's|pages||' | sed 's|\.[tj]s||')
-  echo "  $path"
-done
-```
+소스코드에서 API 라우트를 탐색해 경로별 HTTP 메서드 목록을 만들어라
+(Next.js App Router `route.ts`, Pages Router `pages/api/*`, Express 라우터 등 프로젝트 구조에 맞게).
+탐색 방법은 자유. 발견된 라우트는 파일 경로 증거와 함께 목록화한다.
 
 ### Step 3: 대상 URL 결정
 
@@ -91,172 +48,33 @@ BASE_URL을 결정합니다:
 - 없으면 기본값 `http://localhost:3000` 사용
 - Vercel 환경이면 실제 배포 URL 사용
 
-```bash
-BASE_URL=$(python3 -c "
-import json, os
-try:
-    with open('tests/results/page-map.json') as f:
-        data = json.load(f)
-    print(data.get('url', 'http://localhost:3000'))
-except:
-    print('http://localhost:3000')
-" 2>/dev/null)
-echo "테스트 대상 BASE_URL: $BASE_URL"
-```
+### Step 4: CRUD 사이클 실제 테스트
 
-### Step 4: Comments API 테스트 (가장 일반적인 패턴)
+Step 2에서 발견한 라우트 중 **쓰기 가능한(POST 지원) 엔드포인트**(댓글/리뷰/좋아요 등 사용자 생성 데이터)를 골라
+실제 HTTP 요청으로 전체 사이클을 검증하라. 요청 구성 방법은 자유 (페이로드 스키마는 라우트 소스코드에서 파악).
 
-> `/api/comments` 엔드포인트가 존재하는 경우 CRUD 전체 사이클 테스트
+검증해야 할 사이클과 판정 기준:
+1. **CREATE**: 정상 데이터 POST → 2xx + 생성된 리소스 ID 반환 확인
+2. **READ**: 직후 GET → 방금 생성한 리소스가 조회 결과에 포함되는지 확인 (미포함이면 DB 반영 오류 가능성 — D등급 신호)
+3. **DELETE**: 생성한 리소스 삭제 → 2xx 확인 후 GET 재조회로 실제 삭제 확인 (삭제 후에도 조회되면 비동기/캐시 이슈로 ⚠️)
 
-```bash
-BASE_URL="[Step 3에서 결정된 URL]"
-
-echo "=== POST /api/comments - 댓글 생성 테스트 ==="
-
-# 1. 정상 데이터로 POST
-RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/api/comments" \
-  -H "Content-Type: application/json" \
-  -d '{"type":"restaurant","placeId":"test-001","nickname":"테스트유저","content":"v4 자동 테스트 댓글","rating":5}' 2>/dev/null)
-HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-BODY=$(echo "$RESPONSE" | head -1)
-echo "HTTP $HTTP_CODE: $BODY"
-
-# 생성된 댓글 ID 추출
-COMMENT_ID=$(echo "$BODY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('comment',{}).get('id',''))" 2>/dev/null)
-echo "생성된 댓글 ID: $COMMENT_ID"
-
-if [ "$HTTP_CODE" = "201" ] && [ -n "$COMMENT_ID" ]; then
-  echo "✅ POST 성공"
-else
-  echo "❌ POST 실패 (HTTP $HTTP_CODE)"
-fi
-
-echo ""
-echo "=== GET /api/comments - 댓글 조회 테스트 ==="
-
-# 2. 방금 생성한 댓글이 조회되는지 확인
-GET_RESPONSE=$(curl -s "$BASE_URL/api/comments?type=restaurant&id=test-001" 2>/dev/null)
-COMMENTS_COUNT=$(echo "$GET_RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('comments',[])))" 2>/dev/null)
-echo "조회된 댓글 수: $COMMENTS_COUNT"
-
-# 방금 생성한 댓글이 포함돼 있는지 확인
-FOUND=$(echo "$GET_RESPONSE" | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-comments = data.get('comments', [])
-found = any(c.get('id') == '$COMMENT_ID' for c in comments)
-print('yes' if found else 'no')
-" 2>/dev/null)
-
-if [ "$FOUND" = "yes" ]; then
-  echo "✅ GET 성공 - 생성한 댓글 조회됨"
-else
-  echo "❌ GET 실패 - 생성한 댓글이 조회 결과에 없음 (DB 반영 오류 가능성)"
-fi
-
-echo ""
-echo "=== DELETE /api/comments/$COMMENT_ID - 댓글 삭제 테스트 ==="
-
-if [ -n "$COMMENT_ID" ]; then
-  # 3. 댓글 삭제
-  DEL_RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE "$BASE_URL/api/comments/$COMMENT_ID" 2>/dev/null)
-  DEL_CODE=$(echo "$DEL_RESPONSE" | tail -1)
-  DEL_BODY=$(echo "$DEL_RESPONSE" | head -1)
-  echo "HTTP $DEL_CODE: $DEL_BODY"
-
-  if [ "$DEL_CODE" = "200" ]; then
-    echo "✅ DELETE 성공"
-
-    # 삭제됐는지 재확인
-    VERIFY=$(curl -s "$BASE_URL/api/comments?type=restaurant&id=test-001" 2>/dev/null)
-    STILL_FOUND=$(echo "$VERIFY" | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-comments = data.get('comments', [])
-found = any(c.get('id') == '$COMMENT_ID' for c in comments)
-print('yes' if found else 'no')
-" 2>/dev/null)
-
-    if [ "$STILL_FOUND" = "no" ]; then
-      echo "✅ 삭제 확인됨 - GET에서 더 이상 조회 안 됨"
-    else
-      echo "⚠️  삭제 후에도 GET에서 조회됨 (DB 비동기 처리 또는 캐시 이슈)"
-    fi
-  else
-    echo "❌ DELETE 실패 (HTTP $DEL_CODE)"
-  fi
-fi
-```
+각 단계의 실제 command + HTTP 상태 + 응답 일부를 증거로 인용한다. 테스트 데이터는 테스트임을 식별 가능한 값으로 작성하고, 생성한 데이터는 반드시 정리(삭제)를 시도한다.
 
 ### Step 5: 에러 처리 검증
 
-```bash
-BASE_URL="[Step 3에서 결정된 URL]"
+같은 엔드포인트에 대해 잘못된 입력이 올바른 4xx로 거부되는지 검증하라. 최소 검증 항목:
+- 필수 필드 누락/빈 값 제출 → 400 기대
+- 길이 제한 초과 입력 (제한값은 라우트 소스에서 파악) → 400 기대
+- 존재하지 않는 ID에 대한 DELETE → 404 기대
 
-echo "=== 에러 처리 검증 ==="
+기대 코드와 실제 코드를 모두 증거로 인용한다.
 
-# 빈 값 제출 → 400
-echo "--- 빈 닉네임 POST (400 예상) ---"
-R=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/comments" \
-  -H "Content-Type: application/json" \
-  -d '{"type":"restaurant","placeId":"1","nickname":"","content":"테스트"}' 2>/dev/null)
-[ "$R" = "400" ] && echo "✅ 400 Bad Request 정상" || echo "❌ 예상 400, 실제 $R"
-
-# 너무 긴 닉네임 → 400
-echo "--- 닉네임 21자 초과 POST (400 예상) ---"
-LONG_NICK=$(python3 -c "print('A'*21)")
-R=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE_URL/api/comments" \
-  -H "Content-Type: application/json" \
-  -d "{\"type\":\"restaurant\",\"placeId\":\"1\",\"nickname\":\"$LONG_NICK\",\"content\":\"테스트\"}" 2>/dev/null)
-[ "$R" = "400" ] && echo "✅ 400 Bad Request 정상" || echo "❌ 예상 400, 실제 $R"
-
-# 존재하지 않는 ID 삭제 → 404
-echo "--- 없는 ID DELETE (404 예상) ---"
-R=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "$BASE_URL/api/comments/nonexistent-id-99999" 2>/dev/null)
-[ "$R" = "404" ] && echo "✅ 404 Not Found 정상" || echo "❌ 예상 404, 실제 $R"
-
-echo ""
-echo "=== Supabase 연결 상태 직접 확인 ==="
-# Supabase URL이 있으면 health check
-SUPABASE_URL=$(grep "NEXT_PUBLIC_SUPABASE_URL=" .env.local 2>/dev/null | cut -d'=' -f2 | tr -d '"')
-if [ -n "$SUPABASE_URL" ]; then
-  HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$SUPABASE_URL/rest/v1/" 2>/dev/null)
-  echo "Supabase REST API 응답: HTTP $HEALTH"
-  [ "$HEALTH" = "200" ] && echo "✅ Supabase 연결 정상" || echo "⚠️  Supabase 응답: $HEALTH"
-fi
-```
+**Supabase 연결 상태 직접 확인** (Supabase 프로젝트인 경우): Supabase REST API 루트(`$SUPABASE_URL/rest/v1/`)에 HTTP 요청으로 연결 상태를 확인하고 응답 코드를 인용한다.
 
 ### Step 6: 응답 스키마 검증
 
-```bash
-BASE_URL="[Step 3에서 결정된 URL]"
-
-echo "=== API 응답 스키마 검증 ==="
-
-# comments GET 응답 구조 검증
-RESPONSE=$(curl -s "$BASE_URL/api/comments?limit=1" 2>/dev/null)
-python3 -c "
-import json, sys
-try:
-    data = json.loads('$RESPONSE')
-    comments = data.get('comments', None)
-    if comments is None:
-        print('❌ 응답에 comments 필드 없음')
-    else:
-        print(f'✅ comments 필드 존재 ({len(comments)}개)')
-        if comments:
-            c = comments[0]
-            required_fields = ['id', 'type', 'placeId', 'nickname', 'content', 'createdAt']
-            for field in required_fields:
-                if field in c:
-                    print(f'  ✅ {field}: {str(c[field])[:50]}')
-                else:
-                    print(f'  ❌ {field} 필드 없음')
-except Exception as e:
-    print(f'파싱 실패: {e}')
-    print(f'원본: $RESPONSE'[:200])
-" 2>/dev/null
-```
+읽기 엔드포인트의 실제 GET 응답을 파싱해, 라우트/프론트 소스코드가 기대하는 필수 필드가 모두 존재하는지 검증하라.
+누락 필드는 응답 스니펫과 함께 보고한다. 방법은 자유.
 
 ## 출력 포맷
 

@@ -84,7 +84,7 @@ All referencing LOOP-PROTOCOL.md for loop semantics: cs-smart-run — Phase 0 SP
 
 **근거**: The store already exceeds read limits and is write-only for most plugins. An index + explicit retrieval step turns 68 inert memos into priors every run actually consumes.
 
-### R7 — 공유 인프라 확장: gate verdict, staleness, learn-append, version-check [P2 — 향후 과제]
+### R7 — 공유 인프라 확장: gate verdict, staleness, learn-append, version-check [P2 — ✅ 구현됨 (2026-06-12)]
 
 **Scope**: plugins/shared/artifact_registry.py, pre_pass.py, abspath_check.py, cs-ship SKILL
 
@@ -92,7 +92,7 @@ All referencing LOOP-PROTOCOL.md for loop semantics: cs-smart-run — Phase 0 SP
 
 **근거**: Durable rails under R1/R5/R6 — verdict+round state makes gate loops auditable across sessions. P2 because the markdown protocols work without them on day one.
 
-### R8 — 탈처방(de-prescription) 패스 [P2 — 향후 과제]
+### R8 — 탈처방(de-prescription) 패스 [P2 — ✅ 구현됨 (2026-06-12)]
 
 **Scope**: All SKILL.md/agent files; worst offenders: CS-test agents, cs-end output templates, cs-ceo infer_timing, cs-design-v20 embedded greps, checklist-builder.md
 
@@ -100,7 +100,7 @@ One sweep per plugin guided by the Prescription Policy in LOOP-PROTOCOL.md: KEEP
 
 **근거**: The repo is prescriptive exactly backwards — rigid where flexibility is cheap, vague where rigor matters. Doing it after R1-R5 means the new quality bars exist to replace the deleted scaffolding.
 
-### R9 — 라우팅 및 플러그인 메타데이터 단일 소스화 [P2 — 향후 과제]
+### R9 — 라우팅 및 플러그인 메타데이터 단일 소스화 [P2 — ✅ 구현됨 (2026-06-12, routing_sync.py + marketplace.json 파생 도메인 테이블)]
 
 **Scope**: .claude-plugin/marketplace.json, plugins/CLAUDE.md, root CLAUDE.md routing block, pre_pass.py DOMAIN_PATTERNS, README.md
 

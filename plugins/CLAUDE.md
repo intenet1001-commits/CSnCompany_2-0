@@ -33,3 +33,27 @@ Key routing rules:
 - 에러 회상: 새로운 에러(stack trace, 실패 명령, 반복 실패)를 디버깅하기 전에
   ~/.claude/error-notes/INDEX.md를 해당 에러의 핵심 키워드로 grep하여
   (즉 /cs-error-notes recall) 매칭되는 resolved 노트를 먼저 surface한 뒤 수정에 착수한다.
+
+## 플러그인 인벤토리 (자동 생성)
+
+<!-- AUTO-PLUGIN-INVENTORY:BEGIN (routing_sync.py write 로 재생성 — 직접 편집 금지) -->
+
+| 플러그인 | 디렉토리 | 설명 |
+|---|---|---|
+| cs-end | `./plugins/cs-end-v3` | 🏁 Session Closer |
+| cs-error-notes | `./plugins/cs-error-notes-v1` | 📝 Error Note Manager |
+| cs-ceo | `./plugins/cs-ceo-v15` | 🧭 CEO |
+| goal | `./plugins/cs-ceo-v15` | 🎯 Goal |
+| cs-partnership | `./plugins/cs-ceo-v15` | 🤝 Partnership |
+| cs-clarify | `./plugins/cs-clarify-v1` | 💬 PM |
+| CS-plan | `./plugins/CS-plan-v21` | 🏗️ Architect |
+| cs-design | `./plugins/cs-design-v20` | 🎨 Designer |
+| cs-design-sample1 | `./plugins/cs-design-sample1` | 🎨 Design Reference |
+| CS-test | `./plugins/CS-test-v26` | 🧪 QA Engineer |
+| CS-codebase-review | `./plugins/CS-codebase-review-v29` | 🔍 Code Reviewer |
+| cs-ship | `./plugins/cs-ship-v1` | 🚢 DevOps |
+| cs-smart-run | `./plugins/cs-smart-run` | ⚡ Team Lead |
+| cs-experiencing | `./plugins/cs-experiencing-v8` | 📚 Knowledge Keeper |
+| convo-maker | `./plugins/convo-maker` | 🗣️ Language Coach |
+
+<!-- AUTO-PLUGIN-INVENTORY:END -->

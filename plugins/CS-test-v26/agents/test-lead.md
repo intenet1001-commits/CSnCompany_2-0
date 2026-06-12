@@ -41,7 +41,7 @@ tools:
 ### Phase 0: 빌드/배포 사전 검증 (v4 신규)
 
 0. **사전 준비** (스킬 SKILL.md의 "사전 준비" 1~4단계와 동일):
-   - localhost/127.0.0.1 URL이면 `lsof -ti :[포트]` + `ps aux | grep -E "vite|next|node"` 로 해당 포트가 실제 dev 서버인지 확인 (노하우 #23)
+   - localhost/127.0.0.1 URL이면 해당 포트가 실제 dev 서버를 서빙 중인지(구버전 production build가 아닌지) 확인 — 방법 자유 (예: lsof, ps) (노하우 #23)
    - **성공 기준 1문장 출력 (필수)**: 예 — "성공 기준: P0 에러 0건, 성능 점수 70+, SEO 등급 B 이상" (노하우 #21).
      이후 모든 에이전트 프롬프트에 이 기준 한 줄을 전달하고, 각 리포트 JSON에 `"passFail": "pass|fail"` 판정을 요구한다.
 
@@ -137,100 +137,35 @@ page-explorer가 완료되면 page-map.json을 읽고, **11개 에이전트를 �
   functional/visual 에이전트가 pass 보고 시 tests/screenshots/ 가 비어있지 않은지 확인.
   빈/깨진 리포트 파일은 커버리지·등급 상한 계산에서 N/A로 취급
 
-REPORT.md 생성:
+REPORT.md 생성 — 형식은 자유롭게 구성하되, 아래 **필수 헤더 라인**과 **필수 필드**를 빠짐없이 포함한다:
 
-```markdown
-# Web Test Report - [URL]
+**필수 헤더 (REPORT.md 최상단, 순서 고정)**:
+- 테스트 일시 / 대상 URL / 버전(playwright-test-v5)
+- `**커버리지**: [N]/13 에이전트 완료 ([X]%)` + N/A 에이전트는 에러 사유와 함께 나열
+- `**성공 기준**: [선언된 1문장] → 기준 대비: [PASS / FAIL]`
+- `## 종합 등급: [A/B/C/D/F/Incomplete]` (등급 산정 규칙 적용)
+- `**검증**: [N]건 확인 / [N]건 기각 / [N]건 미검증` (Phase 2.5 생략 시: "검증 생략 — critical/high 발견 없음")
 
-**테스트 일시**: [timestamp]
-**대상 URL**: [url]
-**버전**: playwright-test-v5
-**커버리지**: [N]/13 에이전트 완료 ([X]%) — N/A: [없음 / 에이전트명: 에러 사유]
-**성공 기준**: [선언된 1문장] → 기준 대비: [PASS / FAIL]
+**섹션별 필수 필드** (13개 에이전트 결과를 각각 한 섹션으로, 각 섹션에 해당 에이전트 등급 포함):
+- 빌드/배포: 보안 취약점 critical/high 수, Next.js CVE 상태, tsconfig alias, Tailwind 호환성, 미커밋 파일, 배포 가능 여부(ready/blocked)
+- 사이트 구조: 페이지 수, 감지된 프레임워크
+- 기능 테스트: 통과/실패 수
+- 시각/접근성: 반응형 이슈 수, 접근성 위반 수
+- API/네트워크: 총 요청/실패 수
+- 성능: FCP, LCP, CLS 실측값
+- 소셜 공유 & PWA: OG 완성도(N/9), og:image 유효성, KakaoTalk 대응, PWA 상태
+- DB/API: DB 종류, CRUD 사이클 결과, POST→GET 일관성, 에러 처리, 환경 변수 상태
+- 터치/스와이프: touch-action 미설정 수, key prop 누락 수, dvh 사용 여부, 스와이프 임계값, 스와이프 테스트 결과
+- 이미지 최적화: 대용량(1MB+) 이미지 수, WebP 사용률, Next.js Image 사용 여부, 절감 가능 용량
+- 보안: 보안 헤더 통과 수(N/6), 쿠키 플래그, 민감정보 노출 여부, HTTPS 리다이렉트
+- SEO: robots.txt/sitemap 존재, 타이틀 중복, H1 이슈, 구조화 데이터
+- 오류 복원력: 404 페이지 품질, 콘솔 에러 수, 에러 바운더리 유무, 깨진 외부 링크 수
 
-## 종합 등급: [A/B/C/D/F/Incomplete] (등급 산정 규칙 적용)
+**마무리 섹션 (필수)**:
+- 권장 개선사항 (우선순위별)
+- 부록: 검증에서 기각된 항목 (refuted) — 각 항목에 출처 source_agent + 반증 증거 인용
 
-**검증**: [N]건 확인 / [N]건 기각 / [N]건 미검증 (Phase 2.5 생략 시: "검증 생략 — critical/high 발견 없음")
-
-## 0. 빌드/배포 검증 (v4 신규)
-- 보안 취약점: critical=[N], high=[N]
-- Next.js CVE 상태: [안전 / ❌ 취약 - Vercel 차단됨]
-- tsconfig path alias: [✅ 올바름 / ❌ @/* → ./* 오류]
-- Tailwind 호환성: [✅ v4 문법 / ❌ v3 문법 혼용]
-- 미커밋 파일: [없음 / ⚠️ 목록]
-- 배포 가능 여부: [✅ ready / ❌ blocked]
-
-## 1. 사이트 구조
-- 발견된 페이지: [count]
-- 감지된 프레임워크: [framework]
-
-## 2. 기능 테스트 결과
-- 통과: [pass] / 실패: [fail]
-
-## 3. 시각/접근성 검사
-- 반응형 이슈: [count]
-- 접근성 위반: [count]
-
-## 4. API/네트워크 분석
-- 총 요청: [count], 실패: [count]
-- og:image: [✅ 유효 / ❌ 0byte / ❌ 없음]
-
-## 5. 성능 감사
-- FCP: [value], LCP: [value], CLS: [value]
-
-## 6. 소셜 공유 & PWA
-- OG 완성도: [N/9]
-- KakaoTalk: [✅ / ❌]
-- PWA: [✅ / ⚠️ / ❌]
-
-## 7. DB/API 검증 (v4 신규)
-- DB 종류: [supabase/prisma/기타]
-- CRUD 사이클: [✅ 전체 성공 / ❌ 실패 항목]
-- POST → GET 일관성: [✅ / ❌]
-- 에러 처리: [✅ / ❌]
-- 환경 변수: [OK / 누락 목록]
-
-## 8. 터치/스와이프 인터랙션 *(v5 신규)*
-- touch-action 미설정: [없음 / ❌ N개 컴포넌트]
-- key prop 누락 img: [없음 / ❌ N개]
-- 100dvh 사용: [✅ / ❌ 100vh 사용 중]
-- 스와이프 임계값: [적절 / ⚠️ 조정 필요]
-- 실제 스와이프 테스트: [✅ 성공 / ❌ 실패 / ⚠️ 건너뜀]
-
-## 9. 이미지 최적화 *(v5 신규)*
-- 대용량 이미지(1MB+): [없음 / ❌ N개 - X.XMB]
-- WebP 사용률: [N%]
-- Next.js Image 사용: [✅ 전체 / ❌ img 직접 사용 N개]
-- 절감 가능 용량: [XMB → XMB (X% 절감)]
-
-## 11. 보안 감사 *(v5 신규)*
-- HTTP 보안 헤더: [HSTS/CSP/X-Frame 등 N/6 통과]
-- 쿠키 플래그: [✅ HttpOnly+Secure+SameSite / ❌ 미설정]
-- 민감정보 노출: [없음 / ❌ 소스코드 노출]
-- HTTPS 리다이렉트: [✅ / ❌]
-- 종합 등급: [A/B/C/D/F]
-
-## 12. SEO 감사 *(v5 신규)*
-- robots.txt: [✅ / ❌ 없음]
-- sitemap.xml: [✅ / ❌ 없음]
-- 타이틀 중복: [없음 / ⚠️ N페이지]
-- H1 이슈: [없음 / ❌ N페이지]
-- 구조화 데이터: [있음(타입) / ❌ 없음]
-- 종합 등급: [A/B/C/D/F]
-
-## 13. 오류 복원력 *(v5 신규)*
-- 404 페이지: [✅ 커스텀 / ⚠️ 기본 / ❌ 없음]
-- 콘솔 에러: [없음 / ❌ N개]
-- 에러 바운더리: [✅ / ❌ 없음]
-- 깨진 외부 링크: [없음 / ❌ N개]
-- 종합 등급: [A/B/C/D/F]
-
-## 14. 권장 개선사항
-- [우선순위별 목록]
-
-## 부록: 검증에서 기각된 항목 (refuted)
-- [finding] — 출처: [source_agent] / 반증 증거: [evidence]
-```
+모든 수치는 에이전트 JSON에서 가져온 실측값이어야 하며, 주요 발견에는 증거(file:line 또는 command+output)를 인용한다.
 
 팀 종료:
 - 각 에이전트에게 `shutdown_request` 전송

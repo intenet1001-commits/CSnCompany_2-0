@@ -42,16 +42,7 @@ mkdir -p [OUTPUT_DIR]
 
 ## Step 2: 디자인 파일 탐색
 
-```bash
-# CSS/SCSS/Tailwind 파일 탐색
-find [DESIGN_PATH] -type f \( -name "*.css" -o -name "*.scss" -o -name "*.module.css" \) | grep -v node_modules | head -20
-
-# React/JSX/TSX 컴포넌트 파일 탐색
-find [DESIGN_PATH] -type f \( -name "*.jsx" -o -name "*.tsx" \) | grep -v node_modules | head -30
-
-# 디자인 토큰 파일 탐색
-find [DESIGN_PATH] -type f \( -name "tokens.css" -o -name "variables.css" -o -name "theme.ts" \) | head -10
-```
+[DESIGN_PATH]에서 분석 대상을 파악한다: 스타일 파일(CSS/SCSS/모듈 CSS), 컴포넌트 파일(JSX/TSX), 디자인 토큰 파일(tokens/variables/theme 류). node_modules는 제외. 탐색 방법은 자유 — 결과는 Step 3 에이전트 스폰 시 범위 판단에 활용한다.
 
 ## Step 3: 5개 분석 에이전트 병렬 스폰
 
@@ -75,8 +66,8 @@ Task(
   1. 타이포그래피: 폰트 스케일 단계수, 비율(1.25+), 줄길이(65ch 이하), 줄높이
   2. 색상 대비: WCAG AA 준수 여부 (4.5:1 일반 텍스트, 3:1 대형 텍스트)
   3. 60-30-10 색상 분배 규칙 준수
-  4. 오버사용 폰트 탐지: Inter, Roboto, DM Sans 사용 여부
-     (`grep -rnE "font-family[^;]*(Inter|Roboto|DM Sans)"` 사용 — 단순 `grep "Inter"`는 Interface/Internal 오탐)
+  4. 오버사용 폰트(Inter, Roboto, DM Sans) 사용을 탐지하고 hit마다 file:line 증거를 인용하라.
+     탐지 방법은 자유 — 단, font-family 선언 기준으로 판단하고 Interface/Internal 같은 단어 오탐을 배제할 것.
   5. 공간 계층: 중요 요소 주변 공백이 계층을 명확히 하는가
 
   새 디자인 방향을 권장할 때는 단일안이 아닌 3선택지를 issues에 명시하라:
@@ -102,10 +93,10 @@ Task(
   4. 로딩 상태 표시 여부
   5. 파괴적 작업의 UX 패턴 (undo vs confirm dialog)
 
-  grep 명령으로 탐지:
-  - `grep -rn "outline.*none" [DESIGN_PATH] --include="*.css" --include="*.tsx"` → focus 제거 위험
-  - `grep -rn "placeholder" [DESIGN_PATH] --include="*.tsx" --include="*.jsx"` → label 누락 위험
-  - `grep -rn "disabled" [DESIGN_PATH] --include="*.tsx" | head -10` → disabled 상태 확인
+  다음 위험 신호를 탐지하고 hit마다 file:line 증거를 인용하라 (탐지 방법은 자유):
+  - outline 제거(outline: none 등)인데 focus 대체 스타일이 없는 경우
+  - placeholder만 있고 가시적 label이 없는 입력 요소
+  - disabled 상태 스타일/처리 누락
 
   결과를 다음 형식으로 저장:
   {"score": 0-10, "grade": "A/B/C/D/F", "issues": [...], "summary": "..."}"""
@@ -148,10 +139,10 @@ Task(
   5. 이미지 alt 텍스트 누락 여부
   6. 키보드 탐색 가능 여부 (tabIndex, keyboard event)
 
-  grep 탐지:
-  - `grep -rn "100vh" [DESIGN_PATH] --include="*.css" --include="*.tsx"`
-  - `grep -rn "onTouchStart\|onTouchEnd" [DESIGN_PATH]` → touch-action 확인 필요
-  - `grep -rn "img " [DESIGN_PATH] --include="*.tsx" | grep -v "alt="` → alt 누락 탐지
+  다음을 탐지하고 hit마다 file:line 증거를 인용하라 (탐지 방법은 자유):
+  - 100vh 사용처 (100dvh 교체 후보)
+  - 터치 이벤트 핸들러가 있는데 touch-action 설정이 없는 요소
+  - alt 텍스트 없는 img
     (주의: 멀티라인 JSX는 alt가 다음 줄에 있을 수 있음 — hit마다 파일을 읽어 확인 후 issue 등록)
 
   결과를 다음 형식으로 저장:
@@ -170,7 +161,7 @@ Task(
   references/anti-patterns.md의 24개 안티패턴을 탐지하세요:
 
   필수 탐지 항목:
-  1. 오버사용 폰트: Inter, Roboto, DM Sans (`grep -rnE "font-family[^;]*(Inter|Roboto|DM Sans)"` — Interface/Internal 오탐 방지)
+  1. 오버사용 폰트: Inter, Roboto, DM Sans — font-family 선언 기준으로 탐지 (Interface/Internal 단어 오탐 배제, 탐지 방법 자유)
   2. 순수 검정/흰색: #000000, #ffffff, rgb(0,0,0), rgb(255,255,255)
   3. 그라디언트 텍스트: background-clip: text
   4. 사이드스트라이프 border: border-left: [3px+], border-right: [3px+]

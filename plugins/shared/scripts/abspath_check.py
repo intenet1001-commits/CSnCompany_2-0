@@ -38,10 +38,12 @@ TARGET_NAMES = {'Makefile', 'makefile', 'CMakeLists.txt', 'Dockerfile', 'docker-
 
 # 무시할 패턴 (false positive 방지)
 IGNORE_PATTERNS = [
-    re.compile(r'#.*'),          # 주석
+    re.compile(r'^\s*#'),        # 전체 라인 주석만 스킵 (라인 중간 '#'는 스킵하지 않음)
     re.compile(r'https?://'),    # URL
     re.compile(r'example\.com'), # 예시 URL
 ]
+# 라인 중간 주석은 주석 부분만 잘라내고 코드 부분은 검사한다
+INLINE_COMMENT = re.compile(r'\s#\s.*$')
 
 
 def should_ignore(line: str) -> bool:
@@ -58,8 +60,9 @@ def check_file(path: Path, root: Path) -> list:
         for lineno, line in enumerate(text.splitlines(), 1):
             if should_ignore(line.strip()):
                 continue
+            scan_line = INLINE_COMMENT.sub('', line)
             for pattern, ptype in ABSPATH_PATTERNS:
-                for match in pattern.finditer(line):
+                for match in pattern.finditer(scan_line):
                     safe_match = match.group(0)[:80].replace('\\', '/').replace('"', "'")
                     hits.append({
                         'file': str(path.relative_to(root)),

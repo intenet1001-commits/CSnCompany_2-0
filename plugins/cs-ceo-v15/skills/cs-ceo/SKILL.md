@@ -7,9 +7,9 @@ description: |
   v5.2: External Knowledge Gate — 외부 지식이 필요하다고 판단되면 지체 없이 context7-auto-research를 자동 호출하여 학습 후 진행.
   v5.3: Goal Gate — 모든 요청 진입 직전 목표(WHAT)를 추출·확정. 불명확 시 1회 질문.
   v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지. AGENT 타입은 Task(subagent_type)로 직접 호출. 외부 플러그인 에이전트(oh-my-claudecode:executor 등) 지원.
-  설치된 스킬/에이전트를 자동 탐색하고, 타이밍(Pre/In/Post/Wraps)을 description 기반으로 자동 추론한다.
+  설치된 스킬/에이전트를 자동 탐색하고, 타이밍(Pre/In/Post/Wraps)은 파트너 description을 읽고 판단해 근거 한 줄과 함께 결정한다.
   Use when user types "/cs-ceo", "cs-ceo", "/goal", or "/cs-partnership".
-version: 1.4.0
+version: 15.0.0
 allowed-tools:
   - Task
   - Agent
@@ -122,7 +122,7 @@ allowed-tools:
 
 `with [스킬이름]:` 에 **어떤 스킬 이름이든** 넣으면 CEO가 자동으로:
 1. 시스템 전체(마켓플레이스 → 캐시 → 유저스킬)에서 해당 SKILL.md 탐색
-2. SKILL.md `description`을 읽어 타이밍(Pre/In/Post/Wraps) 자동 추론
+2. SKILL.md `description`을 읽고 타이밍(Pre/In/Post/Wraps)을 판단 — 근거 한 줄 출력
 3. 적절한 실행 모드로 협업 진행
 
 탐색 순서: CS-plugins 내부 → `~/.claude/plugins/marketplaces` → `~/.claude/plugins/cache` → `~/.claude/skills`

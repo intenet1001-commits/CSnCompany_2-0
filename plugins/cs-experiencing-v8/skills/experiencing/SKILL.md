@@ -247,6 +247,17 @@ echo "$NEXT_VERSION" > "$NEW_DIR/VERSION"
 Edit 도구로:
 - `"./plugins/CS-[DOMAIN]-v[CURRENT]"` → `"./plugins/CS-[DOMAIN]-v[NEXT]"`
 
+#### STEP 4b: 버전 메타데이터 정합성 검증 (push 차단 게이트)
+
+```bash
+python3 "$BASE_PATH/shared/scripts/pre_pass.py" version-check "$NEW_DIR"
+```
+
+`"ok": false`이면 불일치 소스(plugin.json / SKILL frontmatter)를 VERSION 파일
+값으로 맞춘 뒤 재실행한다. ok가 될 때까지 commit/push 단계로 진행하지 않는다 —
+자가 업그레이드가 낡은 자기 서술을 배포하는 것을 막는 게이트.
+(숫자 정규화 비교: `1` == `1.0.0`)
+
 #### STEP 5: 오래된 버전 정리
 
 ```bash
@@ -332,6 +343,8 @@ echo "$NEXT_VERSION" > "$NEW_DIR/VERSION"
 **STEP 4: marketplace.json 업데이트**
 
 Edit 도구로: `"./plugins/cs-ceo-v[CURRENT]"` → `"./plugins/cs-ceo-v[NEXT]"`
+
+이후 STEP 4b(버전 메타데이터 정합성 검증)를 도메인 공통 프로토콜과 동일하게 수행한다.
 
 **STEP 5: 오래된 버전 정리** (2개 유지)
 

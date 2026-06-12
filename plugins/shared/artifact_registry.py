@@ -41,13 +41,68 @@ def find(atype, root=None):
 def state(root=None):
     return {k: find(k, root) is not None for k in DEFAULTS}
 
+STALE_DAYS = float(os.environ.get("CS_ARTIFACT_STALE_DAYS", "7"))
+
+def find_meta(atype, root=None):
+    """find + 신선도: GATE-LOOP/cs-ship가 오래된 스펙을 묵묵히 소비하지 않도록.
+
+    파일이 없어도 registry에 verdict 기록이 있으면 게이트 상태는 복원한다
+    (freshness="missing") — GATE-LOOP 라운드 추적이 파일 존재에 묶이지 않도록.
+    """
+    import time
+    p = find(atype, root)
+    entry = next((a for a in reversed(_load(Path(root or os.getcwd()))["artifacts"])
+                  if a["type"] == atype), None)
+    if not p and entry is None:
+        return None
+    if p:
+        age_days = round((time.time() - Path(p).stat().st_mtime) / 86400, 1)
+        freshness = "fresh" if age_days <= STALE_DAYS else "stale"
+    else:
+        age_days, freshness = None, "missing"
+    entry = entry or {}
+    return {
+        "path": p,
+        "age_days": age_days,
+        "freshness": freshness,
+        "verdict": entry.get("verdict"),
+        "round": entry.get("round"),
+        "blocking_items": entry.get("blocking_items", []),
+    }
+
+def record_verdict(atype, verdict, rnd, blocking_items, root=None):
+    """GATE-LOOP 상태 기록: gate→fix→re-gate 라운드를 세션 간에 추적 가능하게."""
+    root = root or os.getcwd()
+    m = _load(root)
+    for a in m["artifacts"]:
+        if a["type"] == atype:
+            a.update({"verdict": verdict, "round": int(rnd), "blocking_items": blocking_items})
+            break
+    else:
+        m["artifacts"].append({"type": atype, "path": DEFAULTS.get(atype, [atype])[0],
+                               "plugin": "unknown", "verdict": verdict,
+                               "round": int(rnd), "blocking_items": blocking_items})
+    _save(root, m)
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "state"
     if cmd == "find" and len(sys.argv) > 2:
         print(find(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None) or "")
+    elif cmd == "find-meta" and len(sys.argv) > 2:
+        print(json.dumps(find_meta(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None),
+                         ensure_ascii=False))
+    elif cmd == "verdict":
+        # verdict <type> <PASS|FAIL|WARNINGS|BLOCKED> <round> [blocking_item ...]
+        if len(sys.argv) < 5:
+            print("usage: verdict <type> <PASS|FAIL|WARNINGS|BLOCKED> <round> [item ...]",
+                  file=sys.stderr)
+            sys.exit(2)
+        record_verdict(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:])
+        print("ok")
     elif cmd == "list":
         for a in _load(sys.argv[2] if len(sys.argv) > 2 else os.getcwd())["artifacts"]:
-            print(f"{a['type']} ({a['plugin']}) -> {a['path']}")
+            extra = f" [{a['verdict']} r{a.get('round')}]" if a.get("verdict") else ""
+            print(f"{a['type']} ({a['plugin']}) -> {a['path']}{extra}")
     elif cmd == "state":
         for k, v in state(sys.argv[2] if len(sys.argv) > 2 else None).items():
             print(f"{k}: {'done' if v else 'missing'}")

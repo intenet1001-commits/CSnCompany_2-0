@@ -7,7 +7,7 @@ description: |
   Generation triggers: "/cs-design --gen", "디자인 만들어줘", "UI 생성", "design generate",
   "make a design", "create UI", "디자인 생성".
   Generation produces ec-* namespaced CSS, oklch() colors, self-contained HTML or Next.js TSX.
-version: 2.0.0
+version: 20.0.0
 ---
 
 # CS-design v2 — 디자인 리뷰 + claude.ai/design급 생성
@@ -96,16 +96,7 @@ GEN_MODE가 true일 때만 실행. (리뷰 모드 Step 2와 동일한 impeccable
 
 GEN_MODE가 true일 때만 실행.
 
-시작 안내 출력:
-```
-🎨 CS-design 생성 모드 시작
-📝 Brief: [BRIEF]
-🌗 모드: [DARK_MODE ? "다크 우선" : "라이트"]
-📦 출력 형식: [OUTPUT_FMT]
-📁 저장 위치: design-results/
-
-design-generator 에이전트가 claude.ai/design급 디자인을 생성합니다...
-```
+시작 안내를 출력한다 (형식 자유, 다음 필드 필수): Brief / 모드(다크 우선 vs 라이트) / 출력 형식 / 저장 위치(design-results/) / design-generator 스폰 예고.
 
 ```
 Task(
@@ -153,15 +144,7 @@ design-generator 완료 후 생성 결과 요약을 main context에 출력하고
 
 ### Step 3: 시작 안내 출력
 
-```
-🎨 CS-design 시작
-📂 분석 대상: [DESIGN_PATH]
-🎯 분석 범위: [FOCUS 또는 "전체 (5관점)"]
-🔧 수정 모드: [FIX_MODE ? "활성화" : "비활성화 (리포트만)"]
-📁 결과 저장: [OUTPUT_DIR]/
-
-design-lead 에이전트가 [N]개 분석 에이전트 팀을 조율합니다...
-```
+시작 안내를 출력한다 (형식 자유, 다음 필드 필수): 분석 대상 경로 / 분석 범위(FOCUS 또는 "전체 5관점") / 수정 모드 활성 여부 / 결과 저장 경로 / 조율할 분석 에이전트 수.
 
 ### Step 4: design-lead 에이전트 스폰
 

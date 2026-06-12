@@ -43,7 +43,7 @@ tools:
 이후 Phase들은 이 결과를 재사용하며 추가 `find`/`ls`/`sort -V` 호출을 하지 않는다.
 
 ```bash
-PREPASS_RUNNER="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/shared/run_prepass.sh"
+PREPASS_RUNNER="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/shared/run_prepass.sh"
 PREFLIGHT=$(bash "$PREPASS_RUNNER" ceo-preflight 2>/dev/null)
 _f() { printf '%s' "$PREFLIGHT" | python3 -c "import sys,json;print(json.load(sys.stdin)$1)" 2>/dev/null; }
 ```
@@ -60,7 +60,7 @@ Python/uv 미설치 시 → `run_prepass.sh`가 uv 자동 설치를 유도하거
 #### 실행
 
 ```bash
-LATEST_CEO=$(_f "['plugins']['experiencing']" 2>/dev/null || \
+LATEST_CEO=$(_f "['plugins']['ceo']" 2>/dev/null || \
   ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-ceo-v"* 2>/dev/null | sort -V | tail -1)
 GOAL_SKILL="$LATEST_CEO/skills/goal/SKILL.md"
 ```
@@ -79,14 +79,13 @@ GOAL_SKILL 프로토콜(skills/goal/SKILL.md)을 읽고 아래 순서로 실행:
 
 **② 불명확 시 AskUserQuestion 1회**
 
-요청 맥락에서 구체적 해석 옵션 2-4개를 생성해 제시한다 (goal/SKILL.md STEP 2 기준 — "현재 요청 그대로 진행" 옵션 금지):
+요청 맥락에서 구체적 해석 옵션 2-4개를 생성해 AskUserQuestion 1회로 제시한다 (goal/SKILL.md STEP 2 기준). 질문 문구는 자유 — 다음 요건만 충족하면 된다:
 
-```
-AskUserQuestion(
-  question: "어떤 목표를 달성하고 싶으신가요?\n현재 요청: '[원문]'",
-  options: ["[해석 옵션 1]", "[해석 옵션 2]", "[해석 옵션 3 — 있으면]", "작업 취소"]
-)
-```
+- 원문 요청을 질문에 함께 보여줄 것
+- 옵션은 맥락 기반의 **구체적 해석**일 것 — "현재 요청 그대로 진행" 옵션 금지 (모호함을 되돌려주는 탈출구)
+- "작업 취소" 옵션을 포함할 것
+
+처리:
 - 해석 옵션 선택 / Other(직접 입력) → goal_statement로 확정 후 한 줄 echo로 빠른 확인
 - "작업 취소" → 즉시 종료
 
@@ -130,19 +129,13 @@ GOAL_STATEMENT = "[한 문장 목표]"  # Phase 1~5 전체에서 기준점으로
    CONTEXT7_INSTALLED=$(_f "['context7_installed']")
    CONTEXT7_SKILL=$(_f "['partners']['context7']")
 
-③ 미설치 → 설치 유도 (블로킹 옵션):
-   AskUserQuestion(
-     question: "📚 외부 지식 게이트 발동 — context7-auto-research가 설치되지 않았습니다. 설치할까요?",
-     options: [
-       "Install (권장) — 'npx skills add -g BenedictKing/context7-auto-research' 실행 후 진행",
-       "Skip this once — 이번엔 외부 학습 없이 진행 (정확도 하락 가능)",
-       "Abort — 요청 중단"
-     ]
-   )
+③ 미설치 → 설치 유도 (블로킹): AskUserQuestion 1회로 Install(권장)/Skip once/Abort 3지선다를 제시한다.
+   문구는 자유 — 게이트 발동 사실, 설치 명령(`npx skills add -g BenedictKing/context7-auto-research`),
+   Skip 시 정확도 하락 가능성을 반드시 전달한다.
 
-   - "Install" 선택 → Bash로 `npx skills add -g BenedictKing/context7-auto-research` 실행 → 재확인 후 진행
-   - "Skip" 선택 → ⚠️ 알림: "외부 학습 생략됨. 결과 정확도가 떨어질 수 있습니다." 후 Phase -2로 진행
-   - "Abort" 선택 → 즉시 종료
+   - Install 선택 → Bash로 설치 명령 실행 → 재확인 후 진행
+   - Skip 선택 → 외부 학습 생략 + 정확도 하락 가능 경고 한 줄 후 Phase -2로 진행
+   - Abort 선택 → 즉시 종료
 
 ④ 설치됨 → 한 줄 알림:
    "📚 외부 지식 필요 감지: [주제] — context7-auto-research로 학습 후 진행합니다."
@@ -153,20 +146,12 @@ GOAL_STATEMENT = "[한 문장 목표]"  # Phase 1~5 전체에서 기준점으로
 ⑧ 결과 리포트의 "파트너 기여" 줄에 "context7: [학습 요약]" 한 줄로 기록
 ```
 
-##### 설치 유도 메시지 템플릿 (미설치 시 표시)
+##### 설치 유도 메시지 필수 내용 (미설치 시 — 문구는 자유)
 
-```
-📚 외부 지식 게이트가 발동했지만 context7-auto-research가 설치되지 않았습니다.
-
-이 스킬은 React/Next.js/Prisma/Stripe 등 라이브러리의 최신 문서를 자동으로 가져와
-도메인 에이전트가 잘못된 가정으로 작업하는 것을 방지합니다.
-
-설치 명령:
-  npx skills add -g BenedictKing/context7-auto-research
-
-설치 후 `/cs-ceo`를 다시 실행하거나, 지금 자동 설치를 진행할 수도 있습니다.
-저장소: https://github.com/BenedictKing/context7-auto-research
-```
+- 게이트가 발동했으나 context7-auto-research 미설치 상태임
+- 이 스킬의 역할 한 줄 (최신 라이브러리 문서를 가져와 잘못된 가정 기반 실행을 방지)
+- 설치 명령: `npx skills add -g BenedictKing/context7-auto-research`
+- 저장소: https://github.com/BenedictKing/context7-auto-research
 
 #### 외부 지식 게이트 스킵 조건
 
@@ -218,16 +203,7 @@ Phase 5-B에서 "context7 학습 → 적용 결과" 한 줄을 노하우 후보�
 
 #### ③ 파트너십 타이밍 결정
 
-명시된 파트너의 경우, **Partnership Registry**에서 경로를 찾은 뒤 SKILL.md `description` 필드를 읽어 타이밍을 자동 추론한다.
-
-| description 키워드 | 추론 타이밍 |
-|-------------------|------------|
-| 분석 / 설계 / 계획 / research / plan / discover / clarify / interview | **Pre** |
-| 저장 / export / 문서화 / report / notify / publish / 시트 / 드라이브 | **Post** |
-| 전체 / 사이클 / workflow / pipeline / PDCA / wraps | **Wraps** |
-| (그 외 / 독립적 도구) | **In** (병렬 기본값) |
-
-타이밍 추론이 불명확한 경우 **In**으로 기본 설정한다.
+명시된 파트너의 경우, **Partnership Registry**에서 경로를 찾은 뒤 파트너의 description을 읽고 아래 4가지 타이밍 중 하나를 CEO가 판단해 결정한다. 키워드 매칭이 아니라 **파트너가 하는 일이 CEO 플랜과 어떤 관계인지**로 판단하고, 판단 근거를 한 줄로 출력한다. 판단이 서지 않으면 **In**(병렬 기본값)으로 둔다.
 
 - **Pre (선행)**: 파트너 결과가 CEO 플랜의 INPUT → 파트너 먼저
 - **In (병렬)**: 파트너와 CS 도메인 독립 병렬 실행
@@ -306,28 +282,12 @@ _pagents(){ printf '%s' "$1" | python3 -c "import sys,json;d=json.load(sys.stdin
 ⚠️  파트너 미발견: [NAME] — 해당 스킬/에이전트를 설치하거나 이름을 확인하세요. 파트너 없이 계속합니다.
 ```
 
-### 타이밍 자동 추론
+### 타이밍 판단 (키워드 매칭 금지)
 
-파트너 경로가 확보되면 SKILL.md description 필드를 읽어 타이밍을 결정한다.
+파트너 경로가 확보되면 SKILL.md(또는 에이전트 파일)의 description을 **읽고** Pre/In/Post/Wraps 중 하나를 판단한다. grep/키워드 휴리스틱을 쓰지 말 것 — description이 말하는 역할이 CEO 플랜의 INPUT인지(Pre), 독립 병렬인지(In), 결과 후처리인지(Post), 전체를 감싸는 방법론인지(Wraps)를 직접 판단하고, **판단 근거를 한 줄로 출력한다**.
 
-```bash
-infer_timing() {
-  local SKILL_PATH="$1"
-  local DESC
-  DESC=$(grep -A3 "^description:" "$SKILL_PATH" 2>/dev/null | tr '[:upper:]' '[:lower:]')
-
-  # Wraps 패턴 (가장 먼저 체크)
-  echo "$DESC" | grep -qE "사이클|전체|workflow|pipeline|pdca|wraps|lifecycle" && echo "Wraps" && return
-
-  # Pre 패턴
-  echo "$DESC" | grep -qE "분석|설계|계획|research|plan|discover|clarify|interview|brainstorm|조사|정의|탐색|gather" && echo "Pre" && return
-
-  # Post 패턴
-  echo "$DESC" | grep -qE "저장|export|문서화|report|notify|publish|시트|드라이브|slack|email|알림|공유|정리" && echo "Post" && return
-
-  # 기본값
-  echo "In"
-}
+```
+예: 🕐 타이밍: gstack → Post — description이 "결과를 시트/드라이브로 내보내는" 후처리 도구이므로.
 ```
 
 ### 범용 협업 실행 프로토콜 v2 — 타입별 분기
@@ -663,22 +623,13 @@ fi
 
 #### 5-A: 컨텍스트 관리 권장
 
-| 모드 | 권장 |
-|------|------|
-| A | 세션 유지. 다른 작업이면 `/clear` 제안 |
-| B | `/compact` 권장 |
-| C | `/clear` 권장 |
-| P-Pre | `/compact` 권장 |
-| P-In | `/compact` 권장 |
-| P-Post | A+Post면 유지, B+Post면 `/compact` |
-| P-Wraps | `/clear` 권장 |
+실행이 컨텍스트에 남긴 무게를 보고 CEO가 판단한다 — 모드별 고정 규칙이 아니라 다음 기준으로:
 
-리포트 끝에 한 줄 출력 (B/C/P 모드만):
-```
-💡 컨텍스트 정리: `/compact focus on [도메인] 결과 + 다음 액션: [권장사항 1위]`
-# 또는 C/P-Wraps:
-💡 컨텍스트 정리: 대규모 작업 완료. `/clear` 후 핵심 결론만 가져가세요: "[결론 1줄]"
-```
+- 도메인 리포트/도구 출력이 많이 쌓였고 이어서 같은 작업을 계속할 가능성 → `/compact` 권장 (보존할 핵심: 결과 요약 + 다음 액션을 명시)
+- 대규모 작업이 끝났고 다음 작업이 별개일 가능성 → `/clear` 권장 (가져갈 핵심 결론 1줄을 함께 제시)
+- 가벼운 단일 작업(모드 A 등) → 권장 출력 생략
+
+권장 시 리포트 끝에 한 줄로 출력한다. 문구는 자유.
 
 #### 5-B: 버전업 결정
 

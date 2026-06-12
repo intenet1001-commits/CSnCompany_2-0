@@ -9,9 +9,10 @@
 round = 1
 loop:
   1. GATE   — 게이트 실행 (검증/테스트/리뷰)
-  2. RECORD — verdict + round + blocking_items 기록
-              (artifact_registry가 지원하면 `record <TYPE> <verdict> --items ...`,
-               아니면 리포트에 명시적으로 표기)
+  2. RECORD — verdict + round + blocking_items 기록:
+              `python3 plugins/shared/artifact_registry.py verdict <TYPE> <PASS|FAIL|WARNINGS|BLOCKED> <round> [item ...]`
+              (또는 `source plugins/shared/artifact_registry.sh` 후 `cs_record_verdict`).
+              세션이 끊겨도 다음 게이트가 `find-meta`로 이전 라운드 상태를 복원한다.
   3. PASS → 종료. 리포트에 round 이력 포함.
   4. BLOCKED/FAIL → blocking_items에 해당하는 범위만 수정 에이전트 디스패치
               (전체 재실행 금지 — 실패 항목만)

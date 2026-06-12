@@ -39,123 +39,36 @@ MWC 세션에서 PDF 이미지가 페이지당 2-4MB로 매우 큰 문제를 발
 
 ### Step 1: public/ 디렉토리 이미지 용량 스캔
 
-```bash
-echo "=== public/ 이미지 파일 용량 분석 ==="
-# 1MB 이상 이미지 탐지
-find public/ -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" -o -name "*.gif" -o -name "*.bmp" \) 2>/dev/null | while read f; do
-  size=$(wc -c < "$f")
-  size_kb=$((size / 1024))
-  size_mb=$(echo "scale=1; $size / 1048576" | bc 2>/dev/null || echo "?")
-  if [ $size -gt 1048576 ]; then
-    echo "❌ LARGE ($size_mb MB): $f"
-  elif [ $size -gt 512000 ]; then
-    echo "⚠️  MEDIUM ($size_kb KB): $f"
-  else
-    echo "✅ OK ($size_kb KB): $f"
-  fi
-done
+public/ 의 래스터 이미지(jpg/jpeg/png/gif/bmp)를 용량별로 분류하고, WebP/AVIF 사용 현황을 집계하라.
+탐지 방법은 자유. 각 발견은 파일 경로 + 실측 용량으로 인용한다.
 
-# WebP 사용 현황
-echo ""
-echo "=== WebP/AVIF 사용 현황 ==="
-webp_count=$(find public/ -name "*.webp" 2>/dev/null | wc -l)
-avif_count=$(find public/ -name "*.avif" 2>/dev/null | wc -l)
-jpg_count=$(find public/ -name "*.jpg" -o -name "*.jpeg" 2>/dev/null | wc -l)
-png_count=$(find public/ -name "*.png" 2>/dev/null | wc -l)
-echo "JPG/JPEG: ${jpg_count}개"
-echo "PNG: ${png_count}개"
-echo "WebP: ${webp_count}개"
-echo "AVIF: ${avif_count}개"
-total_old=$((jpg_count + png_count))
-if [ $total_old -gt 5 ] && [ $webp_count -eq 0 ]; then
-  echo "⚠️  JPG/PNG ${total_old}개인데 WebP 없음 → WebP 변환 권장"
-fi
-```
+**분류 임계값**: 1MB 초과 → LARGE, 500KB 초과 → MEDIUM, 그 이하 → OK.
+JPG/PNG가 5개 초과인데 WebP가 0개이면 WebP 변환 권장 이슈로 보고.
 
 ### Step 2: Next.js Image vs img 태그 사용 검증
 
-```bash
-echo "=== Next.js Image vs img 태그 사용 검증 ==="
-# <img 직접 사용 탐지
-img_count=$(grep -rn "<img " src/ components/ app/ 2>/dev/null | grep -v "node_modules" | grep -v "<!-- " | wc -l)
-nextimg_count=$(grep -rn "from 'next/image'\|from \"next/image\"" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | wc -l)
-echo "Next.js <Image> 사용: ${nextimg_count}개 파일"
-echo "<img> 직접 사용: ${img_count}개"
-
-if [ $img_count -gt 0 ]; then
-  echo ""
-  echo "--- <img> 직접 사용 위치 ---"
-  grep -rn "<img " src/ components/ app/ 2>/dev/null | grep -v "node_modules" | head -10
-  echo ""
-  echo "⚠️  <img> 직접 사용 시 Next.js 자동 최적화(WebP 변환, lazy load, 사이즈) 미적용"
-  echo "   단, 이미 캐시된 이미지 재사용 또는 동적 src는 의도적 사용 가능"
-fi
-```
+Next.js `<Image>` 사용 파일 수와 `<img>` 직접 사용 위치를 탐지하라. 탐지 방법은 자유, file:line 인용 필수.
+`<img>` 직접 사용 시 자동 최적화(WebP 변환, lazy load, 사이즈) 미적용 — 단, 이미 캐시된 이미지 재사용 또는 동적 src는 의도적 사용 가능하므로 맥락을 함께 보고한다.
 
 ### Step 3: Next.js Image sizes 설정 검증
 
-```bash
-echo "=== Next.js Image sizes 속성 검증 ==="
-# sizes prop 없는 Image 컴포넌트 탐지 (fill 모드에서 필수)
-grep -rn "fill" src/ components/ app/ 2>/dev/null | grep -i "image\|Image" | grep -v "sizes=" | grep -v "node_modules" | head -10 | while read line; do
-  echo "⚠️  fill 사용하지만 sizes 없음: $line"
-done
-
-# priority 없는 첫 번째 이미지 (LCP 이미지)
-echo ""
-echo "--- priority prop 확인 ---"
-grep -rn "priority" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | head -5
-```
+`fill` 모드인데 `sizes` prop이 없는 `<Image>` 사용처와, LCP 후보 이미지의 `priority` prop 설정 여부를 탐지하라.
+탐지 방법은 자유. file:line 증거 인용.
 
 ### Step 4: 실제 URL 이미지 응답 크기 확인
 
-```bash
-BASE_URL="${TARGET_URL:-https://localhost:3000}"
+page-map과 소스코드에서 발견한 주요 이미지 경로(OG 이미지, 아이콘, 대용량 후보)를 실제 배포 URL에 대해 HTTP 요청으로 확인하라 (예: `curl -sI`).
+각 이미지의 HTTP 상태, content-type, content-length를 증거로 인용한다.
 
-echo "=== 실제 배포 이미지 응답 크기 확인 ==="
-# public/reviews/pdf-pages/ 이미지 샘플링
-for path in /reviews/pdf-pages/page-01.jpg /reviews/pdf-pages/page-01.webp \
-            /og-image*.png /icons/icon-512.png; do
-  url="${BASE_URL}${path}"
-  response=$(curl -sI "$url" 2>/dev/null)
-  status=$(echo "$response" | grep "HTTP/" | awk '{print $2}')
-  if [ "$status" = "200" ]; then
-    content_length=$(echo "$response" | grep -i "content-length" | awk '{print $2}' | tr -d '\r')
-    content_type=$(echo "$response" | grep -i "content-type" | awk '{print $2}' | tr -d '\r')
-    if [ -n "$content_length" ]; then
-      size_kb=$((content_length / 1024))
-      if [ $content_length -gt 1048576 ]; then
-        echo "❌ LARGE (${size_kb}KB) [$content_type]: $path"
-      elif [ $content_length -gt 204800 ]; then
-        echo "⚠️  MEDIUM (${size_kb}KB) [$content_type]: $path"
-      else
-        echo "✅ OK (${size_kb}KB) [$content_type]: $path"
-      fi
-    fi
-  fi
-done
-```
+**분류 임계값**: content-length 1MB 초과 → LARGE, 200KB 초과 → MEDIUM, 그 이하 → OK.
 
 ### Step 5: WebP 변환 가이드 생성
 
-```bash
-# JPG/PNG → WebP 변환 명령어 생성
-echo "=== WebP 변환 명령어 (실행 안 함, 참고용) ==="
-large_images=$(find public/ -type f \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \) -size +512k 2>/dev/null)
-if [ -n "$large_images" ]; then
-  echo "다음 이미지들을 WebP로 변환 권장:"
-  echo "$large_images" | while read f; do
-    webp_name="${f%.*}.webp"
-    orig_size=$(wc -c < "$f" 2>/dev/null)
-    orig_kb=$((orig_size / 1024))
-    est_webp_kb=$((orig_kb * 4 / 10))  # ~40% of original
-    echo "  ${orig_kb}KB → ~${est_webp_kb}KB: cwebp -q 85 '$f' -o '${webp_name}'"
-  done
-  echo ""
-  echo "Python PyMuPDF WebP 변환 (PDF 이미지의 경우):"
-  echo "  pix.save(f'page-{i+1:02d}.webp')  # JPG 대비 ~60% 절감"
-fi
-```
+500KB 초과 JPG/PNG에 대해 WebP 변환 권장 목록을 생성하라 (실행하지 않고 참고용 명령만).
+원본 용량과 예상 절감 용량(WebP ≈ 원본의 ~40%)을 함께 표기한다.
+
+> 예시: `2600KB → ~1040KB: cwebp -q 85 'public/reviews/pdf-pages/page-01.jpg' -o 'public/reviews/pdf-pages/page-01.webp'`
+> PDF 이미지의 경우 PyMuPDF: `pix.save(f'page-{i+1:02d}.webp')  # JPG 대비 ~60% 절감`
 
 ## 출력 포맷
 

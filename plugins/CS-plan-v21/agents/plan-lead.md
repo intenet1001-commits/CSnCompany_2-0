@@ -84,10 +84,12 @@ tools:
 
 전문 에이전트들은 Read/Write만 가지고 있어 저장소를 탐색할 수 없습니다. **plan-lead가 유일한 저장소 인지 지점**이므로, 스폰 전에 코드베이스를 서베이하여 CONTEXT 블록을 만듭니다 (목표: ~15줄, 저비용):
 
-1. **언어/런타임 감지**: Glob으로 `package.json`, `tsconfig.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml` 탐색. LANG이 전달됐으면 확인만.
-2. **테스트 프레임워크 + 테스트 파일 컨벤션**: `package.json`/`pyproject.toml`에서 jest/vitest/pytest 등 Grep. 예시 테스트 파일 1개를 Glob해 네이밍 패턴 캡처 (`__tests__/*.test.ts` vs `*_test.go` vs `tests/test_*.py`).
-3. **소스 레이아웃**: 최상위 src 디렉토리 구조 (예: `src/*/`, `app/`, `lib/`) — 최대 10줄.
-4. **관련 모듈**: FEATURE의 핵심 키워드 2-3개를 소스 트리에서 Grep, 히트 파일 최대 5개 나열.
+탐지 방법은 자유(Glob/Grep/Bash 조합)이되, 각 항목은 **근거 파일 경로를 인용**해야 한다:
+
+1. **언어/런타임 감지**: 빌드/패키지 매니페스트(`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml` 등)로 판단. LANG이 전달됐으면 확인만.
+2. **테스트 프레임워크 + 테스트 파일 컨벤션**: 사용 중인 테스트 러너와 실제 테스트 파일 1개의 네이밍 패턴 캡처 (예: `__tests__/*.test.ts` vs `*_test.go` vs `tests/test_*.py`).
+3. **소스 레이아웃**: 최상위 소스 디렉토리 구조 (예: `src/*/`, `app/`, `lib/`) — 최대 10줄.
+4. **관련 모듈**: FEATURE의 핵심 키워드로 관련 파일 최대 5개 식별.
 5. **Critical Files**: FEATURE와 관련된 대형/고변경 파일 식별 (노하우 #9 — 충돌 위험 파일).
 6. 아무것도 없으면(greenfield) CONTEXT를 `"greenfield — 기본 레이아웃 사용"`으로 설정.
 
@@ -110,7 +112,7 @@ CRITICAL_FILES: ...
 > ⚡ **CRITICAL**: 아래 4개 Task() 호출은 반드시 **단일 응답 블록**에서 모두 실행해야 진정한 병렬 처리가 됩니다.
 
 > 📌 **공통 주입 규칙**: 각 프롬프트의 `[CONTEXT]`에 Phase 0.5의 CONTEXT 블록을 삽입하고, 아래 두 지시를 모든 프롬프트에 포함합니다:
-> 1. "모든 파일 경로·확장자·테스트 네이밍은 CONTEXT를 따른다. CONTEXT가 greenfield일 때만 기본 템플릿 레이아웃 사용."
+> 1. "구현 순서·파일 레이아웃·경로·확장자·테스트 네이밍은 CONTEXT에서 도출한다. CONTEXT가 greenfield + TypeScript일 때만 기본 골격(템플릿 레이아웃) 사용."
 > 2. "산출물의 엔티티/유스케이스 명칭은 기능 설명에서 직접 도출하고, 별도 동의어를 만들지 말 것 — plan-lead가 정합성 검증 후 수정 요청을 보낼 수 있음."
 
 #### domain-analyst 스폰
@@ -370,19 +372,10 @@ Task(
    ```
    모든 `shutdown_response(approve: true)` 수신 후 `TeamDelete` 호출.
 
-4. **완료 메시지 출력**:
-   ```
-   ✅ CS-plan TDD Clean Plan 생성 완료!
-
-   📁 생성된 파일 ([OUTPUT_DIR]/)
-   ├── domain-analysis.md      ← 도메인 모델, 유스케이스, 유비쿼터스 언어
-   ├── architecture.md         ← Clean Architecture 레이어 구조 + 인터페이스
-   ├── tdd-strategy.md         ← 테스트 케이스 순서 + Given/When/Then
-   ├── implementation-checklist.md  ← 레이어별 Red-Green-Refactor 체크박스
-   └── PLAN.md                 ← 종합 플랜 (빠른 시작 가이드)
-
-   🚀 시작하기: cat [OUTPUT_DIR]/PLAN.md
-   ```
+4. **완료 메시지 출력** — 형식은 자유, 다음 정보를 반드시 포함:
+   - 생성된 5개 파일 목록 + 각 한 줄 설명 (domain-analysis.md / architecture.md / tdd-strategy.md / implementation-checklist.md / PLAN.md)
+   - 시작 방법 (`[OUTPUT_DIR]/PLAN.md` 경로)
+   - Phase 2a 미해결 항목이 있으면 그 요지
 
 ## 에러 처리
 

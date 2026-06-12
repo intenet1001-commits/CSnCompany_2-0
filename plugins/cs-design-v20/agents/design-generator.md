@@ -147,32 +147,17 @@ until you have re-run every grep in this step and pasted the actual counts into 
 
 ## Step 5: Output Summary Card
 
-Print to main context:
+Print a summary to main context. Format is yours to choose, but ALL of the following fields are required:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  🎨 Design Generated                                        │
-│                                                             │
-│  Brief:       [BRIEF truncated to 60 chars]                 │
-│  Brand words: [word1] / [word2] / [word3]                   │
-│  Primary hue: oklch(55% 0.18 [H]) — [color name]           │
-│  Fonts:       [Heading] (headings) / [Body] (body)          │
-│  Mode:        [light / dark / both]                         │
-│  Format:      [html / next / palette]                       │
-│  Output:      [OUTPUT_DIR]/design-output.html               │
-│                                                             │
-│  Anti-pattern grep hits: [banned-fonts: N] [pure-bw: N]     │
-│                          [gradient-text: N] [outline-none: N]│
-│  State selectors found:  [N] (target ≥ 8 across components) │
-│  CSS namespace:          [ec-* confirmed by visual scan: yes/no] │
-│  Color format:           [oklch() count: N / non-oklch color literals: N] │
-└─────────────────────────────────────────────────────────────┘
+- Brief (truncated) / Brand words (3) / Primary hue (oklch value + color name)
+- Fonts (heading / body) / Mode / Format / Output path
+- Anti-pattern grep hits: banned-fonts N, pure-bw N, gradient-text N, outline-none N
+- State selectors found: N (target ≥ 8 across components)
+- CSS namespace: ec-* confirmed by visual scan (yes/no)
+- Color format: oklch() count N / non-oklch color literals N
+- Browser preview command: `open [OUTPUT_DIR]/design-output.html`
 
-Open the file in browser to preview:
-  open [OUTPUT_DIR]/design-output.html
-```
-
-Every [N] above MUST be the literal number from the grep you just ran in Step 4 (final run).
+Every N above MUST be the literal number from the grep you just ran in Step 4 (final run).
 If any anti-pattern count is > 0, do not print the card — return to Step 4 and fix the output first.
 Never print ✓ for a check you did not run.
 

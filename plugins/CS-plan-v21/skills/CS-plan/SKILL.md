@@ -6,7 +6,7 @@ description: |
   "플랜 생성", "TDD 플랜", "clean architecture plan", or wants to generate an implementation plan
   using TDD and Clean Architecture with 4 specialized agents (domain-analyst, arch-designer,
   tdd-strategist, checklist-builder).
-version: 1.0.0
+version: 21.0.0
 ---
 
 # CS-plan - TDD + Clean Architecture 코딩 플랜 생성
@@ -39,11 +39,7 @@ LANG     = --lang [언어] (미지정 시 "미지정 (plan-lead가 코드베이�
 OUTPUT   = --output [경로] (미지정 시 ".tdd-plans")
 ```
 
-기능 설명이 없으면 사용자에게 요청 후 중단:
-```
-❓ 플랜을 생성할 기능을 설명해주세요.
-예: /CS-plan "사용자 인증 시스템 (이메일+비밀번호, JWT)"
-```
+기능 설명이 없으면 사용자에게 기능 설명을 요청하고 중단한다 (문구 자유, 사용 예시 1개 포함 — 예: `/CS-plan "사용자 인증 시스템 (이메일+비밀번호, JWT)"`).
 
 ### Step 1.5: 모호성 프리플라이트 (노하우 #3, #5 반영)
 
@@ -58,14 +54,7 @@ plan-lead는 서브에이전트라 AskUserQuestion을 쓸 수 없으므로, 사�
 
 ### Step 2: 시작 안내 출력
 
-```
-🚀 CS-plan TDD Clean Planner 시작
-📋 기능: [FEATURE]
-🌐 언어: [LANG 또는 "자동 감지"]
-📁 출력: [OUTPUT]/
-
-plan-lead 에이전트가 4개 전문 에이전트 팀을 조율합니다...
-```
+플랜 생성 시작을 알리는 짧은 안내를 출력한다 (형식 자유). 필수 포함: FEATURE, LANG(미지정 시 "자동 감지"), OUTPUT 경로, plan-lead가 4개 전문 에이전트 팀을 조율한다는 사실.
 
 ### cmux 환경: 진행 상황 표시
 

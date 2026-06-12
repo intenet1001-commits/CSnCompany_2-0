@@ -57,37 +57,22 @@ curl -sI "$BASE_URL" | grep -i "set-cookie"
 
 ### Step 4: 혼합 콘텐츠(Mixed Content) 탐지
 
-```bash
-# HTTPS 페이지에서 HTTP 리소스 로드 여부 탐지 (소스코드 스캔)
-grep -rn "http://" src/ public/ --include="*.{js,ts,jsx,tsx,html,css}" 2>/dev/null | grep -v "localhost\|127.0.0.1\|example.com\|//\|http://schemas\|http://www.w3\|http://xmlns" | head -20
-```
+HTTPS 페이지에서 로드되는 `http://` 리소스를 탐지하라 (소스코드 또는 실제 페이지 검사, 방법 자유).
+localhost/스키마 네임스페이스(`http://schemas`, `http://www.w3` 등) 같은 무해한 참조는 제외하고, 발견 시 file:line 또는 URL 증거를 인용한다.
 
 ### Step 5: 민감 정보 노출 탐지 (소스코드 스캔)
 
-```bash
-echo "=== 잠재적 민감 정보 스캔 ==="
-# API 키, 토큰, 비밀번호 패턴
-grep -rn -E "(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|private[_-]?key|password\s*=\s*['\"])" \
-  src/ public/ --include="*.{js,ts,jsx,tsx}" 2>/dev/null | \
-  grep -v "process\.env\|\.env\|NEXT_PUBLIC_\|placeholder\|example\|dummy\|test\|//\|#" | head -10
+다음을 탐지하라 (방법 자유, file:line 증거 인용):
+- 소스코드에 하드코딩된 API 키/토큰/시크릿/비밀번호 (단, `process.env` 참조·`NEXT_PUBLIC_` 의도적 공개·placeholder/example/dummy/test 값은 제외)
+- public/ 디렉토리에 노출된 .env 파일
 
-# .env 파일이 public/ 에 있는지
-ls public/.env* 2>/dev/null && echo "❌ .env 파일이 public 디렉토리에 노출됨" || echo "✅ .env 파일 공개 노출 없음"
-```
+**증거 인용 시 실제 시크릿 값은 마스킹한다** (파일·변수명만 보고).
 
 ### Step 6: 기본 XSS 입력 필드 반사 탐지
 
-```bash
-# URL 파라미터가 페이지에 직접 반사되는지 확인 (Playwright 없이 curl로)
-XSS_PROBE="<script>xsstest</script>"
-ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$XSS_PROBE'))")
-RESULT=$(curl -s "${BASE_URL}?q=${ENCODED}" | grep -o "xsstest" || echo "")
-if [ -n "$RESULT" ]; then
-  echo "⚠️ URL 파라미터가 미인코딩으로 반사될 수 있음"
-else
-  echo "✅ URL 파라미터 반사 미탐지"
-fi
-```
+URL 쿼리 파라미터에 식별 가능한 프로브 문자열을 넣어 요청하고, 응답 HTML에 미인코딩으로 반사되는지 검사하라.
+방법은 자유 (curl이면 충분, Playwright 불필요). 프로브 문자열과 응답 발췌를 증거로 인용한다.
+이는 반사 탐지일 뿐 익스플로잇 검증이 아님 — 탐지 시 severity는 medium 이하로 보고 (스키마 어휘: critical/high/medium/low).
 
 ### Step 7: HTTPS 강제 리다이렉트 확인
 

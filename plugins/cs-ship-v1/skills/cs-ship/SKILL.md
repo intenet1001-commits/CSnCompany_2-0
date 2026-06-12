@@ -49,9 +49,10 @@ done
 # 변경된 파일 목록 수집
 git diff --name-only 2>/dev/null || git diff --name-only HEAD 2>/dev/null
 REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
-PLAN_DOC=$(python3 "$REGISTRY" find PLAN.md 2>/dev/null || echo "")
+# find-meta: 경로 + age_days + fresh|stale (+ 이전 gate verdict/round) — R7
+PLAN_META=$(python3 "$REGISTRY" find-meta PLAN.md 2>/dev/null || echo "")
 CLARIFY_DOC=$(python3 "$REGISTRY" find CLARIFY.md 2>/dev/null || echo "")
-[ -n "$PLAN_DOC" ] && echo "Found PLAN.md: $PLAN_DOC" || echo "No PLAN.md"
+[ -n "$PLAN_META" ] && [ "$PLAN_META" != "null" ] && echo "PLAN.md meta: $PLAN_META" || echo "No PLAN.md"
 
 # PLAN.md 및 CLARIFY.md 탐색 (현재 디렉토리 + .cs-artifacts/)
 for loc in "$PWD" "$PWD/.cs-artifacts"; do
@@ -64,6 +65,12 @@ echo "Ship target: $SHIP_TARGET (FIX_MODE: $FIX_MODE)"
 
 탐색 결과를 ship-lead에게 전달합니다.
 PLAN.md가 없으면 ship-lead가 git log 역추론 모드로 전환합니다.
+
+**Staleness 가드 (R7)**: `PLAN_META`의 `freshness`가 `stale`이면(기본 7일,
+`CS_ARTIFACT_STALE_DAYS`로 조정) 그대로 소비하지 말고 AskUserQuestion으로
+1회 확인한다 — "PLAN.md가 N일 전 것입니다. 이 스펙 기준으로 검증할까요,
+git log 역추론 모드로 전환할까요?" 이전 gate 기록(`verdict`/`round`/`blocking_items`)이
+있으면 ship-lead에게 전달하여 GATE-LOOP 재검증 시 blocking item만 재확인하게 한다.
 
 ### Phase 0 완료 후 시작 안내 출력
 

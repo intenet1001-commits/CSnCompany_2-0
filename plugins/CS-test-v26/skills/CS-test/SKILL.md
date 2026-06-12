@@ -5,7 +5,7 @@ description: |
   15-agent AI Teams web testing skill. Use when user types "/CS-test", "웹 테스트", "playwright test",
   "테스트 실행", "사이트 테스트", or wants comprehensive web app testing covering security, SEO,
   performance, DB, touch interaction, and image optimization with AI agent teams.
-version: 1.0.0
+version: 26.0.0
 ---
 
 # Playwright Test v5 - AI Agent Teams 기반 종합 웹 테스트
@@ -83,7 +83,7 @@ fi
 ### 사전 준비
 
 1. URL 인자 확인. 없으면 사용자에게 요청.
-2. **서빙 대상 검증 (localhost/127.0.0.1 URL인 경우만)**: `lsof -ti :[포트]` + `ps aux | grep -E "vite|next|node"` 로 해당 포트가 실제 dev 서버인지, 구버전 production build인지 확인. 불일치 의심 시(예: 포트는 살아있는데 dev 프로세스가 다른 포트) 사용자에게 1회 확인. (노하우 #23)
+2. **서빙 대상 검증 (localhost/127.0.0.1 URL인 경우만)**: 해당 포트가 실제 dev 서버를 서빙 중인지, 구버전 production build인지 확인 — 방법 자유 (예: lsof, ps). 불일치 의심 시(예: 포트는 살아있는데 dev 프로세스가 다른 포트) 사용자에게 1회 확인. (노하우 #23)
 3. **성공 기준 1문장 출력 (필수)**: 사용자가 기준·중점 라우트·인증 정보를 제공했으면 그대로 사용, 없으면 기본값을 추론해 출력하고 진행 — 예: "성공 기준: P0 에러 0건, 성능 점수 70+, SEO 등급 B 이상". 원격 URL이면 추가 질문 없이 기본 기준으로 시작한다(불필요한 인터랙션 방지). (노하우 #21)
 4. 결과 디렉토리 생성:
 

@@ -108,10 +108,11 @@ Clean Architecture + TDD에서 권장하는 구현 순서:
 
 ### Step 1: 기능 분석
 
-입력된 기능 설명에서:
+입력된 기능 설명과 CONTEXT(코드베이스 서베이) 블록에서:
 - 구현할 컴포넌트 목록 파악 (Value Object, Entity, Use Case 등)
 - 각 컴포넌트의 의존 관계 파악
 - 구현 순서 결정 (의존성 없는 것부터)
+- CONTEXT의 `SRC_LAYOUT`/`RELATED_FILES`에서 기존 디렉토리·테스트 컨벤션 파악
 
 ### Step 2: 레이어별 체크리스트 생성
 
@@ -147,9 +148,19 @@ Clean Architecture + TDD에서 권장하는 구현 순서:
 
 ## 출력 형식
 
-> 📌 **경로 규칙**: 아래 템플릿의 `src/.../*.test.ts` 경로·확장자·테스트 네이밍은 **CONTEXT가 greenfield/TypeScript일 때만 사용하는 TypeScript 기본값**입니다. 그 외에는 프롬프트로 전달받은 CONTEXT의 `SRC_LAYOUT`과 `TEST_FILE_PATTERN`에서 경로를 도출하세요.
+> 📌 **경로·구현 순서 도출 규칙 (operative)**: 구현 순서와 파일 레이아웃은 프롬프트로 전달받은 **CONTEXT(코드베이스 서베이) 블록**의 `SRC_LAYOUT`, `TEST_FILE_PATTERN`, `RELATED_FILES`, `CRITICAL_FILES`에서 도출한다. 기존 코드베이스가 있으면 그 컨벤션(디렉토리 구조, 테스트 네이밍, 빌드/테스트 명령)을 그대로 따른다. **CONTEXT가 greenfield + TypeScript일 때만** 아래 부록의 기본 골격을 사용한다.
 
-`[OUTPUT_DIR]/implementation-checklist.md` 파일을 아래 구조로 작성합니다:
+`[OUTPUT_DIR]/implementation-checklist.md`에는 다음 섹션이 반드시 포함된다 (표현·세부 형식은 자유):
+
+1. **환경 설정** — 프로젝트 초기화 / 테스트 프레임워크 / 폴더 구조 체크박스. 기존 프로젝트면 누락된 설정만.
+2. **Phase별 구현 체크리스트** — Inside-Out 순서(VO → Entity → Repository Interface+Fake → Domain Service → Use Case → Repository 구현 → Controller → DI/Infra). 각 구현 단위마다 🔴 RED / 🟢 GREEN / 🔵 RFCT 체크박스, 테스트 파일 경로는 CONTEXT의 `TEST_FILE_PATTERN` 적용.
+3. **Critical Files / 충돌 위험** — CONTEXT의 `CRITICAL_FILES` 기반 표(파일 / 위험 / 완화 전략). 큰 파일은 신규 파일 + 작은 import 라인으로 분리 변경 검토. 푸시 전 원격과의 커밋 차이 확인 항목 포함(5커밋 이상 차이면 merge 우선 검토 — 확인 방법은 자유). greenfield면 "해당 없음" 표기.
+4. **최종 Definition of Done** — 기능 완료(전 테스트 통과, 핵심 비즈니스 로직 커버리지 ≥ 90%, 비즈니스 규칙 예외 케이스 테스트 존재, 도메인 이벤트 발행 검증, 환경변수/README 문서화) + 코드 품질(의존성 규칙 준수, Repository 인터페이스 접근, 하드코딩 없음, 명확한 에러 메시지).
+5. **빠른 시작 명령어** — CONTEXT에서 감지한 실제 테스트 명령 기준 (watch / 단일 파일 / coverage).
+
+### 부록: greenfield TypeScript 기본 골격 (예시)
+
+> ⚠️ **CONTEXT가 greenfield + TypeScript 프로젝트일 때만 기본값으로 사용.** 그 외에는 위 도출 규칙을 따르고 이 부록은 무시한다.
 
 ```markdown
 # 구현 체크리스트: [기능명]

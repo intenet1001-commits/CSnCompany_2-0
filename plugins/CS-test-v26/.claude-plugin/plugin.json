@@ -1,6 +1,6 @@
 {
   "name": "CS-test",
-  "version": "1.0.0",
+  "version": "26.0.0",
   "description": "15-agent AI Teams web testing - security, SEO, performance, DB, touch, image optimization",
   "author": {
     "name": "intenet1001-commits",
@@ -8,5 +8,15 @@
   },
   "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
   "license": "MIT",
-  "keywords": ["playwright", "testing", "agent-teams", "security", "seo", "performance", "e2e", "cross-platform", "windows"]
+  "keywords": [
+    "playwright",
+    "testing",
+    "agent-teams",
+    "security",
+    "seo",
+    "performance",
+    "e2e",
+    "cross-platform",
+    "windows"
+  ]
 }

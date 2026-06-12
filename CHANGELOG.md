@@ -1,5 +1,21 @@
 # Changelog
 
+## [session] 2026-06-12 — Loop Engineering P2 (R7~R9) — Python 레일 + 탈처방 + 라우팅 단일 소스화
+
+### Added
+- `plugins/shared/scripts/routing_sync.py`: marketplace.json ↔ 라우팅 규칙 drift 탐지(`check`) + plugins/CLAUDE.md 플러그인 인벤토리 자동 생성(`write`)
+- `pre_pass.py learn-append`: 모든 플러그인이 구조화 학습 후보를 BTW 저장소에 캡처 (근거 없으면 tactical 상한)
+- `pre_pass.py version-check`: VERSION == plugin.json == SKILL frontmatter 단언 (숫자 정규화 1==1.0.0) — cs-end Phase 4 §1.5 + version-up STEP 4b push 차단 게이트로 wiring
+- `artifact_registry.py find-meta / verdict`: 아티팩트 신선도(fresh/stale/missing) + GATE-LOOP verdict/round/blocking_items 세션 간 기록·복원; cs-ship Phase 0 staleness 가드
+
+### Changed
+- **R8 탈처방 스윕** (5개 플러그인, 순감 약 -660줄): 리터럴 grep/bash/JS 탐지 레시피 → 목표+증거 진술, 이모지 박스 템플릿 → 필수 필드 리스트, cs-ceo infer_timing() 키워드 매칭 → 판단 지시. 수치 임계값/루브릭/JSON 스키마/측정용 스크립트는 전부 보존
+- **R9 단일 소스화**: pre_pass.py 도메인 테이블이 marketplace.json에서 런타임 파생; plugin-versions도 동일; latest_plugin 숫자 정렬 (v9>v26 사전순 버그 수정)
+- ceo-preflight에 session_digest 동봉 (라우팅이 메모리 소비); plugins.ceo 키 추가 + ceo.md LATEST_CEO 잘못된 'experiencing' 키 조회 수정 + PREPASS_RUNNER 경로 누락(/plugins/) 수정
+- abspath_check.py: 라인 중간 `#` 가 라인 전체를 스킵시키던 버그 수정 (전체 라인 주석만 스킵)
+- 버전 메타데이터 7개 플러그인 동기화 (CS-test 1.0.0→26.0.0 등)
+- 검증: 적대적 verifier 2개 모두 PASS (발견된 3건 — find-meta 파일 의존, verdict 인자 검증, ceo 경로 — 즉시 수정)
+
 ## [session] 2026-06-12 — Loop Engineering 구조조정 (R1~R6)
 
 ### Added

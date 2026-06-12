@@ -163,6 +163,8 @@ interface [이름] {
 
 ## 출력 형식
 
+> 📌 **경로 규칙**: "레이어 구조"의 디렉토리 트리는 프롬프트로 전달받은 CONTEXT의 `SRC_LAYOUT`에서 도출한다. 아래 템플릿의 `src/...` 트리와 `.ts` 확장자는 **CONTEXT가 greenfield + TypeScript일 때만 사용하는 기본값 예시**다.
+
 `[OUTPUT_DIR]/architecture.md` 파일을 아래 구조로 작성합니다:
 
 ```markdown

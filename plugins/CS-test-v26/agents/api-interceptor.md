@@ -69,17 +69,9 @@ ToolSearch(query: "+playwright network console navigate evaluate click")
 
 ### Step 4: [v4 강화] API 엔드포인트 검증
 
-발견된 API 엔드포인트에 GET 요청:
-
-```bash
-BASE_URL="[page-map의 url]"
-
-# 발견된 API 라우트 테스트
-for endpoint in /api/comments /api/restaurants /api/attractions; do
-  RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL$endpoint" 2>/dev/null)
-  echo "$endpoint → HTTP $RESPONSE"
-done
-```
+네트워크 트래픽(Step 2-3)과 page-map에서 발견한 실제 API 엔드포인트 각각에 GET 요청을 보내 HTTP 상태를 확인하라.
+방법은 자유 (예: curl). 각 엔드포인트의 경로 + 실제 응답 코드를 증거로 인용한다.
+(엔드포인트를 임의로 가정하지 말 것 — 실제 발견된 라우트만 검증)
 
 ### Step 5: HTTP 상태 코드 검증
 

@@ -13,6 +13,8 @@ Sub-commands
   resolve-partner <name>      → dynamic SKILL.md path lookup
   plugin-versions             → latest dir for every CS plugin
   session-digest [FLAGS...]   → session pre-pass: domain usage, BTW pending, knowhow index, stale entries
+  learn-append [FLAGS...]     → append a structured learning candidate to the BTW store
+  version-check <plugin_dir>  → assert VERSION == plugin.json == SKILL frontmatter
 """
 
 import datetime
@@ -30,8 +32,40 @@ BASE = MARKETPLACE / "plugins"
 
 # ── low-level helpers ─────────────────────────────────────────────────────────
 
+def _marketplace_plugins() -> list[dict]:
+    """marketplace.json이 플러그인 이름/경로/설명의 단일 출처 (R9)."""
+    mj = MARKETPLACE / ".claude-plugin" / "marketplace.json"
+    try:
+        return json.loads(mj.read_text(encoding="utf-8")).get("plugins", [])
+    except Exception:
+        return []
+
+
+# 도메인 short-key 별칭 (게이트/버전업에서 쓰는 축약명만 등록)
+DOMAIN_ALIASES = {
+    "CS-test": "test", "CS-plan": "plan", "CS-codebase-review": "review",
+    "cs-design": "design", "cs-ceo": "ceo", "cs-clarify": "clarify",
+    "cs-ship": "ship", "cs-smart-run": "smart-run", "cs-experiencing": "experiencing",
+    "cs-end": "cs-end",
+}
+
+
+def _marketplace_domains() -> list[tuple]:
+    """[(plugin_name, source_path, alias)] — 별칭 등록된 도메인만."""
+    out = []
+    for p in _marketplace_plugins():
+        alias = DOMAIN_ALIASES.get(p.get("name", ""))
+        if alias:
+            out.append((p["name"], p.get("source", ""), alias))
+    return out
+
+
 def latest_plugin(prefix: str) -> str:
-    dirs = sorted(BASE.glob(f"{prefix}v*"), key=lambda p: p.name)
+    def vnum(p: Path) -> int:
+        m = re.search(r"v(\d+)$", p.name)
+        return int(m.group(1)) if m else 0
+    # 숫자 정렬 필수: 사전순이면 v9 > v26 으로 잘못 정렬됨
+    dirs = sorted(BASE.glob(f"{prefix}v*"), key=vnum)
     if not dirs:
         # prefix without trailing dash (e.g. "cs-smart-run")
         exact = BASE / prefix
@@ -99,6 +133,7 @@ def cmd_ceo_preflight() -> dict:
         "smartrun":     latest_plugin("cs-smart-run"),
         "clarify":      latest_plugin("cs-clarify-"),
         "experiencing": latest_plugin("cs-experiencing-"),
+        "ceo":          latest_plugin("cs-ceo-"),
     }
 
     # superpowers
@@ -184,7 +219,25 @@ def cmd_ceo_preflight() -> dict:
             "context7": c7,
         },
         "context7_installed": bool(c7 and Path(c7).exists()),
+        # 라우팅이 메모리를 소비하도록 세션 다이제스트를 동봉 (R7)
+        "session_digest": _compact_digest(plugins.get("experiencing", "")),
     }
+
+
+def _compact_digest(experiencing_dir: str) -> dict:
+    """ceo-preflight에 동봉하는 경량 다이제스트 — 전체 본문 없이 인덱스/카운트만."""
+    skill = f"{experiencing_dir}/skills/experiencing/SKILL.md" if experiencing_dir else ""
+    try:
+        d = cmd_session_digest(["--skill", skill] if skill else [])
+        return {
+            "btw_count":     d.get("btw_count", 0),
+            "btw_pending":   d.get("btw_pending", [])[:5],
+            "domains_used":  d.get("domains_used", []),
+            "knowhow_count": len(d.get("skill_snapshot", [])),
+            "stale_count":   len(d.get("stale_entries", [])),
+        }
+    except Exception as e:
+        return {"error": str(e)[:120]}
 
 
 def cmd_end_preflight(argv: list) -> dict:
@@ -327,14 +380,10 @@ def cmd_session_digest(argv: list) -> dict:
             pass
 
     # ── 3. Domain usage (GRU Update Gate) — git diff heuristic ───────────────
+    # 패턴은 marketplace.json에서 파생 (R9 단일 출처) — 하드코딩 테이블 금지
     DOMAIN_PATTERNS: dict[str, list[str]] = {
-        "test":   ["CS-test-v", "/CS-test/"],
-        "plan":   ["CS-plan-v", "/CS-plan/"],
-        "review": ["CS-codebase-review-v", "/CS-codebase-review/"],
-        "design": ["cs-design-v", "/cs-design/"],
-        "ceo":    ["cs-ceo-v", "/cs-ceo/"],
-        "clarify":["cs-clarify-v", "/cs-clarify/"],
-        "ship":   ["cs-ship-v", "/cs-ship/"],
+        alias: [f"{re.sub(r'-v\\d+$', '-v', Path(src).name)}", f"/{name}/"]
+        for name, src, alias in _marketplace_domains()
     }
     marketplace_dir = str(MARKETPLACE)
     changed_files = _git(marketplace_dir, "diff", "--name-only", "HEAD~5..HEAD")
@@ -532,19 +581,108 @@ def cmd_resolve_partner(argv: list) -> dict:
     return find_partner_info(argv[0])
 
 
+def cmd_learn_append(argv: list) -> dict:
+    """learn-append --plugin X --lesson "..." [--evidence "..."] [--tier tactical|principle]
+
+    어떤 플러그인이든 구조화된 학습 후보를 BTW 저장소에 추가한다 (R7).
+    승격은 /cs-end Learning Gate가 담당 — 여기서는 캡처만.
+    """
+    fields = {"plugin": "", "lesson": "", "evidence": "", "tier": "tactical"}
+    btw_file = HOME / ".claude" / ".experiencing-btw.json"
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        for key in fields:
+            if a == f"--{key}" and i + 1 < len(argv):
+                i += 1
+                fields[key] = argv[i]
+            elif a.startswith(f"--{key}="):
+                fields[key] = a[len(f"--{key}=") :]
+        if a == "--btw-file" and i + 1 < len(argv):
+            i += 1
+            btw_file = Path(argv[i])
+        i += 1
+    if not fields["plugin"] or not fields["lesson"]:
+        return {"error": "learn-append requires --plugin and --lesson"}
+    if not fields["evidence"]:
+        # LOOP-PROTOCOL [a]: 근거 없는 학습은 tactical 상한
+        fields["tier"] = "tactical"
+    items = []
+    if btw_file.is_file():
+        try:
+            items = json.loads(btw_file.read_text(encoding="utf-8"))
+        except Exception:
+            items = []
+    entry = {
+        "id": f"btw-{datetime.date.today().isoformat()}-{len(items) + 1}",
+        "idea": f"[{fields['plugin']}] {fields['lesson']}",
+        "evidence": fields["evidence"],
+        "tier": fields["tier"],
+        "date": datetime.date.today().isoformat(),
+        "status": "pending",
+    }
+    items.append(entry)
+    btw_file.parent.mkdir(parents=True, exist_ok=True)
+    btw_file.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"appended": entry, "total_pending": sum(1 for x in items if x.get("status") == "pending")}
+
+
+def cmd_version_check(argv: list) -> dict:
+    """version-check <plugin_dir> — VERSION == plugin.json == SKILL frontmatter 단언 (R7).
+
+    불일치 시 ok=false — version-up STEP 4b는 이 결과로 push를 중단해야 한다.
+    """
+    if not argv:
+        return {"error": "version-check requires a plugin directory"}
+    root = Path(argv[0]).expanduser()
+    if not root.is_dir():
+        return {"error": f"not a directory: {root}", "ok": False}
+
+    sources: dict[str, str] = {}
+    vf = root / "VERSION"
+    if vf.is_file():
+        sources["VERSION"] = vf.read_text(encoding="utf-8").strip()
+    pj = root / ".claude-plugin" / "plugin.json"
+    if pj.is_file():
+        try:
+            sources["plugin.json"] = str(json.loads(pj.read_text(encoding="utf-8")).get("version", ""))
+        except Exception as e:
+            return {"error": f"plugin.json parse failure: {e}", "ok": False}
+    fm_re = re.compile(r"^version:\s*[\"']?([\w.\-]+)[\"']?\s*$", re.MULTILINE)
+    for sk in sorted(root.glob("skills/*/SKILL.md")):
+        head = sk.read_text(encoding="utf-8")[:2000]
+        m = fm_re.search(head)
+        if m:
+            sources[str(sk.relative_to(root))] = m.group(1)
+
+    def norm(v: str) -> tuple:
+        # "1" == "1.0.0": 숫자 튜플로 정규화 후 후행 0 제거
+        parts = [int(x) for x in re.findall(r"\d+", v)] or [0]
+        while len(parts) > 1 and parts[-1] == 0:
+            parts.pop()
+        return tuple(parts)
+
+    values = {norm(v) for v in sources.values()}
+    return {
+        "plugin": root.name,
+        "sources": sources,
+        "ok": len(values) <= 1,
+        "mismatch": sorted(set(sources.values())) if len(values) > 1 else [],
+    }
+
+
 def cmd_plugin_versions() -> dict:
-    prefixes = [
-        ("CS-test",             "CS-test-"),
-        ("CS-plan",             "CS-plan-"),
-        ("CS-codebase-review",  "CS-codebase-review-"),
-        ("cs-design",           "cs-design-"),
-        ("cs-smart-run",        "cs-smart-run"),
-        ("cs-clarify",          "cs-clarify-"),
-        ("cs-experiencing",     "cs-experiencing-"),
-        ("cs-end",              "cs-end-"),
-        ("cs-ceo",              "cs-ceo-"),
-    ]
-    return {name: latest_plugin(prefix) for name, prefix in prefixes}
+    # marketplace.json 파생 (R9) — 등록된 source 디렉토리를 우선 신뢰하고,
+    # 존재하지 않으면 latest_plugin() 디렉토리 스캔으로 폴백
+    out: dict[str, str] = {}
+    for name, src, _alias in _marketplace_domains():
+        p = MARKETPLACE / src.lstrip("./") if src else None
+        if p and p.is_dir():
+            out[name] = str(p)
+        else:
+            prefix = re.sub(r"v\d+$", "", Path(src or name).name)
+            out[name] = latest_plugin(prefix)
+    return out
 
 
 # ── dispatch ──────────────────────────────────────────────────────────────────
@@ -556,6 +694,8 @@ COMMANDS = {
     "resolve-partner": lambda rest: cmd_resolve_partner(rest),
     "plugin-versions": lambda rest: cmd_plugin_versions(),
     "session-digest":  lambda rest: cmd_session_digest(rest),
+    "learn-append":    lambda rest: cmd_learn_append(rest),
+    "version-check":   lambda rest: cmd_version_check(rest),
 }
 
 

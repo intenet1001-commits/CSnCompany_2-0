@@ -56,10 +56,7 @@ LATEST_CEO=$(ls -d "$BASE/cs-ceo-v"* 2>/dev/null | sort -V | tail -1)
 - 파싱 결과: `partners="executor,gstack"`, `task="이 기능 구현 후 시트에 정리"`
 - CEO 전달 포맷: `with executor,gstack: 이 기능 구현 후 시트에 정리`
 
-파싱 실패(with 키워드 없음, 목표 없음) → AskUserQuestion으로 재확인:
-```
-"파트너와 목표를 확인해 주세요.\n예시: with executor 이 기능 구현 위임해줘\n      with debugger,gstack 버그 분석 후 시트 정리"
-```
+파싱 실패(with 키워드 없음, 목표 없음) → AskUserQuestion 1회로 파트너와 목표를 재확인한다. 문구는 자유 — 올바른 입력 형식 예시(`with [파트너] [목표]`)를 함께 보여줄 것.
 
 ### Step 3: CEO 에이전트 스폰
 

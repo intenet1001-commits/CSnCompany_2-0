@@ -55,81 +55,32 @@ tools:
 
 ### Step 1: 소스코드 터치 핸들러 스캔
 
-```bash
-echo "=== onTouchStart/onTouchEnd 핸들러 탐지 ==="
-grep -rn "onTouchStart\|onTouchEnd\|onTouchMove" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | head -30
-
-echo ""
-echo "=== touch-action CSS 사용 여부 ==="
-grep -rn "touchAction\|touch-action" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | head -20
-```
+소스코드에서 터치 핸들러(onTouchStart/onTouchEnd/onTouchMove)와 touch-action CSS 사용 현황을 파악하라.
+탐지 방법은 자유. 발견 위치는 file:line으로 인용한다.
 
 ### Step 2: touch-action 미설정 탐지 (Critical Bug)
 
-```bash
-echo "=== touch-action 누락 탐지 ==="
-# onTouchStart가 있는 파일에서 touchAction 설정 여부 확인
-for file in $(grep -rl "onTouchStart" src/ components/ app/ 2>/dev/null); do
-  has_touch_action=$(grep -c "touchAction\|touch-action" "$file" 2>/dev/null || echo 0)
-  handler_count=$(grep -c "onTouchStart" "$file" 2>/dev/null || echo 0)
-  if [ "$has_touch_action" -eq 0 ] && [ "$handler_count" -gt 0 ]; then
-    echo "❌ $file: onTouchStart 있지만 touchAction CSS 없음 → 스와이프 동작 안 할 수 있음"
-    echo "   수정: 스와이프 컨테이너에 style={{ touchAction: 'pan-y' }} 추가"
-  else
-    echo "✅ $file: touchAction 설정됨"
-  fi
-done
-```
+터치 핸들러가 있는데 같은 컴포넌트에 `touch-action`/`touchAction` 설정이 없는 파일을 탐지하라.
+탐지 방법은 자유. 각 발견에 file:line 증거 + 수정 제안(예: 스와이프 컨테이너에 `style={{ touchAction: 'pan-y' }}`)을 포함한다.
 
 ### Step 3: React key prop 검증 (Carousel/Modal)
 
-```bash
-echo "=== React Carousel/Modal key prop 검증 ==="
-# state에 따라 변하는 img src 패턴 탐지
-grep -rn "key={.*Page\|key={.*Index\|key={.*page\|key={.*index" src/ components/ app/ 2>/dev/null | head -10
-
-# img src가 state 변수를 사용하는데 key 없는 패턴
-echo ""
-echo "=== 동적 src img에 key 누락 탐지 ==="
-for file in $(grep -rl "<img" src/ components/ app/ 2>/dev/null); do
-  # src에 변수/template literal 사용
-  dynamic_img=$(grep -c 'src={`\|src={[a-z]' "$file" 2>/dev/null || echo 0)
-  has_key=$(grep -c "key={" "$file" 2>/dev/null || echo 0)
-  if [ "$dynamic_img" -gt 0 ] && [ "$has_key" -eq 0 ]; then
-    echo "⚠️  $file: 동적 src img에 key prop 없음 → React 이미지 교체 시 DOM 재사용 가능"
-    echo "   수정: <img key={pageId} src={...} />"
-  fi
-done
-```
+state에 따라 src가 바뀌는 동적 `<img>`에 `key` prop이 없는 패턴을 탐지하라 (버그 2 — DOM 재사용으로 이미지 교체 실패).
+탐지 방법은 자유. file:line 증거 + 수정 제안(`<img key={pageId} src={...} />`)을 포함한다.
 
 ### Step 4: viewport dvh 사용 확인
 
-```bash
-echo "=== 100vh vs 100dvh 사용 현황 ==="
-vh_count=$(grep -rn "100vh\b" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | wc -l)
-dvh_count=$(grep -rn "100dvh\b" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | wc -l)
-echo "100vh 사용: ${vh_count}개"
-echo "100dvh 사용: ${dvh_count}개"
-
-if [ "$vh_count" -gt 0 ]; then
-  echo "⚠️  100vh 발견 - iOS Safari 주소창 높이 포함 → 100dvh 권장"
-  grep -rn "100vh\b" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | head -5
-fi
-```
+`100vh` 사용처와 `100dvh` 사용처를 각각 집계하라. `100vh` 발견 시 file:line 증거와 함께
+iOS Safari 주소창 이슈(버그 4)로 인한 `100dvh` 권장을 보고한다.
 
 ### Step 5: 스와이프 임계값 검증
 
-```bash
-echo "=== 스와이프 임계값 분석 ==="
-grep -rn "Math.abs(dx)\|Math.abs(dy)\|clientX\|clientY" src/ components/ app/ 2>/dev/null | grep -v "node_modules" | head -20
+스와이프 핸들러 구현부의 임계값(dx/dy/dt 조건)을 찾아 아래 권장 패턴과 비교 평가하라. 증거는 file:line 인용.
 
-# 권장 패턴 확인
-echo ""
-echo "--- 권장 패턴 (MWC 세션 검증됨) ---"
-echo "임계값: dx > 40px (60px 너무 엄격), dt < 500ms"
-echo "조건: Math.abs(dx) > Math.abs(dy) (수평 > 수직)"
-echo "touch-action: pan-y (브라우저 수직 스크롤 허용, 수평 핸들러 활성화)"
-```
+**권장 패턴 (MWC 세션 검증됨)**:
+- 임계값: dx > 40px (60px는 너무 엄격), dt < 500ms
+- 조건: Math.abs(dx) > Math.abs(dy) (수평 > 수직)
+- touch-action: pan-y (브라우저 수직 스크롤 허용, 수평 핸들러 활성화)
 
 ### Step 6: 실제 스와이프 동작 테스트 (Playwright)
 

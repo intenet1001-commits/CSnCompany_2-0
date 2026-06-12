@@ -109,14 +109,7 @@ if [ -n "$EXPLICIT_DOMAINS" ]; then
 fi
 ```
 
-**Digest 요약 출력** (디버그용):
-```
-🔍 Session Digest:
-   사용 도메인: [DOMAINS_USED 또는 "탐지 없음 → all fallback"]
-   노하우 항목: [SKILL_SNAPSHOT 항목 수]개
-   BTW pending: [BTW_COUNT]개
-   오래된 항목: [STALE_COUNT]개
-```
+**Digest 요약 출력** (디버그용) — 출력에 반드시 포함: 사용 도메인(없으면 "탐지 없음" 명시), 노하우 항목 수, BTW pending 개수, 오래된 항목 수. 포맷은 자유.
 
 ## Phase 1 — 4-Agent 병렬 분석 (Shared Digest 주입)
 
@@ -256,12 +249,7 @@ CS_V7_OK=true
      && echo "graphify 완료" || echo "graphify 스킵 (변경 없음)"
    ```
 
-4. **출력**:
-
-   ```
-   📚 CS_V7 저장: [N]개 principle → CS_V7/raw/cs-session-YYYY-MM-DD-*.md
-      다음 세션에서 /llm-wiki ingest 실행 시 wiki로 컴파일됩니다.
-   ```
+4. **출력** — 출력에 반드시 포함: 저장된 principle 개수, 저장 경로(파일명), 다음 ingest에서 wiki로 컴파일된다는 안내. 포맷은 자유.
 
 5. **Phase 6 NEXT 필드에 힌트 추가** (신규 파일이 저장된 경우):
 
@@ -286,23 +274,9 @@ INDEX.md가 존재하면 open 상태 노트를 집계합니다:
 OPEN_COUNT=$(grep -c "| open |" "$INDEX" 2>/dev/null || echo 0)
 ```
 
-**open 노트가 1개 이상이면** 다음을 출력합니다:
+**open 노트가 1개 이상이면** 출력에 반드시 포함: open 노트 개수, 확인 명령(`/cs-error-notes list --open`), 최신 open 노트의 ID+제목. 이번 세션에서 해결한 에러가 있어 보이면 `/cs-error-notes resolve ERR-xxx` 추천도 포함한다.
 
-```
-📝 Error Notes 점검:
-   미해결 에러노트 [OPEN_COUNT]개 — /cs-error-notes list --open 으로 확인
-   최근 open: [최신 open 노트 ID + 제목 1줄]
-```
-
-**open 노트가 0개이면** 한 줄만 출력합니다:
-```
-📝 Error Notes: 미해결 없음 ✅
-```
-
-이번 세션에서 해결한 에러가 있다면 `resolve` 추천:
-```
-   💡 이번 세션에서 해결한 에러가 있다면: /cs-error-notes resolve ERR-xxx
-```
+**open 노트가 0개이면** "미해결 없음" 취지의 한 줄만 출력한다.
 
 ---
 
@@ -312,24 +286,14 @@ OPEN_COUNT=$(grep -c "| open |" "$INDEX" 2>/dev/null || echo 0)
 - 상황 필드에 "에러", "오류", "실패", "error", "bug", "crash" 포함
 - 발견 필드에 "해결", "수정", "fix", "resolved" + 원인 분석 포함
 
-감지 시 제안:
-
-```
-AskUserQuestion(
-  question: "에러→해결 시퀀스 감지됨. 에러노트로 저장할까요?",
-  options: [
-    "저장 — ~/.claude/error-notes/ 에 기록",
-    "건너뛰기 — 이번 세션은 생략"
-  ]
-)
-```
+감지 시 AskUserQuestion으로 저장 여부를 확인한다 — 의도: 에러→해결 시퀀스가 감지되었음을 알리고 저장할지 묻는다. 옵션은 (1) 저장 (`~/.claude/error-notes/`에 기록), (2) 건너뛰기. 문구는 자유.
 
 저장 선택 시:
 - learning-extractor 결과를 5-필드 포맷으로 변환 (상황/문제점/시도/원인/해결점)
 - ERR-YYYY-MM-DD-NNN ID 자동 부여
 - `~/.claude/error-notes/` 에 Write, INDEX.md 갱신
 - Learning Gate PASS 항목에 `<!-- error-ref: [ID] -->` 태그 추가
-- 출력: `📝 에러노트 저장: [ID]`
+- 저장 완료 출력에 반드시 포함: 부여된 노트 ID
 
 미감지 → 조용히 Phase 2.5로 진행.
 
@@ -339,13 +303,7 @@ AskUserQuestion(
 
 **`--no-decay-check` 플래그가 있거나 `STALE_COUNT == 0`이면 이 Phase를 조용히 스킵합니다.**
 
-`STALE_ENTRIES`에 항목이 있을 때만 아래를 출력합니다:
-
-```
-🕰️  Forget Gate — 오래된 tactical 노하우 감지 (30일+ 경과):
-   #[n]. [title] ([date]) — [age_days]일 경과
-   → 아카이빙 권장 (자동 삭제 아님, 검토 필요)
-```
+`STALE_ENTRIES`에 항목이 있을 때만 출력한다 — 출력에 반드시 포함: 30일+ 경과 tactical 항목 각각의 번호/제목/날짜/경과일, 그리고 "아카이빙 권장이며 자동 삭제가 아님"이라는 안내. 포맷은 자유.
 
 각 stale 항목에 대해:
 1. SKILL.md에서 해당 항목의 전체 내용 읽기
@@ -356,10 +314,7 @@ AskUserQuestion(
 <!-- deprecated: [이유] — [YYYY-MM-DD] -->
 ```
 
-**Decay 완료 요약 출력:**
-```
-Decay 리뷰: [N]개 검토, [M]개 deprecated 주석 추가
-```
+**Decay 완료 요약** — 출력에 반드시 포함: 검토한 항목 수, deprecated 주석을 추가한 항목 수.
 
 ### 인용 기반 우선순위 (Forget Gate 보강)
 
@@ -414,36 +369,18 @@ Phase 2.6에서 적용한 각 PATCH에 대해:
 
 **Fallback 규칙 (두 경우를 구분한다 — 묵시적 전체 버전업 금지):**
 
-(a) **DIGEST 유효 + domains_used 비어 있음** → 변경된 플러그인 목록을 출력하고 AskUserQuestion으로 확인:
-
-```
-AskUserQuestion(
-  question: "도메인 탐지 없음 — 변경된 전체 플러그인 [목록]을 버전업할까요?",
-  options: [
-    "전체 진행 — 변경된 플러그인 모두 버전업",
-    "도메인 수동 지정 — --domains 값 입력",
-    "버전업 스킵 — 이번 세션은 버전업 없이 진행"
-  ]
-)
-```
+(a) **DIGEST 유효 + domains_used 비어 있음** → 변경된 플러그인 목록을 출력하고 AskUserQuestion으로 확인한다 — 의도: 도메인 탐지가 없었음을 알리고 변경된 플러그인을 어떻게 처리할지 묻는다. 옵션은 (1) 변경된 플러그인 전체 버전업, (2) `--domains` 값으로 수동 지정, (3) 이번 세션 버전업 스킵. 문구는 자유.
 
 (b) **DIGEST_FAILED=true** (Phase 0.5 검증 실패) → 자동 fallback 금지. `--domains` 명시 또는 사용자의 명시적 확인 없이는 어떤 버전업도 하지 않는다.
 
-**출력 포맷:**
-```
-📦 버전업 스코프:
-   ✅ CS-test    — 이번 세션 사용 → 버전업 진행
-   ✅ cs-design  — 이번 세션 사용 → 버전업 진행
-   ⏭️ CS-plan   — 이번 세션 미사용 → 스킵
-   ⏭️ CS-codebase-review — 이번 세션 미사용 → 스킵
-```
+**버전업 스코프 출력** — 출력에 반드시 포함: 변경 탐지된 각 플러그인에 대해 버전업 진행/스킵 여부와 그 사유(이번 세션 사용/미사용). 포맷은 자유.
 
 이후 `$SKILL`의 version-up 프로토콜에 따라 선택된 도메인만 버전업을 진행합니다 (VERSION 파일 + plugin.json bump).
 
 ## Phase 4 — Git commit + push (atomic)
 
 **Skip guard (이 Phase의 첫 판정):** `AUTO_NO_PUSH=true` 또는 `--no-push` 또는 `--learning-only`이면
-`⏭️ Phase 4 SKIPPED (no-push 모드)`를 출력하고 커밋 없이 Phase 5로 진행한다 (상태: SKIPPED).
+Phase 4를 스킵한다고 한 줄로 알리고(사유: no-push 모드) 커밋 없이 Phase 5로 진행한다 (상태: SKIPPED).
 
 ### 1. 스테이징 스코프 (마켓플레이스 레포만, 명시적 경로만)
 
@@ -462,6 +399,18 @@ git -C "$MARKETPLACE_DIR" add "$LATEST_EXP/skills/experiencing/SKILL.md"
 ```
 
 이 경로들 밖의 untracked 파일(`.claude/`, `__pycache__/`, `.env` 등)은 **절대 스테이징하지 않는다.**
+
+### 1.5 라우팅/버전 정합성 게이트 (R7/R9 — commit 전 차단)
+
+```bash
+# (a) 라우팅 단일 출처 검증: 라우팅 규칙 ↔ marketplace.json drift 탐지
+python3 "$MARKETPLACE_DIR/plugins/shared/scripts/routing_sync.py" check
+# ok=false → `routing_sync.py write`로 인벤토리 재생성 후 unknown 타깃을 수동 정리, 재검증
+
+# (b) 버전업된 각 플러그인의 메타데이터 정합성 (VERSION == plugin.json == SKILL frontmatter)
+python3 "$MARKETPLACE_DIR/plugins/shared/scripts/pre_pass.py" version-check "<bumped-plugin-dir>"
+# ok=false → VERSION 파일 값으로 동기화 후 재검증. ok 전에는 commit하지 않는다.
+```
 
 ### 2. Staged-set 검증
 
@@ -514,30 +463,12 @@ check_push_status() {
 _ps() { printf '%s' "$1" | python3 -c "import sys,json;print(json.load(sys.stdin).get('$2',''))" 2>/dev/null; }
 ```
 
-### 출력 포맷
+### 출력 요건
 
-Phase 4 완료 직후, 다음 형식으로 출력합니다:
+Phase 4 완료 직후 리포트를 출력한다. 출력에 반드시 포함 (포맷은 자유, 두 레포를 시각적으로 구분할 것):
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Push 완료 리포트
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
- [마켓플레이스]  CSnCompany_2-0
-   ✅ PUSHED     branch: main → intenet1001-commits/CSnCompany_2-0
-   (또는)
-   ⏭️  SKIPPED   --no-push 모드 / author 아님
-
- [프로젝트]      <project-name>
-   ✅ PUSHED     branch: main → <owner>/<repo>
-   (또는)
-   ⚠️  UNPUSHED  <N>개 커밋이 아직 remote에 없음
-                 → git -C <path> push origin <branch>
-   (또는)
-   ─  해당없음   세션 중 별도 프로젝트 레포 없음
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+- **마켓플레이스 레포**: 레포 이름 + 상태(PUSHED/SKIPPED) + PUSHED면 branch와 remote, SKIPPED면 사유(--no-push 모드 / author 아님)
+- **프로젝트 레포**: 레포 이름 + 상태(PUSHED/UNPUSHED/해당없음) + UNPUSHED면 미push 커밋 수와 수동 push 명령(`git -C <path> push origin <branch>`)
 
 ### 판정 기준
 
@@ -567,25 +498,14 @@ Phase 1의 `learning-extractor`·`followup-suggester` 결과와 Session Digest�
 
 `/compact` 인자는 DONE + LEARNED 필드를 1-2줄로 합성하여 생성합니다.
 
-### 출력 포맷
+### 출력 요건
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 세션 종결 완료 — context를 정리하세요
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+출력에 반드시 포함 (포맷은 자유):
 
-/compact [DONE 요약 + LEARNED 핵심 1-2줄]
-
-━━━━ 다음 세션 재개 정보 (선택: 복사 보관) ━━━━━
-DONE    : [이번 세션 완료 항목]
-LEARNED : [최고 점수 학습 1줄, 없으면 "(저장된 학습 없음)"]
-DOMAINS : [DOMAINS_USED 목록]
-NEXT    : [다음 세션 첫 번째 액션]
-BTWS    : [BTW_COUNT]개 pending — [최우선 BTW 제목 또는 "없음"]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
- 또는 완전 초기화: /clear
-```
+1. 세션 종결이 완료되었고 context 정리를 권한다는 안내
+2. 복사해 실행할 수 있는 `/compact [DONE 요약 + LEARNED 핵심 1-2줄]` 한 줄
+3. 5-field 재개 정보 — `DONE` / `LEARNED`(없으면 "저장된 학습 없음" 명시) / `DOMAINS` / `NEXT` / `BTWS`(pending 개수 + 최우선 1개 또는 "없음") 각 필드를 라벨과 함께
+4. 대안으로 `/clear` (완전 초기화) 안내
 
 **예시:**
 ```
