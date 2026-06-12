@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [session] 2026-06-12 — /cs-end: 학습 3건 (#69-71) + cs-experiencing 8.0.2
+
+### Added (cs-experiencing — knowledge/claude-code-platform.md)
+- #69 의존성 제거 결정의 커플링 드리프트 — 원칙 기록 ≠ 실행 (principle, 6/6, 스켑틱 CONFIRM)
+- #70 외부 소스 원칙 추출 — 생성/기각(adversarial refuter) 단계 분리 (tactical, 6/6, 스켑틱 DOWNGRADE — kill-rate는 관찰값 한정)
+- #71 새 프로토콜은 grep 가능한 준수 아티팩트 문자열과 함께 설계 (principle, 6/6, 스켑틱 CONFIRM)
+
+### Changed
+- cs-experiencing 8.0.1 → 8.0.2 (VERSION + plugin.json + SKILL frontmatter)
+
+### Deferred (Phase 2.7 verifier REFUTED → btw 큐)
+- plugins/CLAUDE.md 학습 반영 규칙 강화 패치 — '활성 파일' 미정의 + Prescription Policy(목표 진술 우선) 위반으로 revert, goal-statement 형태 재작성 대기
+
 ## [session] 2026-06-12 — cs-end CS_V7 외부 볼트 의존 제거 (자체 완결 원칙 적용)
 
 사용자 지시: 이 프로젝트는 단독으로 작동해야 하며 CS_V7과 무관하다. cs-ceo 노하우 #18(2026-05-30)에서 이미 확립된 원칙이 cs-end에는 미적용 상태로 남아 있던 드리프트를 해소.
