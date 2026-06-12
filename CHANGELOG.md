@@ -1,6 +1,17 @@
 # Changelog
 
 
+## [session] 2026-06-12 — BTW pending 해소: plugins/CLAUDE.md 통합 제거 규칙 (goal-statement 재작성)
+
+### Changed
+- plugins/CLAUDE.md Loop Engineering: "통합 제거 규칙" 추가 — 커플링 반대편 동일 커밋 수정 + ✅ 반영됨 조건을 목표 진술(활성 플러그인 범위 = marketplace.json plugins 배열 + plugins/shared/ + plugins/CLAUDE.md 에서 실행성 참조 0건, 증거 인용 필수, 탐지 방법 자유)로 정의
+- cs-experiencing #69: ⏸ DEFER → ✅ 반영됨 (REFUTED 사유 2건 해소: 스코프 기계적 정의 + Prescription Policy 준수)
+
+### Session notes
+- 스코프 정의 검증: git grep "CS_V7" 결과 활성 플러그인 내 잔존 참조는 전부 문서적 언급(노하우 #18 기록, cs-end 자체 완결 원칙 주석)이며 실행성 참조 0건 — 규칙 자체가 자기 사례로 PASS. 'git 추적 파일 전체' 1차 초안은 stale 버전 디렉토리(cs-ceo-v14)와 문서적 언급을 오탐해 폐기.
+- ~/.claude/.experiencing-btw.json pending-patch 큐 비움
+
+
 ## [session] 2026-06-12 — /cs-end: 학습 3건 (#72-74) + cs-experiencing 8.0.3
 
 ### Added (cs-experiencing — knowledge/claude-code-platform.md)

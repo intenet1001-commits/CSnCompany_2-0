@@ -40,7 +40,7 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: `grep -rn "CS_V7" plugins/` 한 줄로 즉시 탐지 가능했던 드리프트였음. 원칙 선언 커밋은 자기 플러그인 내부에서만 일관적이었고, 같은 원칙이 요구하는 타 플러그인 변경은 포함되지 않았다 (commit c5c032e에서 해소).
 - **교훈**: 외부 시스템 통합을 제거하는 결정은 같은 커밋에서 커플링된 반대편(READ↔WRITE)까지 수정해야 한다. ✅ 반영됨 표시는 `grep -rn "<외부시스템명>"`이 활성 파일에서 0건일 때만 붙인다. "원칙이 기록됐다"는 "실행됐다"의 보증이 아니다.
 - **근거**: cs-end-v3/commands/cs-end.md:205-258 Phase 2.1 잔존 → c5c032e 삭제; cs-ceo-v15 SKILL.md:248 #18 본문이 cs-end Phase 2.1을 문제의 일부로 명시
-- ⏸ DEFER (2026-06-12): plugins/CLAUDE.md 패치가 verifier에 REFUTED('활성 파일' 미정의 + Prescription Policy 위반) — goal-statement 형태로 재작성하여 다음 세션 적용 (.experiencing-btw.json pending-patch)
+- ✅ 반영됨 (2026-06-12): plugins/CLAUDE.md "통합 제거 규칙" — REFUTED 사유 해소: 스코프를 'marketplace.json plugins 배열 + plugins/shared/ + plugins/CLAUDE.md'로 기계적으로 정의, 실행성 참조/문서적 언급 구분, 목표 진술+증거 요건 형태(리터럴 grep 레시피 제거)
 
 ### 70. 외부 소스 원칙 추출 — 생성(generative)과 기각(adversarial refuter) 단계 분리 (2026-06-12)
 <!-- tier: tactical -->
