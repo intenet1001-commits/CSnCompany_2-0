@@ -1,5 +1,13 @@
 # Changelog
 
+
+## [session] 2026-06-12 — cs-experiencing 노하우 3개 추가 (dash1-v2 대시보드 세션)
+
+### Added (cs-experiencing SKILL.md)
+- #12 Korean 파일에서 Edit 툴 실패 — Python writelines 패턴 (principle, 6/6)
+- #13 Derived slice 재사용으로 다수 sparkline 데이터 생성 (principle, 6/6)
+- #14 HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (tactical, 4/6)
+
 ## [session] 2026-06-12 — Fable 5 프롬프트 델타 (P3) — 공수 비례 + 프로토콜 검증 가능화 + 단일 진실 드리프트 제거
 
 공개된 Fable 5 시스템 프롬프트(claude.ai 소비자판)에서 이식 가능한 원칙 8개를 추출, 60-에이전트 감사로 27건 후보 → 적대적 반박 검증으로 12건 확정 → 전부 구현.
