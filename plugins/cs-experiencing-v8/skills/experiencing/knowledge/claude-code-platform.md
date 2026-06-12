@@ -56,3 +56,21 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **교훈**: "프로토콜이 문서에 있다"와 "에이전트가 따른다"는 별개다. 새 프로토콜/규칙을 추가할 때 실행 증거가 되는 표준 아티팩트 문자열(헤더 1줄)을 같은 커밋에서 함께 설계해 검증 가능성을 빌드인한다.
 - **근거**: plugins/shared/LOOP-PROTOCOL.md:4 + commit 01ceddf 13개 캐리어 파일
 - ✅ 반영됨 (2026-06): LOOP-PROTOCOL.md:4 헤더 아티팩트 의무화로 이미 운영 중
+
+### 72. 하드코딩 시크릿 제거 ≠ 완료 — provider 측 rotation이 별도 필수 단계 (2026-06-12)
+<!-- tier: principle -->
+- **상황**: ~/.claude/settings.local.json permissions.allow에 Supabase 토큰(`sbp_...`)이 하드코딩되어 있어 harness-diet 후속 작업으로 제거. 파일에서는 삭제했지만 plaintext로 수개월 노출된 상태였음.
+- **발견**: 파일 수정과 시크릿 무효화(rotation)는 독립 작업이다. 파일에서 지워도 토큰 자체는 provider 측에서 여전히 유효하며, 백업·sync 도구가 이미 옛 파일 내용을 복제했을 수 있어 노출은 비가역적.
+- **교훈**: 시크릿 노출 대응의 SUCCESS CRITERIA는 (1) 파일 제거 + (2) provider 대시보드에서 rotation 두 단계 모두를 포함해야 한다. 에이전트는 (1)만 수행 가능하므로 (2)를 사용자 액션으로 명시 전달하기 전에는 완료 선언이 false-complete가 된다.
+
+### 73. 컨텍스트 없는 재개 요청 — episodic memory 검색을 첫 단계로 (2026-06-12)
+<!-- tier: principle -->
+- **상황**: 사용자가 ".claude 작업 시작"이라고만 입력했고 태스크 설명이 전혀 없었음.
+- **발견**: episodic-memory 검색 에이전트 1회로 2026-06-07 harness-diet 세션의 미완료 항목 2건(토큰 제거 + README 삭제)을 정확히 복원, 사용자에게 질문하지 않고 즉시 실행으로 이어짐.
+- **교훈**: 태스크 컨텍스트 없는 재개성 요청("X 작업 시작", "이어서 해줘")은 사용자에게 묻기 전에 과거 대화 검색을 기본 첫 단계로 삼는다. "무엇을 할까요?" 질문은 메모리 검색이 실패한 뒤의 fallback이다.
+
+### 74. JSON 설정 파일 수정은 텍스트 편집 대신 json.load/json.dump 라운드트립 (2026-06-12)
+<!-- tier: tactical -->
+- **상황**: settings.local.json permissions.allow 배열에서 항목 1개를 제거해야 했음.
+- **발견**: python3 `json.load` → 리스트 필터 → `json.dump(indent=2)`가 구조적 유효성을 보장. 텍스트 치환·라인 삭제는 trailing comma 등으로 파일을 깨뜨릴 수 있고, settings 파일이 깨지면 전체 권한 규칙이 조용히 무효화됨.
+- **교훈**: .json 설정 수정은 언어 내장 파서로 라운드트립하고, 수정 직후 `json.load` 재검증 1줄을 덧붙인다 (#36 Python conflict 파싱, #41 Python 수술적 교체와 같은 계열 — JSON 특화).

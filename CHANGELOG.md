@@ -1,6 +1,23 @@
 # Changelog
 
 
+## [session] 2026-06-12 — /cs-end: 학습 3건 (#72-74) + cs-experiencing 8.0.3
+
+### Added (cs-experiencing — knowledge/claude-code-platform.md)
+- #72 하드코딩 시크릿 제거 ≠ 완료 — provider 측 rotation이 별도 필수 단계 (principle, 6/6)
+- #73 컨텍스트 없는 재개 요청 — episodic memory 검색을 첫 단계로 (principle, 5/6)
+- #74 JSON 설정 파일 수정은 json.load/json.dump 라운드트립 (tactical, 4/6)
+
+### Changed
+- cs-experiencing 8.0.2 → 8.0.3 (VERSION + plugin.json + SKILL frontmatter)
+- 학습 INDEX 카운트 보정 (68건 표기 → 74건, #69-71 추가분 미반영분 포함)
+
+### Session notes
+- ~/.claude harness-diet 후속: settings.local.json Supabase 토큰 제거 + skills/README.md 삭제 (사용자 토큰 rotation 대기)
+- Decay 리뷰: stale 3건(#7-9) 검토, 이번 세션 지식으로 반박 근거 없음 → deprecated 0건
+- BTW pending 1건 유지: plugins/CLAUDE.md Loop Engineering 규칙 goal-statement 재작성 대기
+
+
 ## [session] 2026-06-12 — /cs-end: 학습 3건 (#69-71) + cs-experiencing 8.0.2
 
 ### Added (cs-experiencing — knowledge/claude-code-platform.md)

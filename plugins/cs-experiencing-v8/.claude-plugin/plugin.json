@@ -1,6 +1,6 @@
 {
   "name": "cs-experiencing",
-  "version": "8.0.2",
+  "version": "8.0.3",
   "description": "Accumulated knowledge repository — CS-test, CS-plan, CS-codebase-review, cs-design domain learnings. Integrated: bkit btw capture, Karpathy guidelines, gstack Iron Law + atomic commits.",
   "author": {
     "name": "gwanli",
@@ -8,5 +8,17 @@
   },
   "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
   "license": "MIT",
-  "keywords": ["knowledge", "experience", "testing", "planning", "learning", "versioning", "code-review", "codebase-review", "karpathy", "bkit", "gstack"]
+  "keywords": [
+    "knowledge",
+    "experience",
+    "testing",
+    "planning",
+    "learning",
+    "versioning",
+    "code-review",
+    "codebase-review",
+    "karpathy",
+    "bkit",
+    "gstack"
+  ]
 }
