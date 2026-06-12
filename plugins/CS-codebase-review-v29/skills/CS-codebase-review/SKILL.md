@@ -7,7 +7,7 @@ version: 29.0.0
 
 # CS-codebase-review 실행 프로토콜
 
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다. (verdict 산출 시 plugins/shared/GATE-LOOP.md 추가 적용)
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 시)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
 ## Phase 0 — Python Pre-Pass (선택적, 토큰 절감)
 
@@ -41,6 +41,10 @@ else
 fi
 ```
 
+**스코프 게이트 (Phase 0 SUMMARY 기준):**
+- `total_files ≤ 10` **또는** `total_lines ≤ 1500`이면 5-agent를 스폰하지 않고, 통합 리뷰어 1개에 아래 Agent 목록의 5개 렌즈(담당 열)를 체크리스트로 전달하여 Phase 1을 대체한다. Phase 1.5b 적대적 검증은 그대로 수행한다. 적용 시 어떤 게이트가 발동했는지 리포트 헤더에 1줄 기록한다.
+- **렌즈 스킵 (풀 런 포함):** 렌즈의 **후보 파일이 0개**인 경우에만 해당 에이전트를 스킵한다 — 탐지 결과 0건은 스킵 사유가 아니다. 예: TS↔Rust 렌즈(TS_RUST)는 대상에 TS 또는 Rust 파일이 하나도 없으면 해당 없음. 담당이 렌즈보다 넓은 에이전트(예: security-reviewer — 취약점 전반)는 렌즈 입력만 생략하고 에이전트는 유지한다. 스킵한 에이전트는 커버리지 분모에서 제외하고, 리포트에 스킵 사유를 1줄 기록한다.
+
 ## Phase 1 — 5-Agent 병렬 리뷰
 
 각 에이전트에게 Python pre-pass 결과(JSON)를 컨텍스트로 전달한다.
@@ -69,7 +73,7 @@ fi
 ## 노하우 참고
 [관련 SKILL.md 노하우 항목]
 
-발견한 모든 이슈를 빠짐없이 보고하세요. 확신이 낮은 이슈도 제외하지 말고 보고합니다 (필터링·우선순위 선정은 Phase 2에서 수행).
+finding 보고 계약 (LOOP-PROTOCOL [a][e]): 발견한 모든 이슈를 빠짐없이 보고하세요. 확신이 낮은 이슈도 제외하지 말고 보고합니다 — 필터링 금지, 필터링·우선순위 선정은 리드가 Phase 2에서 수행합니다.
 각 이슈는 다음 형식으로:
 - 파일:라인 | 심각도(HIGH/MEDIUM/LOW) | 확신도(높음/중간/낮음) | 근거(해당 줄에서 그대로 복사한 코드 1-2줄 인용) | 제안 수정
 file:line과 코드 인용이 불가능한 이슈는 LOW로 강등하여 보고하세요.

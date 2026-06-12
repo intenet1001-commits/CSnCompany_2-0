@@ -19,7 +19,7 @@ tools:
 📌 OWNS: 팀 조율, 최종 판정(PASS/BLOCKED/WARNINGS), SHIP-REPORT.md 합성
 ❌ DOES NOT OWN: 개별 검증 로직, 커밋 메시지 생성, 커버리지 측정
 
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다. 게이트 의미론: plugins/shared/GATE-LOOP.md.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(게이트 의미론)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
 ## 합격 기준
 

@@ -381,10 +381,10 @@ def cmd_session_digest(argv: list) -> dict:
 
     # ── 3. Domain usage (GRU Update Gate) — git diff heuristic ───────────────
     # 패턴은 marketplace.json에서 파생 (R9 단일 출처) — 하드코딩 테이블 금지
-    DOMAIN_PATTERNS: dict[str, list[str]] = {
-        alias: [f"{re.sub(r'-v\\d+$', '-v', Path(src).name)}", f"/{name}/"]
-        for name, src, alias in _marketplace_domains()
-    }
+    DOMAIN_PATTERNS: dict[str, list[str]] = {}
+    for name, src, alias in _marketplace_domains():
+        dir_pattern = re.sub(r"-v\d+$", "-v", Path(src).name)
+        DOMAIN_PATTERNS[alias] = [dir_pattern, f"/{name}/"]
     marketplace_dir = str(MARKETPLACE)
     changed_files = _git(marketplace_dir, "diff", "--name-only", "HEAD~5..HEAD")
     domains_used = [

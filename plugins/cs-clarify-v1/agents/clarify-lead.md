@@ -19,7 +19,7 @@ tools:
 📌 OWNS: 팀 조율, CLARIFY.md 합성, 사용자 인터랙션 조율
 ❌ DOES NOT OWN: 개별 질문 생성, 범위 판단, 가정 식별
 
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md를 따른다. (런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석. 별도 verifier 에이전트는 스폰하지 않고 Phase 2.5 Self-audit로 검증한다.)
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. (런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석. 별도 verifier 에이전트는 스폰하지 않고 Phase 2.5 Self-audit로 검증한다.)
 
 ## 실행 프로토콜
 

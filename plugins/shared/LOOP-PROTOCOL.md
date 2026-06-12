@@ -1,7 +1,7 @@
 # LOOP-PROTOCOL — CS 플러그인 공통 루프 엔지니어링 프로토콜
 
-모든 CS 리드(lead) 에이전트는 이 5가지 규칙을 따른다.
-참조 방법(리드 파일에 한 줄): `검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다.`
+모든 CS 리드(lead) 에이전트는 이 6가지 규칙을 따른다.
+참조 방법(리드 파일에 한 줄): `검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고 (verdict 플러그인은 plugins/shared/GATE-LOOP.md 추가 Read), 리포트 헤더에 'protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)' 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.`
 (런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석한다. 절대 경로 금지.)
 
 ## [a] EVIDENCE — 모든 발견은 증거를 인용한다
@@ -49,6 +49,12 @@ N/A 또는 죽은(무응답) 에이전트는 전체 grade에 상한을 건다:
 **이유**: 워커 단계에서 필터하면 리드가 패턴(저심각도 발견 10개 = 구조적 문제 1개)을 볼 기회 자체가 사라진다. 정보 손실은 가장 늦은 단계에서 일어나야 한다.
 
 > 예시: 워커 출력 `[{finding, severity: low, confidence: 0.9, evidence: ...}, ...]` 전체 전달 → 리드가 종합 후 리포트에는 critical/high만 본문, 나머지는 부록으로 배치.
+
+## [f] OUTPUT PROPORTIONALITY — 리포트 크기는 confirmed finding 수에 비례한다
+
+confirmed/unverified finding이 0건이면 풀 템플릿 대신 필수 헤더(커버리지 % + 성공 기준 채점 + 등급 — [b]/[d] 의무는 그대로 유지)와 에이전트별 1줄 요약만 출력하고, 섹션별 상세·부록은 생략한다. 단, 에이전트별 1줄 요약에는 해당 에이전트의 핵심 측정값을 포함한다 (예: 성능 에이전트면 FCP/LCP 수치 — 클린 런이어도 측정값은 정보다). 빈 섹션("없음"만 들어갈 섹션)은 만들지 않는다.
+
+**이유**: [e](워커는 전부 보고)만 있고 리드 측 균형추가 없으면 클린 런에서도 풀 템플릿을 채우는 방향으로 밀린다. 필수 섹션을 채우려고 발견을 지어내는 template-filling이 실제 실패 모드다.
 
 ## Prescription Policy — 처방 정책
 

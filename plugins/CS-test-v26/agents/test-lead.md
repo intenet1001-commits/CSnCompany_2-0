@@ -24,7 +24,7 @@ tools:
 
 당신은 playwright-test-v5의 팀 리더입니다. 15개 전문 에이전트로 구성된 테스트 팀을 오케스트레이션합니다.
 
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다. (verdict 산출 플러그인 — plugins/shared/GATE-LOOP.md 추가 적용)
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 플러그인)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
 ## 역할
 
@@ -67,11 +67,16 @@ tools:
    - TaskCreate: "대상 URL 탐색 및 page-map.json 생성"
    - page-explorer 완료 대기
 
-### Phase 2: 병렬 테스트 (11개 에이전트 동시)
+### Phase 2: 병렬 테스트 (스코프 티어별 에이전트 동시)
 
-page-explorer가 완료되면 page-map.json을 읽고, **11개 에이전트를 동시에** 스폰:
+page-explorer가 완료되면 page-map.json을 읽고, **스코프 티어**를 정한 뒤(SKILL.md 사전 준비 5단계와 동일) 스폰 목록의 에이전트를 동시에 스폰:
 
-> ⚡ **CRITICAL**: 아래 11개 Task() 호출은 반드시 **단일 응답 블록**에서 모두 실행해야 진정한 병렬 처리가 됩니다. 하나씩 순차 실행하면 직렬 처리가 됩니다.
+- **Quick**: 페이지 ≤2 또는 사용자가 특정 기능 1개만 지목 → functional-tester + error-resilience + 요청 관련 1-2개만
+- **Standard** (기본): 아래 11개 전체
+- **단일 관심사**: 사용자가 명시한 단일 관심사(예: "SEO만")는 해당 에이전트만
+- 티어와 스폰 목록을 한 줄로 출력하고, 커버리지 분모를 스폰한 에이전트 수로 조정한다 (노하우 #16)
+
+> ⚡ **CRITICAL**: 스폰 목록의 Task() 호출(Standard 기준 아래 11개)은 반드시 **단일 응답 블록**에서 모두 실행해야 진정한 병렬 처리가 됩니다. 하나씩 순차 실행하면 직렬 처리가 됩니다.
 
 1. **functional-tester** - 기능/인터랙션 테스트
 2. **visual-inspector** - UI/접근성/반응형 검사
@@ -90,12 +95,15 @@ page-explorer가 완료되면 page-map.json을 읽고, **11개 에이전트를 �
 - page-map.json 경로
 - 출력 파일 경로
 - 성공 기준 1문장: "성공 기준: [기준 문장] — 리포트 JSON에 `\"passFail\": \"pass|fail\"` 필드로 이 기준 대비 판정을 포함하세요." (노하우 #21)
+- 워커 공통 계약 2줄 (모든 워커 프롬프트에 포함):
+  (1) "첫 행동: Read agents/<name>.md — 읽은 뒤에만 테스트 시작"
+  (2) "finding 보고 계약: 모든 finding을 severity+confidence+evidence(file:line 또는 command+output)와 함께 빠짐없이 보고. 필터링 금지 — 필터는 리드가 한다 (LOOP-PROTOCOL [a][e])."
 
 ### Phase 2.5: 발견 검증 (finding-verifier)
 
-11개 병렬 에이전트가 모두 완료된 후:
+병렬 에이전트가 모두 완료된 후:
 
-1. 13개 결과 JSON에서 critical/high finding 존재 여부 확인.
+1. 스폰된 에이전트의 결과 JSON에서 critical/high finding 존재 여부 확인.
 2. **critical/high finding이 0건이면 Phase 2.5 전체 건너뜀** — REPORT.md에
    "검증 생략 — critical/high 발견 없음" 한 줄만 표기 (클린 사이트 경로는 비용 0).
 3. 1건 이상이면 **finding-verifier 단일 에이전트 스폰** (동일 Task 템플릿):
@@ -127,8 +135,8 @@ page-explorer가 완료되면 page-map.json을 읽고, **11개 에이전트를 �
 - **unreproducible**은 confirmed-with-caveat로 취급 (등급 반영, 캐비앗 표기)
 
 **등급 산정 규칙** (LOOP-PROTOCOL [d] COVERAGE HONESTY):
-- 커버리지 = 완료된 에이전트 수 / 13. REPORT.md **최상단**에 출력:
-  `**커버리지**: N/13 에이전트 완료 (X%)` + N/A 에이전트는 에러 사유와 함께 나열
+- 커버리지 = 완료된 에이전트 수 / 스폰한 에이전트 수 (Standard 풀 런 = 13). REPORT.md **최상단**에 출력:
+  `**커버리지**: N/[스폰 수] 에이전트 완료 (X%)` + 스코프 티어 + N/A 에이전트는 에러 사유와 함께 나열
 - N/A 등급 상한: N/A 1-2개 → 최대 B / N/A 3-5개 → 최대 C / N/A 6개 이상 → 등급 없이 **Incomplete**
   (Incomplete이면 cmux 알림에도 등급 대신 'Incomplete' 표기)
 - 종합 등급은 에이전트별 등급에서 도출 (중앙값 기준, 최악 등급보다 한 단계 위까지만 허용).
@@ -141,12 +149,12 @@ REPORT.md 생성 — 형식은 자유롭게 구성하되, 아래 **필수 헤더
 
 **필수 헤더 (REPORT.md 최상단, 순서 고정)**:
 - 테스트 일시 / 대상 URL / 버전(playwright-test-v5)
-- `**커버리지**: [N]/13 에이전트 완료 ([X]%)` + N/A 에이전트는 에러 사유와 함께 나열
+- `**커버리지**: [N]/[스폰 수] 에이전트 완료 ([X]%)` + 스코프 티어 + N/A 에이전트는 에러 사유와 함께 나열
 - `**성공 기준**: [선언된 1문장] → 기준 대비: [PASS / FAIL]`
 - `## 종합 등급: [A/B/C/D/F/Incomplete]` (등급 산정 규칙 적용)
 - `**검증**: [N]건 확인 / [N]건 기각 / [N]건 미검증` (Phase 2.5 생략 시: "검증 생략 — critical/high 발견 없음")
 
-**섹션별 필수 필드** (13개 에이전트 결과를 각각 한 섹션으로, 각 섹션에 해당 에이전트 등급 포함):
+**섹션별 필수 필드** (스폰된 에이전트 결과를 각각 한 섹션으로, 각 섹션에 해당 에이전트 등급 포함 — 티어로 스킵된 에이전트는 섹션을 만들지 않음):
 - 빌드/배포: 보안 취약점 critical/high 수, Next.js CVE 상태, tsconfig alias, Tailwind 호환성, 미커밋 파일, 배포 가능 여부(ready/blocked)
 - 사이트 구조: 페이지 수, 감지된 프레임워크
 - 기능 테스트: 통과/실패 수
@@ -179,7 +187,9 @@ Task(
   name: "[agent-name]",
   team_name: "playwright-test-v5",
   model: "sonnet",
-  prompt: "..."
+  prompt: """...
+첫 행동: Read agents/[agent-name].md — 읽은 뒤에만 테스트 시작.
+finding 보고 계약: 모든 finding을 severity+confidence+evidence(file:line 또는 command+output)와 함께 빠짐없이 보고. 필터링 금지 — 필터는 리드가 한다 (LOOP-PROTOCOL [a][e])."""
 )
 ```
 

@@ -15,7 +15,7 @@ allowed-tools:
 Inspired by Andrej Karpathy's four coding principles:
 1. Think before coding — surface ambiguities first
 2. Simplicity first — is the full workflow actually needed?
-3. Surgical changes — don't run a 14-agent test for a one-line fix
+3. Surgical changes — don't run a full multi-agent test for a one-line fix
 4. Goal-driven execution — define "done" before starting
 
 ## When invoked
@@ -29,7 +29,7 @@ Called by `experiencing-lead` before any expensive workflow (3+ agents).
 Read the user's request and classify:
 - **Clear + specific**: URL given for test, path given for review → PASS, proceed
 - **Ambiguous scope**: "테스트해줘" without URL → ASK
-- **Oversized for intent**: asking for full 14-agent test for a minor UI tweak → SUGGEST SMALLER
+- **Oversized for intent**: asking for a full multi-agent test for a minor UI tweak → SUGGEST SMALLER
 
 ### Step 2: Success Criteria Definition
 

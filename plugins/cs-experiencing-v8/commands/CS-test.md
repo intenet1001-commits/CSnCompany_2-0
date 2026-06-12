@@ -1,11 +1,11 @@
 ---
-description: "14-agent AI Teams web testing - runs the latest CS-test-v* sibling domain protocol"
+description: "AI Teams web testing - runs the latest CS-test-v* sibling domain protocol"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, TaskCreate, TaskUpdate, TaskList, TaskGet, TeamCreate, TeamDelete, SendMessage, ToolSearch
 ---
 
 # /CS-test [URL]
 
-14개의 전문 Claude AI 에이전트가 팀을 구성하여 웹 앱을 종합 테스트합니다.
+전문 Claude AI 에이전트들이 팀을 구성하여 웹 앱을 종합 테스트합니다.
 
 ## 사용법
 
@@ -26,26 +26,11 @@ LATEST_TEST=$(ls -d "$BASE/CS-test-v"* 2>/dev/null | sort -V | tail -1)
 
 1. `$LATEST_TEST/VERSION` 읽기 → 현재 버전 확인
 2. `$LATEST_TEST/skills/CS-test/SKILL.md` 프로토콜 실행
-3. URL을 대상으로 14-agent 팀 가동
+3. URL을 대상으로 멀티 에이전트 팀 가동
 
-## 에이전트 팀 (14개)
+## 에이전트 팀
 
-| Phase | 에이전트 | 역할 |
-|-------|---------|------|
-| 0 | **build-validator** | 빌드/보안/의존성 사전 검증 |
-| 1 | **page-explorer** | 페이지 구조 탐색 및 page-map 생성 |
-| 2 (병렬 11개) | **functional-tester** | 기능/인터랙션 테스트 |
-| | **visual-inspector** | UI/접근성/반응형 |
-| | **api-interceptor** | 네트워크/API 분석 |
-| | **perf-auditor** | Core Web Vitals |
-| | **social-share-auditor** | OG/PWA/카카오 공유 |
-| | **db-validator** | DB CRUD 검증 |
-| | **touch-interaction-validator** | 터치/스와이프 |
-| | **image-optimizer** | 이미지 최적화 |
-| | **security-auditor** | 보안 헤더/쿠키 |
-| | **seo-auditor** | SEO 메타/sitemap |
-| | **error-resilience** | 404/콘솔에러/깨진링크 |
-| 3 | **test-lead** | 결과 취합 및 REPORT.md 생성 |
+에이전트 구성·개수의 단일 진실은 `$LATEST_TEST/commands/CS-test.md`의 로스터다 — 여기에 복제하지 않는다.
 
 ## 출력
 

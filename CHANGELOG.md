@@ -1,5 +1,25 @@
 # Changelog
 
+## [session] 2026-06-12 — Fable 5 프롬프트 델타 (P3) — 공수 비례 + 프로토콜 검증 가능화 + 단일 진실 드리프트 제거
+
+공개된 Fable 5 시스템 프롬프트(claude.ai 소비자판)에서 이식 가능한 원칙 8개를 추출, 60-에이전트 감사로 27건 후보 → 적대적 반박 검증으로 12건 확정 → 전부 구현.
+
+### Added
+- `plugins/shared/LOOP-PROTOCOL.md` 규칙 [f] OUTPUT PROPORTIONALITY: confirmed finding 0건이면 풀 템플릿 대신 필수 헤더 + 에이전트별 1줄(핵심 측정치 포함) — 빈 '없음' 섹션 금지. [b]/[d] 의무는 유지
+- CS-test 스코프 티어 (knowhow #16 승격): Quick(페이지 ≤2 / 단일 기능) · Standard(기본 11개) · 단일 관심사 — 커버리지 분모를 스폰 수로 조정, 하드코딩 /13 제거
+- CS-codebase-review 스코프 게이트: total_files ≤10 또는 total_lines ≤1500 → 5-agent 대신 통합 리뷰어 1개 (Phase 1.5b 검증은 유지); 0-candidate 렌즈 스킵 규칙
+- CS-plan SCOPE=small 경량 경로: 단일 모듈/유틸이면 plan-lead 단독으로 경량 PLAN.md (4-agent 팀 생략)
+- 루트 CLAUDE.md 라우팅 예외: 1-3개 직접 도구 호출로 답할 수 있는 단건 요청은 파이프라인 생략 (생략 사유 1줄)
+
+### Changed
+- LOOP-PROTOCOL 참조 규약: '따른다' 선언 → BLOCKING Read-first + 리포트 헤더 `protocol: LOOP-PROTOCOL [a-f] loaded` 검증 가능 아티팩트 (13개 캐리어 일괄 갱신)
+- 워커 계약: read-first + 전량 보고(severity+confidence+evidence, 필터링 금지 — 필터는 리드) — CS-test/plan/design/codebase-review 스폰 템플릿에 주입
+- design-lead: 성공 기준 fan-out 선언 + DESIGN-REVIEW.md 2번째 줄 verdict-first (`종합 — 기준 대비: PASS/FAIL`)
+- cs-experiencing 14-agent 로스터 드리프트 제거 (실제 15-agent; 5개 파일 → count-free + $LATEST_TEST 로스터 포인터); .claude/CLAUDE.md 85줄 → 목적+sort -V 규칙+포인터로 축소
+- cs-ceo External Knowledge Gate: 설치 버전을 쿼리에 포함 + 발췌에 문서 버전/조회 날짜 기록 + 메이저 불일치 플래그; 캐시 스킵 조건을 동일 주제·동일 버전 범위로 한정 (중복 3곳 일괄)
+- pre_pass.py: Python 3.11 호환 수정 (f-string 내 백슬래시 SyntaxError)
+- 검증: 충실성 verifier PASS (12/12) + 회귀 verifier 2건 차단 → 수정 라운드 후 레일 전부 exit 0
+
 ## [session] 2026-06-12 — Loop Engineering P2 (R7~R9) — Python 레일 + 탈처방 + 라우팅 단일 소스화
 
 ### Added

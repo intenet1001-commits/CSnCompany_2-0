@@ -4,8 +4,9 @@ user-invocable: true
 description: |
   TDD + Clean Architecture coding plan generator. Use when user types "/CS-plan", "코딩 플랜",
   "플랜 생성", "TDD 플랜", "clean architecture plan", or wants to generate an implementation plan
-  using TDD and Clean Architecture with 4 specialized agents (domain-analyst, arch-designer,
-  tdd-strategist, checklist-builder).
+  using TDD and Clean Architecture. Standard scope uses 4 specialized agents (domain-analyst,
+  arch-designer, tdd-strategist, checklist-builder); small scope (single module/util) gets a
+  lightweight solo plan from plan-lead.
 version: 21.0.0
 ---
 
@@ -51,10 +52,14 @@ plan-lead는 서브에이전트라 AskUserQuestion을 쓸 수 없으므로, 사�
    질문에는 범위 검증용 forcing question 성격을 포함한다 (예: "이 기능의 MVP 버전은 무엇인가요? 더 단순한 대안은 없나요?")
 3. 답변을 FEATURE에 반영(병합)한 후 Step 2로 진행한다.
 4. **명확/보통**이면 질문 없이 조용히 스킵한다. 질문은 최대 1회 — 추가 라운드 금지.
+5. 모호성 평가와 함께 FEATURE의 스코프를 평가한다: **small / standard**
+   - SCOPE=small 기준: 단일 모듈/유틸 수준 — 새 레이어 추가, 외부 시스템 연동, 도메인 모델 변경이 **모두 없음**
+   - 셋 중 하나라도 해당하거나 판단이 애매하면 SCOPE=standard (보수적 기본값)
+   - 평가 결과를 Step 3의 plan-lead 프롬프트에 `SCOPE: [small|standard]`로 전달한다. SCOPE=small이면 plan-lead가 4-agent 팀 대신 단독으로 경량 PLAN.md(테스트 목록 + 구현 체크리스트만)를 작성한다.
 
 ### Step 2: 시작 안내 출력
 
-플랜 생성 시작을 알리는 짧은 안내를 출력한다 (형식 자유). 필수 포함: FEATURE, LANG(미지정 시 "자동 감지"), OUTPUT 경로, plan-lead가 4개 전문 에이전트 팀을 조율한다는 사실.
+플랜 생성 시작을 알리는 짧은 안내를 출력한다 (형식 자유). 필수 포함: FEATURE, LANG(미지정 시 "자동 감지"), OUTPUT 경로, SCOPE, 실행 방식(standard면 plan-lead가 4개 전문 에이전트 팀을 조율, small이면 plan-lead 단독 경량 플랜).
 
 ### cmux 환경: 진행 상황 표시
 
@@ -79,12 +84,14 @@ Task(
 FEATURE: [FEATURE]
 LANG: [LANG]
 OUTPUT_DIR: [OUTPUT]
+SCOPE: [SCOPE]
 
-plan-lead.md 프로토콜을 따라 4개 에이전트 팀을 오케스트레이션하고 PLAN.md를 생성하세요."
+plan-lead.md 프로토콜을 따라 PLAN.md를 생성하세요 (SCOPE 분기 포함)."
 )
 ```
 
-plan-lead가 4개 에이전트 조율, 파일 생성, PLAN.md 합성을 모두 처리합니다.
+plan-lead가 에이전트 조율, 파일 생성, PLAN.md 합성을 모두 처리합니다.
+SCOPE=standard면 4개 에이전트 팀을 오케스트레이션하고, SCOPE=small이면 팀 스폰 없이 단독으로 경량 PLAN.md를 작성합니다.
 plan-lead 완료 후 완료 결과를 사용자에게 전달합니다.
 
 ```bash

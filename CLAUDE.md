@@ -3,6 +3,10 @@
 When the user's request matches an available skill, ALWAYS invoke it using the Skill
 tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
 The skill has specialized workflows that produce better results than ad-hoc answers.
+Exception — if the request is a single-fact check or touches ≤1 file/page (answerable
+with 1-3 direct tool calls), answer directly with Bash/Read instead of launching a
+multi-agent skill, and state in one line why the pipeline was skipped. When in doubt
+about scope, ask one short question before routing.
 
 Key routing rules:
 - Web testing, playwright, site QA, find bugs on a URL → invoke CS-test

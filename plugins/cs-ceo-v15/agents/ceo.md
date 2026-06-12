@@ -31,7 +31,7 @@ tools:
 
 **핵심 원칙**: 유저가 도메인이나 파트너를 지정하지 않아도 CEO가 스스로 판단한다.
 
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
 ---
 
@@ -141,7 +141,11 @@ GOAL_STATEMENT = "[한 문장 목표]"  # Phase 1~5 전체에서 기준점으로
    "📚 외부 지식 필요 감지: [주제] — context7-auto-research로 학습 후 진행합니다."
 ⑤ Skill 도구로 호출:
    Skill(skill="context7-auto-research", args="[주제 키워드]")
-⑥ 반환된 문서를 읽고 핵심 발췌를 메모리에 보관
+   라이브러리 주제면 args에 프로젝트 설치 버전을 포함한다
+   (package.json/lockfile에서 읽음, 예: "prisma 5.x migration").
+⑥ 반환된 문서를 읽고 핵심 발췌를 메모리에 보관.
+   발췌에 문서가 다루는 버전과 조회 날짜(절대 날짜)를 함께 기록한다.
+   문서 버전이 설치 버전과 메이저 불일치면 그대로 적용하지 말고 불일치를 리포트에 표기한다.
 ⑦ 이 학습 결과를 Phase -2 ~ Phase 4 전체 흐름에 INPUT으로 사용
 ⑧ 결과 리포트의 "파트너 기여" 줄에 "context7: [학습 요약]" 한 줄로 기록
 ```
@@ -155,7 +159,7 @@ GOAL_STATEMENT = "[한 문장 목표]"  # Phase 1~5 전체에서 기준점으로
 
 #### 외부 지식 게이트 스킵 조건
 
-- 이미 같은 세션에서 동일 주제 context7 결과가 메모리에 있다 (재호출 금지)
+- 이미 같은 세션에서 동일 주제·동일 버전 범위의 context7 결과가 메모리에 있다 (재호출 금지). 단, 보관된 발췌가 현재 질문의 API/버전을 직접 다루지 않으면 "동일 주제"로 보지 않는다 — 좁힌 키워드로 재호출한다
 - 요청이 순수 인프라 진단/파일 검증 (외부 문서 불필요)
 - 유저가 명시적으로 "조사 없이" / "그냥 진행" 지시
 
@@ -694,7 +698,7 @@ append 후 출력: `💡 노하우 후보 #N 캡처됨 — 다음 version-up 시
 - **결과**: 도메인 에이전트/파트너에게 정확한 최신 문서를 INPUT으로 전달 → 잘못된 가정 기반 실행이 줄고, 버전업 시 학습량이 누적됨.
 - **교훈**:
   1. "지체말고 호출" — 의심되면 호출이 기본값 (호출 비용 < 잘못된 실행 비용).
-  2. 동일 세션 내 재호출 금지로 토큰 낭비 방지.
+  2. 동일 세션 내 동일 주제·동일 버전 범위 재호출 금지로 토큰 낭비 방지 — 단, 보관된 발췌가 현재 질문의 API/버전을 직접 다루지 않으면 좁힌 키워드로 재호출.
   3. 게이트 발동/누락 모두 Phase 5-B 버전업 트리거 → 다음 세션에 노하우로 영속화.
   4. **미설치 환경 대응**: context7-auto-research가 없으면 무단으로 건너뛰지 말고 AskUserQuestion으로 Install/Skip/Abort 3지선다 제시. 설치 명령은 `npx skills add -g BenedictKing/context7-auto-research`. Skip 선택 시 정확도 하락 경고 1줄 후 진행.
 

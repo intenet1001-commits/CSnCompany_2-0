@@ -26,7 +26,7 @@ Key routing rules:
 ## Loop Engineering (공통 프로토콜)
 
 - 모든 CS 리드(lead) 에이전트는 plugins/shared/LOOP-PROTOCOL.md를 따른다
-  (EVIDENCE / SUCCESS CRITERIA FIRST / BOUNDED LOOP / COVERAGE HONESTY / REPORT FULL, FILTER DOWNSTREAM).
+  (EVIDENCE / SUCCESS CRITERIA FIRST / BOUNDED LOOP / COVERAGE HONESTY / REPORT FULL, FILTER DOWNSTREAM / OUTPUT PROPORTIONALITY).
   verdict 산출 플러그인(cs-ship, CS-test, CS-codebase-review)은 plugins/shared/GATE-LOOP.md를 추가로 따른다.
 - 학습 반영 규칙: 교훈이 프로토콜 변경을 지시하면 같은 커밋에서 해당 SKILL/agents/*.md에
   반영하고 ✅ 반영됨 표시한다. 미반영 교훈은 실행되지 않는다.

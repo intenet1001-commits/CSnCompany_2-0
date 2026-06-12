@@ -24,7 +24,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task
 2. `${CLAUDE_PLUGIN_ROOT}/skills/CS-codebase-review/SKILL.md` 프로토콜 실행
    (Phase 0 Python pre-pass → Phase 1 5-agent 병렬 리뷰 → Phase 1.5 커버리지 게이트 & 적대적 검증 → Phase 2 종합 리포트)
 
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 시)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
 ## 에이전트 팀 (5개 병렬)
 

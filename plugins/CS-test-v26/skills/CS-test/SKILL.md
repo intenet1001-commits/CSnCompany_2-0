@@ -16,7 +16,7 @@ version: 26.0.0
 v5에서는 **터치 인터랙션 검증** + **이미지 최적화 분석**이 추가됩니다.
 (MWC 2026 세션에서 발견된 실제 버그 패턴 기반)
 
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md + plugins/shared/agents/verifier.md를 따른다. (verdict 산출 플러그인 — plugins/shared/GATE-LOOP.md 추가 적용)
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 플러그인)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
 ## 사용법
 
@@ -91,9 +91,19 @@ fi
 mkdir -p tests/results tests/screenshots
 ```
 
+5. **스코프 티어 결정 (Phase 1 page-explorer 결과로 확정)**: 티어와 스폰 목록을 한 줄로 출력하고 진행한다. (노하우 #16)
+   - **Quick**: 페이지 ≤2 또는 사용자가 특정 기능 1개만 지목 → functional-tester + error-resilience + 요청 관련 1-2개만 스폰
+   - **Standard** (기본): Phase 2의 11개 전체 스폰
+   - **단일 관심사**: 사용자가 명시한 단일 관심사(예: "SEO만")는 해당 에이전트만 스폰
+   - 커버리지 분모는 스폰한 에이전트 수로 조정한다 (Standard 풀 런 = 13: build-validator + page-explorer + 11).
+
 > 📐 **성공 기준 전파 (필수)**: Phase 1·2의 **모든** Task() 프롬프트 템플릿에 한 줄 추가 —
 > "성공 기준: [기준 문장] — 리포트 JSON에 `\"passFail\": \"pass|fail\"` 필드로 이 기준 대비 판정을 포함하세요."
 > Phase 3에서 test-lead가 REPORT.md 상단에 선언된 성공 기준과 종합 pass/fail을 명시한다.
+
+> 📜 **워커 공통 계약 (필수)**: 모든 워커 Task() 프롬프트에 다음 2줄을 포함한다 —
+> (1) "첫 행동: Read agents/<name>.md — 읽은 뒤에만 테스트 시작"
+> (2) "finding 보고 계약: 모든 finding을 severity+confidence+evidence(file:line 또는 command+output)와 함께 빠짐없이 보고. 필터링 금지 — 필터는 리드가 한다 (LOOP-PROTOCOL [a][e])."
 
 ### 브라우저 사전 검증 (Phase 1-2용)
 
@@ -167,15 +177,16 @@ agents/page-explorer.md의 프로토콜을 따르세요."""
 
 page-explorer 완료 대기 (SendMessage 수신)
 
-### Phase 2: 병렬 테스트 (11개 에이전트 동시)
+### Phase 2: 병렬 테스트 (스코프 티어별 에이전트 동시)
 
 ```bash
-[ -n "$CMUX_SOCKET_PATH" ] && cmux set-progress 0.5 --label "Phase 2: 병렬 테스트 (11 agents)"
+[ -n "$CMUX_SOCKET_PATH" ] && cmux set-progress 0.5 --label "Phase 2: 병렬 테스트 (scope-tier agents)"
 ```
 
-> ⚡ **병렬 실행 필수**: 아래 11개 Task() 호출을 **하나의 응답 블록에서 동시에** 실행해야 진정한 병렬 처리입니다.
+> ⚡ **병렬 실행 필수**: 스코프 티어(사전 준비 5단계)의 스폰 목록에 있는 Task() 호출(Standard 기준 아래 11개)을 **하나의 응답 블록에서 동시에** 실행해야 진정한 병렬 처리입니다.
 > 순차 실행(하나 완료 후 다음 실행)은 처리 시간이 11x slower 길어집니다.
 > Claude Code Agent Teams에서 병렬성은 단일 응답의 여러 Tool call로 구현됩니다.
+> Quick/단일 관심사 티어면 스폰 목록 외 에이전트는 스폰하지 않고, 커버리지 분모에서 제외한다.
 
 ```
 Task(name: "functional-tester", ...)              # 기능 + DB 반영 확인
@@ -233,7 +244,7 @@ agents/image-optimizer.md의 프로토콜을 따르세요.
 [ -n "$CMUX_SOCKET_PATH" ] && cmux set-progress 0.8 --label "Phase 2.5: 발견 검증"
 ```
 
-11개 병렬 에이전트 완료 후, 13개 결과 JSON에서 critical/high finding 존재 여부 확인:
+병렬 에이전트 완료 후, 스폰된 에이전트의 결과 JSON에서 critical/high finding 존재 여부 확인:
 
 - **0건이면 Phase 2.5 전체 건너뜀** — REPORT.md에 "검증 생략 — critical/high 발견 없음" 표기 (클린 사이트 경로 비용 0)
 - 1건 이상이면 finding-verifier 단일 에이전트 스폰 (동일 Task 템플릿):
@@ -257,13 +268,13 @@ agents/finding-verifier.md의 프로토콜을 따르세요 (최대 15건, 10분 
 [ -n "$CMUX_SOCKET_PATH" ] && cmux set-progress 0.9 --label "Phase 3: 리포트 생성"
 ```
 
-13개 JSON 파일 + `verification-report.json`(Phase 2.5 실행 시) 읽기 후 REPORT.md 생성 (touch + image 섹션 포함).
+스폰된 에이전트의 JSON 파일 + `verification-report.json`(Phase 2.5 실행 시) 읽기 후 REPORT.md 생성 (touch + image 섹션 포함).
 
 **검증 결과 반영**: confirmed + unverified finding만 등급에 반영. refuted finding은 등급에서 제외하고
 부록 "검증에서 기각된 항목"에 반증 증거와 함께 나열. 등급 섹션에 한 줄 추가: "검증: N건 확인 / N건 기각 / N건 미검증".
 
 **등급 산정 규칙** (LOOP-PROTOCOL [d] COVERAGE HONESTY — agents/test-lead.md Phase 3과 동일):
-- 커버리지 = 완료 에이전트 / 13. REPORT.md 헤더에 `**커버리지**: N/13 에이전트 완료 (X%)` 출력 + `incomplete_agents` 목록 표기
+- 커버리지 = 완료 에이전트 / 스폰한 에이전트 수 (Standard 풀 런 = 13). REPORT.md 헤더에 `**커버리지**: N/[스폰 수] 에이전트 완료 (X%)` + 스코프 티어 출력 + `incomplete_agents` 목록 표기
 - N/A 1-2개 → 최대 B / 3-5개 → 최대 C / 6개 이상 → **Incomplete** (cmux 알림에도 등급 대신 Incomplete)
 - confirmed critical finding 1건 이상 → 종합 등급 상한 C (노하우 #17)
 - REPORT.md 상단에 선언된 성공 기준 + 종합 pass/fail 명시
@@ -402,6 +413,7 @@ if (dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) { ... }
 - **상황**: CS-test는 버그 발견 후 리포트 생성에서 멈춤. 사용자가 수동으로 수정해야 함.
 - **발견**: gstack `/qa`는 버그 발견 즉시 코드를 수정하고 atomic commit → 재검증 루프를 실행. Before/after 헬스 스코어로 개선 측정.
 - **교훈**: CS-test에 `--fix` 플래그 추가 고려. 활성화 시 test-lead가 각 에이전트 완료 후 수정 루프 실행. 3가지 티어(Quick/Standard/Exhaustive) 도입으로 테스트 깊이 조절 가능.
+- → ✅ 부분 반영됨 (2026-06: 티어링만 — 실행 프로토콜 사전 준비 5단계 스코프 티어로 승격; --fix 미반영)
 
 ### 17. 리포트 항목 위험도 분류 (antigravity 패턴 학습, 2026-04-13)
 

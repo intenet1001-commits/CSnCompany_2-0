@@ -92,7 +92,7 @@ CRITICAL: 순차 실행을 강제합니다.
 - QUICK_MODE=true: STEP 1 스킵, STEP 2 → STEP 3 순서로 실행.
 
 노하우 섹션의 과거 학습을 인터뷰 질문 우선순위에 반영하세요.
-검증 프로토콜: plugins/shared/LOOP-PROTOCOL.md를 따른다."
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 'protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)' 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다."
 )
 ```
 

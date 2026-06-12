@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, AskUserQuestion
 | 커맨드 | 설명 |
 |--------|------|
 | `/cs-experiencing` | 도메인 목록 + 버전 현황 |
-| `/cs-experiencing test [URL]` | CS-test 실행 (14-agent 웹 테스트) |
+| `/cs-experiencing test [URL]` | CS-test 실행 (멀티 에이전트 웹 테스트) |
 | `/cs-experiencing plan [task]` | CS-plan 실행 |
 | `/cs-experiencing review [path] [--focus aspect]` | CS-codebase-review 실행 (5-관점 코드 리뷰) |
 | `/cs-experiencing update` | **모든 도메인 버전업** (= version-up all) |
@@ -34,7 +34,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, AskUserQuestion
 
 | 도메인 | 버전 | 내용 |
 |--------|------|------|
-| CS-test | CS-test-v* (latest via sort -V) | playwright 14-agent 웹 테스트 팀 |
+| CS-test | CS-test-v* (latest via sort -V) | playwright 멀티 에이전트 웹 테스트 팀 (에이전트 구성·개수의 단일 진실은 `$LATEST_TEST/commands/CS-test.md` 로스터) |
 | CS-plan | CS-plan-v* (latest via sort -V) | TDD+CleanArch 4-agent 플랜 |
 | CS-codebase-review | CS-codebase-review-v* (latest via sort -V) | 5-관점 병렬 코드 리뷰 (Architecture/Quality/Security/Performance/Maintainability) |
 | cs-design | cs-design-v* (latest via sort -V) | 디자인 리뷰/UI 감사 |

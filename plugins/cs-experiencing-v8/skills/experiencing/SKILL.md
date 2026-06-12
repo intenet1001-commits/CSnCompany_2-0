@@ -24,7 +24,7 @@ allowed-tools:
 ```
 plugins/
 ├── cs-experiencing-v*/      ← 이 플러그인 (오케스트레이터)
-├── CS-test-v*/              ← 14-agent 웹 테스트 도메인
+├── CS-test-v*/              ← 멀티 에이전트 웹 테스트 도메인 (에이전트 구성·개수의 단일 진실은 해당 디렉토리의 commands/CS-test.md 로스터)
 ├── CS-plan-v*/              ← TDD+CleanArch 4-agent 플랜 도메인
 ├── CS-codebase-review-v*/   ← 5-agent 코드 리뷰 도메인
 ├── cs-design-v*/            ← 5-agent 디자인 리뷰 도메인
@@ -42,7 +42,7 @@ plugins/
 
 ```
 /cs-experiencing                                          # 도메인 목록 + 버전 현황 표시
-/cs-experiencing test [URL]                               # CS-test 실행 (14-agent 웹 테스트)
+/cs-experiencing test [URL]                               # CS-test 실행 (멀티 에이전트 웹 테스트)
 /cs-experiencing plan [task]                              # CS-plan 실행
 /cs-experiencing review [path] [--focus aspect]           # CS-codebase-review 실행 (5-관점 코드 리뷰)
 /cs-experiencing design [path] [--focus aspect] [--fix]  # CS-design 실행 (5-관점 디자인 리뷰)
@@ -95,7 +95,7 @@ echo "📦 cs-smart-run | 현재 콘텐츠 버전: $VERSION"
    ```
 2. `$LATEST_TEST/VERSION` 읽기 → 현재 버전 확인
 3. `$LATEST_TEST/skills/CS-test/SKILL.md` 프로토콜 실행
-4. **학습 회상**(공통 read-side 단계) 수행 후 URL을 대상으로 14-agent 팀 가동
+4. **학습 회상**(공통 read-side 단계) 수행 후 URL을 대상으로 멀티 에이전트 팀 가동 (에이전트 구성·개수는 `$LATEST_TEST/commands/CS-test.md` 로스터가 단일 진실)
 
 ### `/cs-experiencing plan [task]`
 
