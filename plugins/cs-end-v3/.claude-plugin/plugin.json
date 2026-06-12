@@ -1,7 +1,7 @@
 {
   "name": "cs-end",
   "version": "3.0.0",
-  "description": "CS Session Closing — Session Digest (Attention) → 4-Agent parallel analysis → Learning Gate (Input Gate) → CS_V7 Knowledge Write (Phase 2.1) → Selective version-up (GRU Update Gate) → Knowledge Decay (Forget Gate) → Structured compact handoff (Hidden State). v3: principle-tier learnings flow into CS_V7 personal wiki pipeline.",
+  "description": "CS Session Closing — Session Digest (Attention) → 4-Agent parallel analysis → Learning Gate (Input Gate) → Error note capture (Phase 2.2) → Selective version-up (GRU Update Gate) → Knowledge Decay (Forget Gate) → Structured compact handoff (Hidden State). Self-contained: learnings persist only to cs-experiencing SKILL.md, no external vault.",
   "author": {
     "name": "gwanli",
     "url": "https://github.com/intenet1001-commits"
@@ -14,7 +14,6 @@
     "learning",
     "git",
     "cs-experiencing",
-    "cs-v7",
     "knowledge-loop"
   ]
 }

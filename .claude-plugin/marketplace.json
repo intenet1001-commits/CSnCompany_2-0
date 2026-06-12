@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "cs-end",
-      "description": "🏁 Session Closer — 4-Agent analysis + TIL save + CS_V7 knowledge write (Phase 2.1) + error note capture (Phase 2.2) + plugin version-up + GitHub push (/cs-end)",
+      "description": "🏁 Session Closer — 4-Agent analysis + TIL save + error note capture (Phase 2.2) + plugin version-up + GitHub push. Self-contained, no external vault. (/cs-end)",
       "source": "./plugins/cs-end-v3"
     },
     {

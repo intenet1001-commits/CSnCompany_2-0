@@ -14,9 +14,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, Agent, AskUserQuestion
 - **Knowledge Decay Check** (Forget Gate) — 오래된 tactical 노하우 자동 감지
 - **구조화 Compact 핸드오프** (Hidden State) — 다음 세션 재개를 위한 5-field 구조화 출력
 
-**v3 신규 (CS_V7 지식 루프 연동):**
-- **CS_V7 Knowledge Write** (Phase 2.1) — principle-tier 학습을 CS_V7/raw/에 자동 저장 → graphify-sync 트리거 → 다음 ingest에서 위키 컴파일
+**v3 신규:**
 - **Error Note 점검 + 캡처** (Phase 2.2) — open 에러노트 항상 점검 + 에러→해결 시퀀스 감지 시 ~/.claude/error-notes/ 에 자동 저장 제안
+
+> **자체 완결 원칙:** 이 플러그인은 외부 볼트(CS_V7 등)에 아무것도 읽거나 쓰지 않는다. 학습의 유일한 저장소는 cs-experiencing SKILL.md 노하우 섹션이다 (cs-ceo 노하우 #18, 2026-05-30 / cs-end 적용 2026-06-12).
 
 ## ⚠️ Author-Only Command
 
@@ -32,7 +33,6 @@ If you are not the author, Phase 4 (git push) is automatically skipped — your 
 0.5. **Phase 0.5 — Session Pre-Pass Digest** ← 신규 (Attention + KV Cache)
 1. **Phase 1 — 4-Agent 병렬 분석** (Digest 공유 컨텍스트 주입)
 2. **Phase 2 — 학습 영속화 + Learning Gate** (3-axis 품질 스코어)
-2.1. **Phase 2.1 — CS_V7 Knowledge Write** ← v3 신규 (principle-tier → CS_V7/raw/)
 2.2. **Phase 2.2 — Error Note 점검 + 캡처** ← 신규 (open 노트 항상 점검 + 에러→해결 캡처)
 2.5. **Phase 2.5 — Knowledge Decay Check** ← 신규 (Forget Gate, 항목 있을 때만)
 2.6. **Phase 2.6 — Prompt Patch** ← 신규 (PASS 학습 → 운영 프롬프트 즉시 반영)
@@ -201,61 +201,6 @@ fi
 **0개 저장 시:** "0 learnings persisted this session" 출력 후 Phase 2.5로 진행 (오류 없음).
 
 CHANGELOG도 함께 갱신합니다.
-
-## Phase 2.1 — CS_V7 Knowledge Write (v3 신규)
-
-**Learning Gate PASS 항목 중 `tier=principle`인 것이 있을 때만 실행한다. CS_V7 개인 위키 파이프라인에 세션 학습을 영속화한다.**
-
-### 실행 조건
-
-```bash
-CS_V7_RAW="$HOME/CS_V7/raw"
-CS_V7_OK=true
-[ -d "$CS_V7_RAW" ] || { echo "CS_V7 없음 — 이 Phase 스킵"; CS_V7_OK=false; }
-# CS_V7_OK=true이고 GATE_PASS 항목 중 tier=principle 존재할 때만 아래 절차 진행
-```
-
-조건 미충족(principle 항목 0개 또는 CS_V7 없음) → 조용히 Phase 2.5로 진행.
-
-### 절차
-
-1. **파일 생성**: principle-tier 항목을 `CS_V7/raw/` 마크다운으로 포맷
-
-   파일명: `cs-session-YYYY-MM-DD-<slug>.md`  
-   (`<slug>` = 학습 제목에서 kebab-case 추출, 한글 허용)
-
-   ```markdown
-   # <학습 제목> — CS Session Learning
-
-   source: cs-end session YYYY-MM-DD
-   domains: <DOMAINS_USED>
-
-   ## 상황
-   <상황 필드>
-
-   ## 발견
-   <발견 필드>
-
-   ## 교훈
-   <교훈 필드>
-   ```
-
-2. **CS_V7/raw/ 에 Write** (Write 도구 사용)
-
-3. **graphify-sync 트리거**:
-
-   ```bash
-   cd "$HOME/CS_V7" && bash scripts/graphify-sync.sh 2>/dev/null \
-     && echo "graphify 완료" || echo "graphify 스킵 (변경 없음)"
-   ```
-
-4. **출력** — 출력에 반드시 포함: 저장된 principle 개수, 저장 경로(파일명), 다음 ingest에서 wiki로 컴파일된다는 안내. 포맷은 자유.
-
-5. **Phase 6 NEXT 필드에 힌트 추가** (신규 파일이 저장된 경우):
-
-   ```
-   CS_V7 /llm-wiki ingest 실행 권장 (신규 session learning 저장됨)
-   ```
 
 ## Phase 2.2 — Error Note 점검 + 캡처 (cs-error-notes 연동)
 

@@ -1,6 +1,19 @@
 # Changelog
 
 
+## [session] 2026-06-12 — cs-end CS_V7 외부 볼트 의존 제거 (자체 완결 원칙 적용)
+
+사용자 지시: 이 프로젝트는 단독으로 작동해야 하며 CS_V7과 무관하다. cs-ceo 노하우 #18(2026-05-30)에서 이미 확립된 원칙이 cs-end에는 미적용 상태로 남아 있던 드리프트를 해소.
+
+### Removed
+- `cs-end-v3/commands/cs-end.md` Phase 2.1 (CS_V7 Knowledge Write) 전체 삭제 — `$HOME/CS_V7/raw/` 쓰기 + `graphify-sync.sh` 트리거 + Phase 6 ingest 힌트 제거
+- `cs-end-v3/.claude-plugin/plugin.json` 설명의 CS_V7 문구 + `cs-v7` 키워드 제거
+- `marketplace.json` cs-end 설명의 "CS_V7 knowledge write" 문구 제거
+
+### Added
+- `cs-end.md` 상단에 자체 완결 원칙 명문화: 외부 볼트 읽기/쓰기 금지, 학습 저장소는 cs-experiencing SKILL.md 단일
+- cs-ceo 노하우 #18에 ✅ 반영됨 addendum (cs-end 측 적용 완료 기록)
+
 ## [session] 2026-06-12 — cs-experiencing 노하우 3개 추가 (dash1-v2 대시보드 세션)
 
 ### Added (cs-experiencing SKILL.md)

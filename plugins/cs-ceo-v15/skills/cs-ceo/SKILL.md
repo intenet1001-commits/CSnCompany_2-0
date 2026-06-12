@@ -250,3 +250,4 @@ CEO 에이전트가 반환한 종합 리포트를 그대로 출력한다.
 - **판단**: cs-ceo는 자체 SKILL.md 노하우 섹션이 유일한 지식 저장소가 되어야 한다. 외부 위키와의 읽기/쓰기 연동을 모두 제거. Phase -3.5 폐기. cs-end write-back 없음.
 - **결과**: cs-ceo는 SKILL.md 내 노하우만으로 자기완결적으로 학습·운영.
 - **교훈**: **플러그인 시스템은 외부 볼트에 의존하지 않는다**. 지식은 SKILL.md 노하우 섹션(ADR 패턴)으로 내재화. 외부 시스템 연동은 사용자가 명시적으로 요청할 때만.
+- 2026-06-12 addendum: cs-end Phase 2.1(CS_V7/raw/ write-back)이 이 결정 이후에도 남아 있었음을 발견 — cs-end-v3에서 Phase 2.1 전체 삭제 + plugin.json/marketplace.json 설명 정리. ✅ 반영됨 (2026-06)
