@@ -45,3 +45,10 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: 기존 `meokgo_chat_messages.content TEXT` 컬럼만 있는 채팅 테이블에 스티커 기능을 추가해야 했음. DB 컬럼 추가 시 RLS 정책 업데이트 + Realtime 스키마 리프레시 필요.
 - **발견**: `content`에 `:sticker:🎂` 센티넬 접두사로 저장하면 DB/RLS/Realtime 파이프라인을 전혀 건드리지 않아도 됨. `isSticker()` 한 줄 + 렌더 분기만 추가로 구현 완료.
 - **교훈**: 새 콘텐츠 타입이 "여전히 문자열이고 메시지당 하나"인 경우 센티넬 접두사로 기존 컬럼을 재사용한다. 컬럼 추가는 진짜 직교적 데이터(외래키·숫자·boolean 플래그)일 때만 사용.
+
+### 77. fp_logs unique index를 분산 뮤텍스로 활용 — Redis 없이 serverless 하루 1회 실행 보장 (2026-06-14)
+<!-- tier: principle -->
+- **상황**: freeparking-1 크론이 GitHub Actions workflow_dispatch(수동) + schedule(자동)에서 동시에 실행될 경우 같은 차량에 중복 등록이 발생할 수 있었다. Redis/Upstash 등 외부 lock store는 없었다.
+- **발견**: `fp_logs` 테이블에 `CREATE UNIQUE INDEX fp_logs_cron_lock_date ON fp_logs (plate, (created_at::date)) WHERE plate = '__cron_lock__'`를 만들면, `INSERT { plate: '__cron_lock__' }` 자체가 atomic lock acquisition이 된다. 두 번째 호출은 unique constraint violation으로 즉시 409 반환. `finally` 블록에서 `UPDATE status='done'`으로 audit trail 유지(DELETE 대신).
+- **교훈**: "하루 1회 실행 보장"이 필요한 serverless job에서 외부 lock store가 없을 때, conditional unique index + sentinel row INSERT = 분산 뮤텍스의 가장 저렴한 구현. `finally`에서 delete 대신 status update를 사용해야 해당 날의 실행 이력(run_id, 시각)이 남는다.
+- **근거**: `app/api/cron/auto-register/route.ts` L77-79 DDL 주석 + L83-91 insert-as-lock + L219-226 finally update

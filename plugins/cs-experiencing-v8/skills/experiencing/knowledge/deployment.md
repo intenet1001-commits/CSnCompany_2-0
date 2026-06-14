@@ -27,3 +27,38 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: Next.js 프로젝트를 `npx vercel --prod`로 배포 후 사용자가 카드 배경이 사라진 "깨진 화면" 보고. tsc + npm run build 모두 오류 없음.
 - **발견**: HTML과 CSS 번들이 CDN 전파 타이밍에 따라 일시적으로 불일치할 수 있음. 새 배포는 content-addressed CSS 파일명을 사용하므로 재배포 시 강제로 새 번들 로딩됨.
 - **교훈**: 빌드/타입 검사가 통과하는데도 배포 후 시각적 버그가 생기면 CDN artifact를 먼저 의심하고 `npx vercel --prod` 재배포로 빠르게 확인할 것.
+
+### 75. GitHub Actions schedule cold-start trap — 파일이 없던 시각의 크론은 소급 발화하지 않는다 (2026-06-14)
+<!-- tier: principle -->
+- **상황**: freeparking-1의 `.github/workflows/weekly-parking.yml`을 일요일 당일(2026-06-14) 12시 이후에 main 브랜치에 푸시했다. 12시 KST 크론이 실행되지 않아 수기 처리가 필요했다.
+- **발견**: GitHub Actions `schedule:` 트리거는 워크플로우 파일이 **이미 default branch에 존재해야** 인식된다. 12시 이후에 파일이 생겼으므로 그날 12시 발화는 처음부터 불가능했다. 소급 발화 없음, 에러·알림도 없음(단순히 조건 미충족).
+- **교훈**: 새 `schedule:` 워크플로우를 배포한 직후에는 반드시 `workflow_dispatch`로 즉시 수동 실행 검증. 기존 스케줄러에서 마이그레이션할 때는 파일이 merge된 시점이 다음 발화 이전인지 확인하고, 확신이 없으면 한 사이클은 기존 스케줄러와 병행 운영.
+- **근거**: `weekly-parking.yml` 커밋이 12:00 KST 이후 — 사용자 "오늘 오후 12시에 자동으로 주차등록이 안돼서 수기로 방금 처리했다" + ultracode 22-agent 분석 "오늘 실패 원인: 워크플로우 파일이 당일 12시 이후에 푸시됨 (타이밍 이슈)"
+
+### 76. NEXT_PUBLIC_ anon key를 서버 전용 route에서 사용하면 RLS에 silently 차단된다 (2026-06-14)
+<!-- tier: principle -->
+- **상황**: `app/api/cron/auto-register/route.ts`에서 `NEXT_PUBLIC_SUPABASE_ANON_KEY`로 Supabase 클라이언트를 생성했다. RLS가 활성화된 `fp_cars`/`fp_logs` 테이블을 읽고 insert했다.
+- **발견**: `NEXT_PUBLIC_` 접두사는 "브라우저 안전 공개값" 신호다. anon key로 만든 클라이언트는 RLS 정책의 제약을 받아 쓰기 권한이 없거나 service role이 필요한 행을 읽지 못한다. 배포 에러 없이 HTTP 200이 오지만 실제 DB 작업이 실패하거나 빈 결과를 반환하는 silent failure.
+- **교훈**: 서버 전용 route(API route, Server Action, cron)는 `SUPABASE_SERVICE_ROLE_KEY`로 `createClient()` 생성 필수. `NEXT_PUBLIC_` key는 클라이언트 브라우저 코드에서만 사용. lint rule로 서버 파일에 `NEXT_PUBLIC_SUPABASE_` 문자열을 금지하면 재발 방지.
+- **근거**: `app/api/cron/auto-register/route.ts` L30-33 — `process.env.SUPABASE_SERVICE_ROLE_KEY!` + 주석 "서버 전용 route — anon key 대신 service role key 사용 (RLS 우회)"
+
+### 78. 멀티-phase 서버리스 함수는 phase 경계마다 wall-clock 예산 점검을 삽입한다 (2026-06-14)
+<!-- tier: principle -->
+- **상황**: freeparking-1 크론 route가 현황조회(phase 1) + 등록(phase 2) 순서로 최대 60s 안에 실행해야 했다. 조회 단계가 오래 걸리면 Vercel이 mid-flight kill해 fp_logs에 미기록 등록이 발생할 수 있었다.
+- **발견**: `START_MS = Date.now()`, `BUDGET_MS = 45_000`(60s - 15s 마진) 상수를 선언하고 phase 2 진입 직전 `if (Date.now() - START_MS > BUDGET_MS - 15_000)` 체크로 조기 반환. 이렇게 하면 "등록은 됐는데 로그 없음" 상황 대신 structured partial response를 반환해 운영자가 상황을 파악할 수 있다.
+- **교훈**: 서버리스 함수에 순차 단계와 hard deadline이 공존하면 phase 경계마다 `Date.now() - START_MS` 체크를 삽입하고 clean partial response를 반환하라. runtime kill보다 명시적 조기 반환이 fp_logs 일관성과 운영 가시성 모두에서 우월하다.
+- **근거**: `app/api/cron/auto-register/route.ts` L26-27 `START_MS`, `BUDGET_MS = 45_000` + L155-164 budget 점검 조기 반환
+
+### 79. curl에 --max-time 없이 GitHub Actions에서 hang 시 SIGKILL — 에러 원인 알 수 없음 (2026-06-14)
+<!-- tier: tactical -->
+- **상황**: 초기 `.github/workflows/weekly-parking.yml`의 curl이 `--max-time` 없이 Vercel 함수를 호출했다.
+- **발견**: Vercel 함수가 hang하면 curl이 무한 대기하다 GitHub Actions의 `timeout-minutes` SIGKILL에 죽는다. 이 경우 curl exit code가 없어서 "Vercel가 응답 안 함" vs "Vercel가 에러 반환" vs "연결 불가"를 구분 불가. `--max-time 70 --connect-timeout 10`을 추가하면 curl이 exit code 28(timeout)로 명확히 종료.
+- **교훈**: GitHub Actions에서 외부 서비스를 호출하는 curl에는 항상 `--max-time <fn_maxDuration + 10>` + `--connect-timeout 10`을 추가. `--max-time`이 job `timeout-minutes`보다 약간 짧아야 curl error body를 캡처할 수 있다.
+- **근거**: `.github/workflows/weekly-parking.yml` L35-36 `--max-time 70 --connect-timeout 10` 수정
+
+### 80. GitHub Actions run: 블록에서 secrets는 env: 블록으로 분리해야 shell injection을 방지한다 (2026-06-14)
+<!-- tier: principle -->
+- **상황**: `workflow.yml`의 `run:` 블록에서 `${{ secrets.CRON_SECRET }}`을 직접 쓰는 초안이 security hook에 의해 경고됨.
+- **발견**: `${{ secrets.* }}`를 `run:` 문자열 내에 직접 보간하면 secret 값에 shell 메타문자가 포함될 경우 injection이 가능하다. `env:` 블록에서 환경변수로 바인딩하고 `${VAR_NAME}` 형태로 참조하면 서브프로세스에 값이 직접 전달되어 shell이 값을 파싱하지 않는다.
+- **교훈**: GitHub Actions에서 secrets를 shell command에 넘길 때는 항상 `env:` 블록 바인딩 패턴 사용. lint rule: `run:` 블록 내 `${{ secrets.` 패턴은 곧 injection 위험 신호.
+- **근거**: `.github/workflows/weekly-parking.yml` L15-17, L31-33 `env: CRON_SECRET: ${{ secrets.CRON_SECRET }}` + `run:` 내 `${CRON_SECRET}` 참조
