@@ -57,3 +57,10 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: `git worktree add`로 생성한 워크트리에서 `npm run dev` 실행 시 Turbopack이 node_modules 심링크를 거부하며 에러를 냈다.
 - **발견**: git worktree는 기본적으로 node_modules 디렉토리를 갖지 않는다. 메인 트리의 node_modules를 심링크하면 Turbopack이 이를 감지하고 거부한다. 워크트리 디렉토리 안에서 `npm install`을 직접 실행해 실제 node_modules를 생성해야 정상 동작한다.
 - **교훈**: Next.js + Turbopack 프로젝트에서 git worktree 사용 시 반드시 `npm install`(또는 `pnpm install`) 실행. 심링크 방식 공유는 Turbopack에서 작동하지 않음. 워크트리 셋업 체크리스트에 node_modules 설치 단계 포함할 것.
+
+### 83. 빌드 아티팩트 unstaged → git pull --rebase 실패 (2026-06-14)
+<!-- tier: tactical -->
+- **상황**: Windows 빌드 스크립트(build-win.ts)가 `build-number.json`과 `src-tauri/tauri.conf.json`을 자동 버전업했으나 커밋되지 않은 채 남아있었다. 이후 `git pull --rebase` 실행 시 unstaged changes로 인해 rebase 중단.
+- **발견**: `git pull --rebase`는 uncommitted working tree changes가 있으면 `error: cannot pull with rebase: You have unstaged changes`로 중단한다. 빌드 스크립트가 생성한 파일이 자동으로 커밋되지 않으면 다음 pull에서 conflict가 발생한다.
+- **교훈**: Windows 빌드 후 빌드 아티팩트(build-number.json, tauri.conf.json) 변경이 있으면 즉시 커밋하거나, pull 전 `git stash` → pull → `git stash pop` 절차를 따른다. 가장 안전한 순서: pull → build → commit artifacts → push.
+- **근거**: `git stash` 후 `git pull --rebase` 성공. 이후 `git stash pop`에서 remote v102 vs local v98 conflict → `git checkout --ours` + `git stash drop`으로 해결.
