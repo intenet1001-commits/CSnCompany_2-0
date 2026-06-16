@@ -9,7 +9,7 @@ description: |
   v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지. AGENT 타입은 Task(subagent_type)로 직접 호출. 외부 플러그인 에이전트(oh-my-claudecode:executor 등) 지원.
   설치된 스킬/에이전트를 자동 탐색하고, 타이밍(Pre/In/Post/Wraps)은 파트너 description을 읽고 판단해 근거 한 줄과 함께 결정한다.
   Use when user types "/cs-ceo", "cs-ceo", "/goal", or "/cs-partnership".
-version: 15.0.0
+version: 15.0.1
 allowed-tools:
   - Task
   - Agent

@@ -1,6 +1,6 @@
 {
   "name": "CS-codebase-review",
-  "version": "29.0.0",
+  "version": "29.0.1",
   "description": "5-perspective codebase review - architecture, quality, security, performance, maintainability",
   "author": {
     "name": "intenet1001-commits",
