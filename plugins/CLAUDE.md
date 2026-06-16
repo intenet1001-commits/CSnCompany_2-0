@@ -22,6 +22,13 @@ Key routing rules:
 - "목표", complex multi-step task, unsure which domain, /goal → invoke cs-ceo
 - Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
 - Error capture, error note, 에러노트, 에러 기록, 오류 정리 → invoke cs-error-notes
+- Create hook, block behavior, prevent pattern, 훅 생성, 동작 차단, 이 패턴 막아줘 → invoke hookify
+
+## Python 실행 규칙
+
+- `shared/scripts/*.py` 는 항상 `uv run --quiet --no-project <script>` 로 실행한다 (직접 `python3` 호출 금지).
+  설치: `brew install uv` 또는 `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- 진입점: `bash plugins/shared/run_prepass.sh <subcommand>` — python3 → uv run → uv install 순 자동 처리.
 
 ## Loop Engineering (공통 프로토콜)
 

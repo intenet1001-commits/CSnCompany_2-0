@@ -68,7 +68,7 @@ csn_run() {
 
   local result
   if [ "$CSN_USE_UV" = "true" ]; then
-    result=$(uv run --quiet "$script_path" "$@" 2>/dev/null)
+    result=$(uv run --quiet --no-project "$script_path" "$@" 2>/dev/null)
   else
     result=$(python3 "$script_path" "$@" 2>/dev/null)
   fi

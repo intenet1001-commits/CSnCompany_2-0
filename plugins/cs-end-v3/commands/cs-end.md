@@ -41,6 +41,9 @@ If you are not the author, Phase 4 (git push) is automatically skipped — your 
 4. **Phase 4 — Git commit + push** (atomic commit, marketplace.json 동기화)
 5. **Phase 5 — Push 완료 리포트** (두 레포 상태 명확 구분 출력)
 6. **Phase 6 — 구조화 세션 Compact 핸드오프** ← 개선 (Hidden State 5-field 포맷)
+6.5. **Phase 6.5 — CLAUDE.md 세션 반영** (revise-claude-md 로직 내부 실행, 항상)
+6.7. **Phase 6.7 — CLAUDE.md 품질 감사** (claude-md-improver, 누적 학습 N건 도달 시)
+7. **Phase 7 — 통합 CLAUDE.md 승인** (6.5 + 6.7 제안 합산 후 단일 승인)
 
 ## Phase 0 — 플래그 파싱 + Origin 확인
 
@@ -201,6 +204,40 @@ fi
 **0개 저장 시:** "0 learnings persisted this session" 출력 후 Phase 2.5로 진행 (오류 없음).
 
 CHANGELOG도 함께 갱신합니다.
+
+**LEARNED_COUNT 업데이트 (Phase 6.5/6.7 카운터용):**
+
+Learning Gate PASS 건수를 확보한 직후:
+
+```bash
+LEARNED_COUNT=<PASS 건수>   # 0이면 0으로 명시
+
+STATE_DIR="$HOME/.claude/state"
+STATE_FILE="$STATE_DIR/cs-end-counter.json"
+mkdir -p "$STATE_DIR"
+
+# 파일 없으면 초기값으로 생성
+[ -f "$STATE_FILE" ] || python3 -c "
+import json, pathlib
+pathlib.Path('$STATE_FILE').write_text(json.dumps({
+  'accumulated': 0, 'threshold': 5, 'last_improver_run': ''
+}, indent=2))
+"
+
+# 누적 카운터 업데이트
+UPDATED=$(python3 -c "
+import json, sys
+f = open('$STATE_FILE')
+d = json.load(f)
+f.close()
+d['accumulated'] = d.get('accumulated', 0) + $LEARNED_COUNT
+print(json.dumps(d, indent=2))
+")
+echo "$UPDATED" > "$STATE_FILE"
+
+ACCUMULATED=$(python3 -c "import json,sys; print(json.load(open('$STATE_FILE'))['accumulated'])")
+THRESHOLD=$(python3 -c "import json,sys; print(json.load(open('$STATE_FILE'))['threshold'])")
+```
 
 ## Phase 2.2 — Error Note 점검 + 캡처 (cs-error-notes 연동)
 
@@ -463,14 +500,159 @@ NEXT    : 실제 세션에서 /cs-end 실행 후 Phase1 토큰 절감 측정 확
 BTWS    : 0개 pending — 없음
 ```
 
+## Phase 6.5 — CLAUDE.md 세션 반영 (항상 실행)
+
+**`--no-compact` 또는 `--learning-only` 이면 스킵합니다.**
+
+revise-claude-md 로직을 내부에서 실행하되, 변경을 즉시 적용하지 않고 **버퍼에 저장**합니다.
+
+### Step 1 — 반영 대상 추출
+
+이번 세션에서 다음 중 해당하는 항목을 확인합니다:
+- 새로 발견한 bash 명령 / 워크플로우
+- 코드 스타일 패턴 / 환경 quirk / gotcha
+- 반복될 가능성이 있는 설정 변경
+- Learning Gate PASS 항목 중 CLAUDE.md에 기록할 만한 인사이트
+
+반복될 가능성 없는 일회성 fix는 제외합니다.
+
+### Step 2 — CLAUDE.md 파일 탐색
+
+```bash
+find . -name "CLAUDE.md" -o -name ".claude.local.md" 2>/dev/null | head -20
+```
+
+각 파일에 대해 추가 위치를 판단합니다:
+- `CLAUDE.md` — 팀 공유 (git tracked)
+- `.claude.local.md` — 개인/로컬 (gitignored)
+
+### Step 3 — 제안 초안 생성
+
+추가할 내용이 있으면 diff 형식으로 버퍼에 저장합니다:
+
+```
+[6.5-BUFFER]
+파일: ./CLAUDE.md
++ <한 줄 요약>
+```
+
+**없으면 버퍼 비움** (Phase 7에서 "세션 반영: 추가 없음" 표시).
+
+간결성 기준:
+- 1개념 1줄
+- 이미 존재하거나 자명한 내용은 제외
+- 일회성 fix는 제외
+
+---
+
+## Phase 6.7 — CLAUDE.md 품질 감사 (조건부)
+
+**트리거 조건:** `ACCUMULATED >= THRESHOLD` (기본 threshold=5)
+
+```bash
+if [ "$ACCUMULATED" -ge "$THRESHOLD" ] 2>/dev/null; then
+  TRIGGER_IMPROVER=true
+else
+  TRIGGER_IMPROVER=false
+fi
+```
+
+**`TRIGGER_IMPROVER=false`이면:** `[카운터: $ACCUMULATED/$THRESHOLD]` 한 줄만 출력하고 Phase 7로 진행합니다.
+
+**`TRIGGER_IMPROVER=true`이면:** claude-md-improver 로직(Phase 1-3)을 실행합니다.
+
+### Discovery (claude-md-improver Phase 1)
+
+```bash
+find . -name "CLAUDE.md" -o -name ".claude.md" -o -name ".claude.local.md" 2>/dev/null | head -50
+```
+
+### Quality Assessment (claude-md-improver Phase 2)
+
+각 파일을 6개 기준으로 평가합니다:
+
+| 기준 | 비중 |
+|------|------|
+| Commands/workflows 문서화 | High |
+| Architecture 명확성 | High |
+| 비자명 패턴 기록 | Medium |
+| 간결성 | Medium |
+| 최신성 | High |
+| 실행 가능성 | High |
+
+등급: A(90-100) / B(70-89) / C(50-69) / D(30-49) / F(0-29)
+
+### 제안 생성 (claude-md-improver Phase 3)
+
+개선이 필요한 파일에 대해 diff 형식으로 버퍼에 저장합니다:
+
+```
+[6.7-BUFFER]
+파일: <경로> (현재 등급: X → 예상 등급: Y)
++ <추가 내용>
+```
+
+### 카운터 리셋
+
+```bash
+python3 -c "
+import json
+f = open('$STATE_FILE')
+d = json.load(f)
+f.close()
+d['accumulated'] = 0
+d['last_improver_run'] = '$(date +%Y-%m-%d)'
+open('$STATE_FILE', 'w').write(json.dumps(d, indent=2))
+"
+```
+
+---
+
+## Phase 7 — 통합 CLAUDE.md 승인
+
+**6.5-BUFFER와 6.7-BUFFER가 모두 비어 있으면** "CLAUDE.md 업데이트 제안 없음" 한 줄만 출력하고 종료합니다.
+
+하나라도 있으면 통합 제안을 표시하고 AskUserQuestion으로 승인을 요청합니다.
+
+### 출력 형식
+
+```
+━━━ Phase 7: CLAUDE.md 업데이트 제안 ━━━
+
+[6.5 세션반영] ./CLAUDE.md
+  + ## Gotchas
+  + - cs-end --no-push: origin이 intenet1001-commits가 아닐 때 자동 활성화
+
+[6.7 품질감사] ./plugins/CLAUDE.md  (C→B 예상)   ← TRIGGER_IMPROVER=true 시에만
+  + ## Commands
+  + - /cs-end --domains test,plan: 버전업 도메인 수동 지정
+
+카운터: $ACCUMULATED/$THRESHOLD (리셋됨 or 현재값)
+```
+
+### 승인 방식
+
+AskUserQuestion으로 각 파일별 옵션을 제시합니다:
+- **all** — 모든 제안 적용
+- **번호 선택** — 일부만 적용 (예: "1, 3")
+- **skip** — 이번엔 건너뜀
+
+### 적용
+
+승인된 항목에 대해 Edit 툴로 CLAUDE.md 파일에 직접 적용합니다.
+
+적용 후 "Phase 7 완료: X개 파일 업데이트됨" 출력.
+
+---
+
 ## 사용 예
 
 ```
 /cs-end                                        # 표준 종료 (Digest → 분석 → 게이트 → 버전업 → push → compact)
 /cs-end --project /path/to/repo               # 프로젝트 레포 명시
 /cs-end --no-push                             # push 생략 (로컬만)
-/cs-end --no-compact                          # Phase 6 생략
-/cs-end --learning-only                       # 학습 추출/저장만 (버전업/push/compact 생략)
+/cs-end --no-compact                          # Phase 6 + 6.5 + 6.7 + 7 생략
+/cs-end --learning-only                       # 학습 추출/저장만 (버전업/push/compact/CLAUDE.md 생략)
 /cs-end --no-decay-check                      # Phase 2.5 Forget Gate 스킵
 /cs-end --no-error-notes                      # Phase 2.2 Error Note 점검 스킵
 /cs-end --domains test,design                 # 버전업 도메인 수동 지정 (자동 탐지 오버라이드)
