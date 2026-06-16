@@ -649,3 +649,19 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **상황**: 히어로 카드 전체(36px)와 세그먼트 셀 인라인(24px) 두 크기로 동일 HeroSparkline 컴포넌트를 써야 했음.
 - **발견**: `height?: number = 36` optional prop 추가로 새 컴포넌트 없이 해결. `<HeroSparkline data={...} color={...} height={24} />`.
 - **교훈**: 기존 컴포넌트 복제보다 optional prop으로 변형을 흡수하는 것이 먼저. 렌더 조건: `spark.length > 1` 가드 필수.
+
+### 15. git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17)
+<!-- tier: tactical -->
+
+- **상황**: 사용자가 특정 커밋 해시(defd9c1...)를 로컬에 pull 요청 시, 해당 커밋이 어느 원격 브랜치에 속하는지 먼저 확인해야 했음.
+- **발견**: `git fetch origin` → `git cat-file -t <hash>`로 객체 존재 확인 → `git branch -r --contains <hash>`로 포함 브랜치 특정 → `git merge --ff-only <remote-branch>` 순으로 안전하게 적용. fetch 없이는 `unknown revision` 오류 발생.
+- **교훈**: 알 수 없는 커밋 해시 merge 요청: (1) fetch → (2) cat-file -t 존재 확인 → (3) branch -r --contains 브랜치 특정 → (4) ff-only merge. 이 순서를 생략하면 중단됨.
+- **근거**: `git merge --ff-only origin/claude/csncompany-plugin-auto-install-am7h2x` → "Fast-forward / 6 files changed, 175 insertions(+)" (2026-06-17 세션)
+
+### 16. CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5)에서 의존성 조기 차단 (2026-06-17)
+<!-- tier: tactical -->
+
+- **상황**: cs-ceo, CS-test, CS-codebase-review가 serena/playwright/hookify 등 공식 플러그인에 의존하지만 런타임 진입 후에야 누락을 감지해 비용이 낭비되었음.
+- **발견**: pre_pass.py에 `_find_official_plugin()` + `_find_mcp_server()` 헬퍼를 추가하고 ceo.md Phase -3.5에서 preflight 단계에 감지·차단. CS-test는 playwright 미설치 시 Install/Skip/Abort AskUserQuestion 제공. OFFICIAL-PLUGINS.md가 설치 명령어 단일 진실.
+- **교훈**: 공식 플러그인 의존성은 멀티에이전트 워크플로우 진입 전 preflight 단계(-3.5)에서 차단하는 것이 비용 효율적. context7 패턴(누락 감지 → AskUserQuestion 설치 유도)을 공식 플러그인에 동일 적용.
+- **근거**: `defd9c1 feat: serena 통합 + 공식 플러그인 자동설치 유도 시스템 추가` — ceo.md +56줄, pre_pass.py +64줄, OFFICIAL-PLUGINS.md 신규 (2026-06-17)

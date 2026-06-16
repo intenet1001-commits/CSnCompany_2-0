@@ -5,7 +5,7 @@ description: |
   15-agent AI Teams web testing skill. Use when user types "/CS-test", "웹 테스트", "playwright test",
   "테스트 실행", "사이트 테스트", or wants comprehensive web app testing covering security, SEO,
   performance, DB, touch interaction, and image optimization with AI agent teams.
-version: 26.0.0
+version: 26.0.1
 ---
 
 # Playwright Test v5 - AI Agent Teams 기반 종합 웹 테스트

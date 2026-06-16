@@ -2,7 +2,7 @@
 name: CS-codebase-review
 user-invocable: false
 description: 5-agent parallel codebase review
-version: 29.0.0
+version: 29.0.1
 ---
 
 # CS-codebase-review 실행 프로토콜
