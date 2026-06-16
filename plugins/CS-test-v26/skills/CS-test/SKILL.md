@@ -116,7 +116,12 @@ mkdir -p tests/results tests/screenshots
 ToolSearch(query: "+playwright navigate")
 ```
 - `mcp__playwright__browser_navigate` 발견 → 정상
-- 없음 → Phase 0 (build-validator)는 실행 가능, Phase 1-2는 경고 후 건너뜀
+- 없음 → AskUserQuestion 1회로 설치 유도:
+  - 메시지: "⚠️ Playwright 플러그인이 감지되지 않았습니다.\n역할: 브라우저 자동화로 Phase 1-2 전체 테스트 수행\n설치: `/plugin install playwright@claude-plugins-official`\n(마켓플레이스 미등록 시 먼저: `/plugin marketplace add anthropics/claude-plugins-official`)\nSkip 시: Phase 0 (빌드/보안 검증)만 실행됩니다."
+  - 선택지: **Install 안내 (권장)** / Skip (Phase 0만) / Abort
+  - Install 선택 → 설치 명령어를 사용자에게 출력 + "설치 후 `/clear` 로 세션 재시작 필요 → 이후 `/CS-test` 재실행" 안내 후 종료
+  - Skip 선택 → Phase 0만 실행, 리포트에 "Phase 1-2 생략 — playwright 미설치" 표기
+  - Abort 선택 → 즉시 종료
 
 ### Phase 0: 빌드/배포 사전 검증 (Playwright 불필요)
 

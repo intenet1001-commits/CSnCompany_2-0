@@ -23,6 +23,7 @@ Key routing rules:
 - Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
 - Error capture, error note, 에러노트, 에러 기록, 오류 정리 → invoke cs-error-notes
 - Create hook, block behavior, prevent pattern, 훅 생성, 동작 차단, 이 패턴 막아줘 → invoke hookify
+- Code navigation, find symbol, go to definition, 코드 탐색, 심볼 검색, 정의 찾기, 참조 분석 → use serena (mcp__serena__* tools or /serena skill)
 
 ## Python 실행 규칙
 

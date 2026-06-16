@@ -95,6 +95,43 @@ def find_skill(name: str) -> str:
     return ""
 
 
+_CPO = HOME / ".claude/plugins/marketplaces/claude-plugins-official"
+
+
+def _find_official_plugin(name: str) -> str:
+    """claude-plugins-official 마켓플레이스에서 플러그인 디렉토리 탐색.
+    plugins/ 와 external_plugins/ 둘 다 확인. fallback으로 일반 캐시도 탐색.
+    """
+    for subdir in ("plugins", "external_plugins"):
+        candidate = _CPO / subdir / name
+        if candidate.is_dir():
+            return str(candidate)
+    for root in [HOME / ".claude/plugins/marketplaces", HOME / ".claude/plugins/cache"]:
+        if not root.is_dir():
+            continue
+        if (root / name).is_dir():
+            return str(root / name)
+        for sub in root.iterdir():
+            if sub.is_dir() and (sub / name).is_dir():
+                return str(sub / name)
+    return ""
+
+
+def _find_mcp_server(name: str) -> bool:
+    """~/.claude/settings.json의 mcpServers에서 name 키(대소문자 무관) 검색."""
+    for sf in [HOME / ".claude/settings.json", HOME / ".claude/settings.local.json"]:
+        if not sf.is_file():
+            continue
+        try:
+            data = json.loads(sf.read_text(encoding="utf-8"))
+            servers = data.get("mcpServers", {})
+            if any(k.lower() == name.lower() for k in servers):
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def _git(repo: str, *args: str) -> str:
     try:
         return subprocess.check_output(
@@ -191,6 +228,13 @@ def cmd_ceo_preflight() -> dict:
     def omc(skill: str) -> str:
         return f"{omc_base}/{skill}/SKILL.md" if omc_base else ""
 
+    # ── official plugin health (claude-plugins-official) ──────────────────────
+    serena_path     = _find_official_plugin("serena")
+    playwright_path = _find_official_plugin("playwright")
+    hookify_path    = _find_official_plugin("hookify")
+    serena_installed     = bool(serena_path)     or _find_mcp_server("serena")
+    playwright_installed = bool(playwright_path) or _find_mcp_server("playwright")
+
     return {
         "plugins": plugins,
         "partners": {
@@ -221,6 +265,26 @@ def cmd_ceo_preflight() -> dict:
         "context7_installed": bool(c7 and Path(c7).exists()),
         # 라우팅이 메모리를 소비하도록 세션 다이제스트를 동봉 (R7)
         "session_digest": _compact_digest(plugins.get("experiencing", "")),
+        "official_plugins": {
+            "serena": {
+                "installed": serena_installed,
+                "path": serena_path,
+                "install_cmd": "/plugin install serena@claude-plugins-official",
+                "description": "코드 인텔리전스 — 심볼 검색, 정의 탐색, 참조 분석",
+            },
+            "playwright": {
+                "installed": playwright_installed,
+                "path": playwright_path,
+                "install_cmd": "/plugin install playwright@claude-plugins-official",
+                "description": "브라우저 자동화 — 웹 테스트, 스크린샷, 네트워크 분석",
+            },
+            "hookify": {
+                "installed": bool(hookify_path),
+                "path": hookify_path,
+                "install_cmd": "/plugin install hookify@claude-plugins-official",
+                "description": "훅 생성 (Anthropic 공식) — 동작 차단, 패턴 방지",
+            },
+        },
     }
 
 

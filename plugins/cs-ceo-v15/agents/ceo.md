@@ -170,6 +170,50 @@ Phase 5-B에서 "context7 학습 → 적용 결과" 한 줄을 노하우 후보�
 
 ---
 
+### Phase -3.5: 공식 플러그인 헬스 게이트
+
+**Phase -3 이후, Phase -2 이전에 실행한다. 태스크에 필요한 공식 플러그인이 미설치인 경우에만 발동한다.**
+
+```bash
+_op() { printf '%s' "$PREFLIGHT" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('official_plugins',{})$1)" 2>/dev/null; }
+SERENA_OK=$(_op ".get('serena',{}).get('installed',False)")
+PLAYWRIGHT_OK=$(_op ".get('playwright',{}).get('installed',False)")
+HOOKIFY_OK=$(_op ".get('hookify',{}).get('installed',False)")
+SERENA_CMD=$(_op ".get('serena',{}).get('install_cmd','/plugin install serena@claude-plugins-official')")
+PLAYWRIGHT_CMD=$(_op ".get('playwright',{}).get('install_cmd','/plugin install playwright@claude-plugins-official')")
+HOOKIFY_CMD=$(_op ".get('hookify',{}).get('install_cmd','/plugin install hookify@claude-plugins-official')")
+```
+
+PREFLIGHT가 비어 있거나 official_plugins 키가 없으면 이 게이트 전체를 건너뛴다 — 차단 금지.
+
+#### 태스크-플러그인 매칭 규칙
+
+| 태스크 유형 | 필요 플러그인 | 트리거 조건 |
+|------------|------------|-----------|
+| 코드 분석·리뷰·리팩토링·탐색 | serena | GOAL에 리뷰·분석·리팩토링·심볼·정의 찾기 키워드 포함 |
+| 웹 테스트·사이트 QA·브라우저 자동화 | playwright | GOAL에 URL·웹 테스트·사이트·QA 키워드 포함 |
+| 훅 생성·동작 차단·패턴 방지 | hookify | GOAL에 훅·hook·차단·prevent·hookify 키워드 포함 |
+
+#### 미설치 처리 절차 (context7 Phase -3 패턴과 동일)
+
+트리거되는 플러그인마다 AskUserQuestion 1회 제시:
+- 게이트 발동 사실 + 플러그인 역할 한 줄 + 설치 명령어 + Skip 시 정확도 하락 가능성 전달
+- 선택지: **Install (권장)** / Skip once / Abort
+- Install → 설치 명령어(`$SERENA_CMD` / `$PLAYWRIGHT_CMD` / `$HOOKIFY_CMD`) 출력 안내 → 필요 시 "설치 후 `/clear` 로 세션 재시작 필요" 안내 후 대기
+- Skip → 해당 플러그인 없이 계속, 결과 리포트에 "⚠️ [플러그인] 미설치로 [기능] 생략" 표기
+- Abort → 즉시 종료
+
+**예시 문구 (자유 작성 가능)**:
+```
+⚠️  serena 플러그인 미설치 감지
+역할: 코드 인텔리전스 — 심볼 검색, 정의·참조 탐색으로 리뷰 품질 향상
+설치: /plugin install serena@claude-plugins-official
+      (마켓플레이스 미등록 시 먼저: /plugin marketplace add anthropics/claude-plugins-official)
+Skip 시: Read+Grep 기반으로 분석 계속 (토큰 증가, 심볼 정확도 하락 가능)
+```
+
+---
+
 ### Phase -2: 파트너십 탐지 (Partnership Detection)
 
 **모든 요청을 처리하기 전에 먼저 실행한다.**
@@ -199,6 +243,8 @@ Phase 5-B에서 "context7 학습 → 적용 결과" 한 줄을 노하우 후보�
 | "버그" + 스택트레이스 / "근본 원인" / "깊이 파봐" | omc:deep-dive | Pre |
 | "PDCA" / "전체 사이클로" / "품질 게이트" | bkit:pdca | Wraps |
 | "요구사항 불명확" / "scope 정의" / "뭘 만들어야" | cs-clarify | Pre |
+| "훅" / "hook" / "차단" / "prevent" / "hookify" / "막아줘" | hookify (설치 시) | Pre |
+| 코드 리뷰·분석 + 심볼·정의·참조 명시 | serena MCP (설치 시) | In |
 
 자동 감지 시 한 줄 알림 후 진행:
 ```
@@ -251,6 +297,16 @@ OMC_PLUGIN=$(_f "['partners']['omc']['plugin_name']")   # "oh-my-claudecode"
 GSTACK_SKILL=$(_f "['partners']['gstack']")
 CLARIFY_SKILL=$(_f "['partners']['clarify']")
 CONTEXT7_SKILL=$(_f "['partners']['context7']")
+
+# hookify — 훅 생성 플러그인 (Anthropic 공식, claude-plugins-official)
+# 설치됐으면 Skill(skill="hookify") 로 호출, 미설치면 Phase -3.5에서 안내
+HOOKIFY_INSTALLED=$(_op ".get('hookify',{}).get('installed',False)" 2>/dev/null || echo "False")
+HOOKIFY_PATH=$(_op ".get('hookify',{}).get('path','')" 2>/dev/null)
+
+# serena — 코드 인텔리전스 (MCP 도구, claude-plugins-official external_plugins)
+# Skill()/Task() 호출이 아닌 mcp__serena__* 도구를 직접 사용
+# 설치 여부는 Phase -3.5에서 확인, 설치됐으면 코드 분석 태스크에서 mcp__serena__* 활용
+SERENA_INSTALLED=$(_op ".get('serena',{}).get('installed',False)" 2>/dev/null || echo "False")
 ```
 
 ### Dynamic Resolve v2 (미등록 파트너 — 타입 감지 포함) — v5.5

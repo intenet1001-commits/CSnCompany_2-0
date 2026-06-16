@@ -41,6 +41,20 @@ else
 fi
 ```
 
+### Phase 0.5 — Serena 심볼 분석 (설치 시 선택적 실행)
+
+serena 플러그인 설치 여부를 확인하고, 설치된 경우 심볼 컨텍스트를 추출하여 Phase 1 에이전트에 전달한다.
+
+```
+ToolSearch(query: "+serena symbol")
+```
+
+- `mcp__serena__*` 도구 발견 → serena 활성화:
+  - 핵심 심볼(exported functions/classes/types) 목록 추출
+  - 추출 결과를 `SERENA_SYMBOLS` 변수에 저장
+  - Phase 1 각 에이전트 프롬프트에 "## Serena 심볼 컨텍스트\n[SERENA_SYMBOLS]" 섹션 첨부
+- 도구 없음 → 건너뜀, 리포트 헤더에 "serena 미설치 — 심볼 분석 생략 (`/plugin install serena@claude-plugins-official`)" 1줄 표기
+
 **스코프 게이트 (Phase 0 SUMMARY 기준):**
 - `total_files ≤ 10` **또는** `total_lines ≤ 1500`이면 5-agent를 스폰하지 않고, 통합 리뷰어 1개에 아래 Agent 목록의 5개 렌즈(담당 열)를 체크리스트로 전달하여 Phase 1을 대체한다. Phase 1.5b 적대적 검증은 그대로 수행한다. 적용 시 어떤 게이트가 발동했는지 리포트 헤더에 1줄 기록한다.
 - **렌즈 스킵 (풀 런 포함):** 렌즈의 **후보 파일이 0개**인 경우에만 해당 에이전트를 스킵한다 — 탐지 결과 0건은 스킵 사유가 아니다. 예: TS↔Rust 렌즈(TS_RUST)는 대상에 TS 또는 Rust 파일이 하나도 없으면 해당 없음. 담당이 렌즈보다 넓은 에이전트(예: security-reviewer — 취약점 전반)는 렌즈 입력만 생략하고 에이전트는 유지한다. 스킵한 에이전트는 커버리지 분모에서 제외하고, 리포트에 스킵 사유를 1줄 기록한다.
