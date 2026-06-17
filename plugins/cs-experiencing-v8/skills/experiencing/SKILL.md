@@ -566,6 +566,8 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 82 | spawn_wt_cmd — Windows Terminal(wt.exe) 없을 때 cmd.exe 폴백 패턴 (2026-06-14) | tactical | tauri, windows, terminal, spawn, wt.exe | knowledge/tauri-windows.md |
 | 83 | 빌드 아티팩트 unstaged → git pull --rebase 실패 (2026-06-14) | tactical | git, pull, rebase, unstaged, build-artifact | knowledge/git-worktree.md |
 | 84 | 멀티기기 build-number 역행 방지 — 빌드 전 pull 필수 (2026-06-14) | tactical | tauri, build-number, multi-device, pull | knowledge/tauri-windows.md |
+| 85 | minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17) | tactical | vercel, minify, bundle, 배포검증, property-name | 인라인 |
+| 86 | 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17) | principle | cus_type, fallback, 집계, segment, data-modeling | 인라인 |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
@@ -665,3 +667,19 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: pre_pass.py에 `_find_official_plugin()` + `_find_mcp_server()` 헬퍼를 추가하고 ceo.md Phase -3.5에서 preflight 단계에 감지·차단. CS-test는 playwright 미설치 시 Install/Skip/Abort AskUserQuestion 제공. OFFICIAL-PLUGINS.md가 설치 명령어 단일 진실.
 - **교훈**: 공식 플러그인 의존성은 멀티에이전트 워크플로우 진입 전 preflight 단계(-3.5)에서 차단하는 것이 비용 효율적. context7 패턴(누락 감지 → AskUserQuestion 설치 유도)을 공식 플러그인에 동일 적용.
 - **근거**: `defd9c1 feat: serena 통합 + 공식 플러그인 자동설치 유도 시스템 추가` — ceo.md +56줄, pre_pass.py +64줄, OFFICIAL-PLUGINS.md 신규 (2026-06-17)
+
+### 85. minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17)
+<!-- tier: tactical -->
+
+- **상황**: Vercel에 코드 픽스가 반영됐는지 확인하기 위해 minified JS 번들에서 변경 흔적을 탐색해야 했음.
+- **발견**: minified JS는 지역 변수명(rollingTraderTotal 등)을 단축 식별자로 치환하므로 원본 변수명으로 grep해도 검색 불가. 반면 객체 property name(`d8_total_uv`), 문자열 리터럴, 특징적인 연산자 패턴(`??` + 삼항 조합)은 minify 후에도 보존되어 배포 여부 판별 지표로 사용 가능.
+- **교훈**: 배포 검증 시 변수명 대신 property name, 문자열 리터럴, 로직 패턴(??/삼항 조합)을 grep 대상으로 사용한다.
+- **근거**: `rollingTraderTotal` grep → 검색 불가, `d8_total_uv` property name + `??` 패턴으로 Before/After 구분 성공 (page-7236727e66aef288.js, dash1-v2 세션 2026-06-17)
+
+### 86. 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17)
+<!-- tier: principle -->
+
+- **상황**: 퍼널 D8 체결완료 카드가 신규고객(M0) 선택 시 전체 거래고객수(312,218)를 표시. D5(22,851)보다 큰 비정상 값으로 발현.
+- **발견**: 버그 원인: `rollingTraderTotal`(mau_transaction_rolling.total_cus_cnt = 전체 합계)을 cus_type 분기 없이 모든 케이스에 적용. `funnel_rolling.total_ose_trd_cus_cnt`는 cus_type별로 분리된 실제 값을 가짐. DB에 세그먼트별 컬럼과 전체 합계 컬럼이 공존할 때, 전체 합계를 기본값으로 쓰면 세그먼트 모드에서 전체값이 세그먼트값을 무음으로 대체한다.
+- **교훈**: 세그먼트(cus_type)별로 분리된 컬럼이 있을 때, 전체 합계 fallback은 세그먼트별 값이 NULL인 경우에만 적용한다. `segmentCol ?? aggregateFallback` 패턴이 정준(canonical) 형태. 어떤 스택에서도 "세그먼트 컬럼 우선, 전체 합계는 마지막 fallback" 원칙이 적용된다.
+- **근거**: Before: `val: (period === 'rolling' ? rollingTraderTotal : ...)` → 신규고객 D8=312,218 / After: `val: (d.d8_total_uv ?? (period === 'rolling' ? rollingTraderTotal : ...))` → 신규고객 D8=1,829 (app/mau/page.tsx line 3433, 2026-06-17)
