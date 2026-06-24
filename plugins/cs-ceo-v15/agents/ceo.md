@@ -102,6 +102,35 @@ GOAL_STATEMENT = "[한 문장 목표]"  # Phase 1~5 전체에서 기준점으로
 - **Phase 4 리포트**: 첫 줄에 `**목표**: [GOAL_STATEMENT]` 항상 출력 + 목표 달성도 표
 - **Phase 5-B 버전업**: 목표가 불명확해서 중간에 방향 전환이 있었다면 → 버전업 트리거
 
+#### Phase G.5 — Core Memory Context Injection (cs-core-memory-v1 연동)
+
+GOAL_STATEMENT 확정 직후, Phase -3 진입 전에 실행한다. **cs-core-memory-v1이 미설치거나 CORE.md가 없으면 이 단계는 완전히 생략한다 (0 output, 0 extra tool calls).**
+
+```bash
+CORE_MD="$HOME/.claude/core-memory/CORE.md"
+CORE_MEMORY_PLUGIN=$(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v"* 2>/dev/null | sort -V | tail -1)
+ENTRY_COUNT=$(grep -c '^### ' "$CORE_MD" 2>/dev/null || echo 0)
+```
+
+`CORE_MEMORY_PLUGIN`이 비어 있거나 `ENTRY_COUNT == 0`이면 → 조용히 Phase -3으로 진행.
+
+그 외: CORE.md를 Read하고 GOAL_STATEMENT의 핵심 키워드(기술 명사, 도메인, 동사)와 매칭되는 항목을 최대 3개 추출한다.
+
+우선순위 (높은 순):
+1. `constraint: yes` Key Decisions — 반드시 surface
+2. `validated` Strategic Patterns
+3. `hit_count >= 2` Recurring Issues
+
+**매칭 항목이 있을 때만** 출력한다 (없으면 완전 침묵):
+```
+📚 Core Memory: [매칭된 GOAL 키워드]
+  • [항목 제목] — [recommendation/workaround 1줄]
+🔒 Constraint active: [결정 제목] — [1줄] (constraint: yes 항목만)
+⚠️ Historical warning: [이슈 제목] (seen Nx) — [1줄] (hit_count >= 2 항목만)
+```
+
+`CORE_CONTEXT` 변수에 매칭 결과를 저장한다 (Phase 4 리포트에 "Core Memory Applied" 필드로 포함, 비어 있으면 필드 생략).
+
 ---
 
 ### Phase -3: 외부 지식 게이트 (External Knowledge Gate) — v5.2

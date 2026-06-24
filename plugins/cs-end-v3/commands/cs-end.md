@@ -32,6 +32,7 @@ If you are not the author, Phase 4 (git push) is automatically skipped — your 
 0. **Phase 0 — 플래그 파싱 + Origin 확인** (자동)
 0.5. **Phase 0.5 — Session Pre-Pass Digest** ← 신규 (Attention + KV Cache)
 1. **Phase 1 — 4-Agent 병렬 분석** (Digest 공유 컨텍스트 주입)
+1.5. **Phase 1.5 — Core Memory Update** ← 신규 (장기 핵심 메모리 갱신, cs-core-memory-v1)
 2. **Phase 2 — 학습 영속화 + Learning Gate** (3-axis 품질 스코어)
 2.2. **Phase 2.2 — Error Note 점검 + 캡처** ← 신규 (open 노트 항상 점검 + 에러→해결 캡처)
 2.5. **Phase 2.5 — Knowledge Decay Check** ← 신규 (Forget Gate, 항목 있을 때만)
@@ -141,6 +142,48 @@ fi
 **계약 체크 (Phase 2 진입 전):**
 - `learning-extractor` 후보에 상황/발견/교훈/tier/pre_scores 중 하나라도 누락 → 해당 에이전트에 1회 재포맷 요청.
 - `version-scout` 출력에 domain 매핑이 없으면 → Phase 3의 fallback 규칙 (a) (AskUserQuestion 확인)로 처리한다. 자동 전체 버전업 금지.
+
+## Phase 1.5 — Core Memory Update (장기 핵심 메모리 갱신)
+
+**조건:** `~/.claude/core-memory/` 디렉토리가 없으면 생성 후 진행. 항상 실행.
+
+Phase 1의 `learning-extractor` 결과를 memory-keeper 에이전트에 전달한다:
+
+```bash
+mkdir -p "$HOME/.claude/core-memory"
+LATEST_CORE=$(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v"* 2>/dev/null | sort -V | tail -1)
+MEMORY_KEEPER="$LATEST_CORE/agents/memory-keeper.md"
+```
+
+memory-keeper 에이전트를 Task()로 스폰합니다. 입력:
+- `LEARNING_CANDIDATES`: Phase 1 `learning-extractor` JSON 출력 전체 (Learning Gate 통과 전 원본 — memory-keeper는 raw 후보를 수신하여 게이트 미통과 항목에서도 반복 패턴을 감지한다)
+- `CORE_MD_PATH`: `~/.claude/core-memory/CORE.md`
+
+memory-keeper 출력 (JSON):
+
+```json
+{
+  "updated": true,
+  "new_patterns": ["패턴 제목 1", "패턴 제목 2"],
+  "reinforced": ["기존 패턴 제목 (강화)"],
+  "core_memory_summary": "Phase 6 compact에 포함할 핵심 인사이트 1-3줄"
+}
+```
+
+`core_memory_summary`를 변수로 저장하여 Phase 6 핸드오프에 포함한다:
+
+```bash
+CORE_MEMORY_SUMMARY=$(printf '%s' "$CORE_RESULT" | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(d.get('core_memory_summary',''))" 2>/dev/null)
+```
+
+**Phase 6 compact 6번째 필드 (`top_insight`):** `CORE_MEMORY_SUMMARY`가 비어 있지 않으면 5-field compact에 `top_insight` 필드로 추가한다. 비어 있으면 필드 자체를 생략한다 (기존 5-field 파싱에 영향 없음).
+
+**실패 시 처리:** `LATEST_CORE`가 비어 있거나 memory-keeper Task가 오류를 반환하면 `CORE_MEMORY_SUMMARY=""` 로 설정하고 다음 경고 한 줄을 출력한 뒤 Phase 2로 계속 진행한다 — 이 Phase는 블로커가 되어서는 안 된다:
+
+```
+⚠️ Core Memory Update skipped: <오류 사유 1줄>
+```
 
 ## Phase 2 — 학습 영속화 + Learning Gate (Input Gate 패턴)
 
