@@ -69,6 +69,7 @@ Key routing rules:
 | cs-ship | `./plugins/cs-ship-v1` | 🚢 DevOps |
 | cs-smart-run | `./plugins/cs-smart-run` | ⚡ Team Lead |
 | cs-experiencing | `./plugins/cs-experiencing-v8` | 📚 Knowledge Keeper |
+| cs-core-memory | `./plugins/cs-core-memory-v1` | 🧠 Long-term Core Memory |
 | convo-maker | `./plugins/convo-maker` | 🗣️ Language Coach |
 
 <!-- AUTO-PLUGIN-INVENTORY:END -->

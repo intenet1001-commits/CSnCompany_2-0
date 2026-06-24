@@ -81,6 +81,11 @@
       "name": "convo-maker",
       "description": "🗣️ Language Coach — Convert session Q&A into natural American English conversations for language learning.",
       "source": "./plugins/convo-maker"
+    },
+    {
+      "name": "cs-core-memory",
+      "description": "장기 핵심 메모리 — 세션 간 전략적 지혜 축적 ('30년 근속' 맥락 제공)",
+      "source": "./plugins/cs-core-memory-v1"
     }
   ]
 }
