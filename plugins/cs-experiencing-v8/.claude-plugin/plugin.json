@@ -1,6 +1,6 @@
 {
   "name": "cs-experiencing",
-  "version": "8.0.5",
+  "version": "8.0.7",
   "description": "Accumulated knowledge repository — CS-test, CS-plan, CS-codebase-review, cs-design domain learnings. Integrated: bkit btw capture, Karpathy guidelines, gstack Iron Law + atomic commits.",
   "author": {
     "name": "gwanli",
