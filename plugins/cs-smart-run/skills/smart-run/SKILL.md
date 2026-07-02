@@ -24,6 +24,8 @@ allowed-tools:
 
 검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
+오케스트레이션 확장 (v1.1): VERIFY→fix 루프(Phase 2.5)는 plugins/shared/ORCHESTRATION-PATTERNS.md의 P4(instructor-assistant 역할극) + P2(조합 가능한 종료 조건)로 정식화한다 — verifier=instructor(지시), executor=assistant(수정), 종료식 `max_turns(2) OR sentinel OR no_delta`.
+
 ## How this skill works
 
 When invoked, you orchestrate these phases:
@@ -193,7 +195,14 @@ For EVERY Definition of Done item:
 Return a checklist: item → PASS/FAIL → evidence. List any FAILed items with the specific gap.
 ```
 
-**verify→fix 루프 (BOUNDED, 최대 2라운드)**:
+**verify→fix 루프 (BOUNDED, 최대 2라운드) — P4 instructor-assistant + P2 종료식**:
+
+이 루프를 ORCHESTRATION-PATTERNS.md P4 역할극으로 구성한다:
+- **instructor = verifier**: FAIL 항목마다 "무엇이 왜 틀렸는지 + 어떤 증거로 확인했는지"를 한 번에
+  하나씩 지시한다 (ChatDev "one highest-priority comment" — 가장 중요한 것부터).
+- **assistant = executor**: 지시받은 항목만 수정한다. 스스로 새 작업을 벌이지 않는다.
+- **종료식 (P2)**: 루프 진입 전 선언 → `max_turns(2) OR sentinel(모든 DoD PASS) OR no_delta`.
+  매 라운드 후 평가하고, 종료 시 어떤 조건이 발화했는지 리포트에 기록 (`종료: no_delta @ round 2`).
 
 1. If any item FAILs: re-dispatch ONLY the failed steps with added context —
    the original step description, the failed attempt's output, the verifier's

@@ -1,0 +1,31 @@
+{
+  "name": "feature-dev",
+  "goal": "명확한 기능 요청을 계획→구현검토→검증까지 순차 처리한다",
+  "success_criteria": "PLAN.md 생성 + 구현이 계획을 따름 + 테스트 리포트 등급 B 이상",
+  "context_dir": ".cs-chain/feature-dev",
+  "chain": [
+    {
+      "phase": "plan",
+      "domain": "CS-plan",
+      "phaseType": "simple",
+      "expected_output": "PLAN.md + domain-analysis/architecture/tdd-strategy/implementation-checklist",
+      "speaker": "parallel"
+    },
+    {
+      "phase": "review",
+      "domain": "CS-codebase-review",
+      "phaseType": "simple",
+      "inputs": ["plan.PLAN.md"],
+      "expected_output": "codebase-review-report.md, CONFIRMED 이슈 목록 + 등급",
+      "speaker": "parallel"
+    },
+    {
+      "phase": "test",
+      "domain": "CS-test",
+      "phaseType": "simple",
+      "inputs": ["plan.PLAN.md", "review.report"],
+      "expected_output": "tests/results/REPORT.md, 커버리지 % + 성공 기준 대비 PASS/FAIL",
+      "speaker": "parallel"
+    }
+  ]
+}

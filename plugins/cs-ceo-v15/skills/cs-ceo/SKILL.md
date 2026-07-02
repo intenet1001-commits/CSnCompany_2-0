@@ -7,9 +7,10 @@ description: |
   v5.2: External Knowledge Gate — 외부 지식이 필요하다고 판단되면 지체 없이 context7-auto-research를 자동 호출하여 학습 후 진행.
   v5.3: Goal Gate — 모든 요청 진입 직전 목표(WHAT)를 추출·확정. 불명확 시 1회 질문.
   v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지. AGENT 타입은 Task(subagent_type)로 직접 호출. 외부 플러그인 에이전트(oh-my-claudecode:executor 등) 지원.
+  v5.6: Mode D (Dynamic Chain) — CrewAI/AutoGen/ChatDev 벤치마크 이식. 다중 도메인이 순서·조건·재작업 루프로 얽히면 선언적 chain 매니페스트를 walk하고 speaker selection(P1)·termination conditions(P2)·instructor-assistant 역할극(P4)을 적용 (plugins/shared/ORCHESTRATION-PATTERNS.md).
   설치된 스킬/에이전트를 자동 탐색하고, 타이밍(Pre/In/Post/Wraps)은 파트너 description을 읽고 판단해 근거 한 줄과 함께 결정한다.
   Use when user types "/cs-ceo", "cs-ceo", "/goal", or "/cs-partnership".
-version: 15.0.1
+version: 15.1.0
 allowed-tools:
   - Task
   - Agent
@@ -172,6 +173,7 @@ CEO 에이전트가 반환한 종합 리포트를 그대로 출력한다.
 | **A** (직접 단독) | 도메인 1개, 명확 | 해당 도메인 직접 실행 |
 | **B** (CEO 오케스트레이션) | 도메인 2~3개 | CEO가 순차/병렬 조합 |
 | **C** (smart-run 위임) | 복잡/대규모/불확실 | Opus 플랜→Sonnet 실행 |
+| **D** (Dynamic Chain) | 3개+ 도메인이 순서·조건·재작업 루프로 얽힘 | chain 매니페스트 walk + P1/P2/P4 (ORCHESTRATION-PATTERNS.md) |
 | **P-Pre** (파트너 선행) | 파트너 결과가 플랜 INPUT | 파트너 → A/B/C |
 | **P-In** (파트너 병렬) | 파트너와 독립 병렬 가능 | 파트너 ‖ CS 도메인 동시 |
 | **P-Post** (파트너 후처리) | 파트너가 CEO 결과 처리 | A/B/C → 파트너 |

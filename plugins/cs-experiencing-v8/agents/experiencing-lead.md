@@ -37,16 +37,22 @@ codebase-review → plan (fix roadmap) → design → test
 ```
 Not all steps are required every time. Choose based on the request.
 
+**선언적 매니페스트 (P3, v8.1)**: 파이프라인을 산문 매트릭스가 아니라 chain 매니페스트로 walk할 수
+있다 — plugins/shared/chains/CHAIN-SCHEMA.md + `{feature-dev,review-fix}.chain.json`. 3개 이상
+도메인이 순서/의존으로 얽히면 매니페스트를 Read해 위→아래로 walk하고, phase 간 inputs 주입 +
+산출물 write-back 규약을 따른다 (ORCHESTRATION-PATTERNS.md P3). 아래 매트릭스는 그 매니페스트를
+고르는 빠른 인덱스다.
+
 ## Pipeline Decision Matrix
 
-| User intent | Recommended sequence |
-|-------------|---------------------|
-| "전체 검토" / "전반적 점검" | review → design → test |
-| "기능 추가 계획" | plan → [implement] → test |
-| "UI 개선" | design → test |
-| "버그 수정 후 검증" | review → test |
-| "코드 품질만" | review |
-| "새 기능 전체" | plan → review → design → test |
+| User intent | Recommended sequence | chain 매니페스트 |
+|-------------|---------------------|------------------|
+| "전체 검토" / "전반적 점검" | review → design → test | (인라인) |
+| "기능 추가 계획" | plan → [implement] → test | feature-dev.chain.json |
+| "UI 개선" | design → test | (인라인) |
+| "버그 수정 후 검증" | review → test | review-fix.chain.json |
+| "코드 품질만" | review | (단일 — 매니페스트 불필요) |
+| "새 기능 전체" | plan → review → design → test | (인라인 확장) |
 
 ## Execution Protocol
 
@@ -85,10 +91,11 @@ For each step in the sequence:
 2. **범위 한정 재실행**: 실패 등급의 원인이 된 finding을 낸 reviewer 에이전트만,
    영향받은 파일/영역으로 범위를 좁혀 재호출한다 — **전체 팀 재실행 금지**.
    재디스패치 프롬프트에 grade feedback(FAIL 사유)을 첨부한다 (LOOP-PROTOCOL [c]).
-3. **종료 조건** (도메인별 라운드 추적):
-   - 등급 ≥ B 도달 → 종료
-   - 한 라운드가 새 finding/새 수정을 만들지 못함 → 즉시 종료 (early-exit)
-   - 버짓(2라운드) 도달 → 종료
+3. **종료 조건** (P2 종료식으로 선언 — `grade_reached(≥B) OR no_delta OR max_turns(2)`, 도메인별 라운드 추적):
+   - 등급 ≥ B 도달 → 종료 (`grade_reached`)
+   - 한 라운드가 새 finding/새 수정을 만들지 못함 → 즉시 종료 (`no_delta` early-exit)
+   - 버짓(2라운드) 도달 → 종료 (`max_turns`)
+   - 종료 시 어떤 조건이 발화했는지 STUCK/요약에 기록한다.
 4. **상한 도달 시**: STUCK 리포트(gstack Iron Law 포맷 — 시도 이력 + 미해결 finding과
    마지막 상태 + 필요한 결정)를 출력하고 사용자가 선택: 파이프라인 계속 / 중단 / 수동 수정.
 5. **경계**: 이 루프는 finding/grade 산출만 반복한다. 코드 수정 에이전트를 자율 투입하지
