@@ -22,11 +22,8 @@ CS-design 도메인의 5-agent 병렬 디자인 리뷰를 실행합니다.
 
 ## 분석 관점 (5개)
 
-1. **visual-hierarchy** — 폰트 스케일, 색상 대비, 공간 구조
-2. **interaction-quality** — 8대 컴포넌트 상태, focus, loading, error
-3. **design-system-consistency** — 토큰 일관성, 컴포넌트 재사용률
-4. **responsive-accessibility** — WCAG AA, 4pt 간격, 모바일 우선
-5. **anti-pattern-detector** — 24개 AI slop 지표 탐지
+visual-hierarchy · interaction-quality · design-system-consistency · responsive-accessibility · anti-pattern-detector
+— 각 관점의 역할·분석 항목·출력 스키마는 `agents/<name>.md` 카드가 단일 소스 (plugins/shared/AGENT-CARD.md 표준).
 
 ## 실행
 

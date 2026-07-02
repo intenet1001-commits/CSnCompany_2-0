@@ -113,3 +113,20 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: Tauri 내장 WebKit이 dynamic import()를 지원하는지 불확실. 코드 스플리팅 호환성 우려.
 - **발견**: `React.lazy(() => import('./SetupWizard'))` + `<Suspense fallback={null}>` 패턴이 Tauri WebKit에서 정상 동작. SetupWizard가 초기 번들에서 제외되고 필요 시 로드됨.
 - **교훈**: Tauri/WebKit이 최신 JS 기능과 비호환이라 가정하지 말 것. React.lazy + Suspense는 위저드 플로우, 설정 패널, 무거운 탭 등 큰 컴포넌트의 초기 번들 축소에 안전하게 사용 가능. Playwright로 lazy 청크가 초기 network 요청에 없는지 확인하면 됨.
+
+### 90. Derived slice 재사용으로 다수 sparkline 데이터 생성 (2026-06-12)
+<!-- tier: principle -->
+
+- **상황**: MAU 히어로 카드에 세그먼트별(신규방문자, Returning, Resurrecting, 기존→해외첫거래) 스파크라인을 추가해야 했으나, 각 세그먼트마다 별도 DB 쿼리나 state를 만들 뻔했음.
+- **발견**: 이미 계산된 `heroSnapSlice = snapshots.slice(0, selectedMonthIdx + 1)`를 재사용하고, 각 세그먼트가 `.map(s => ({ name: s.label, value: s.traders.returning }))` 처럼 다른 필드만 매핑하면 N개 스파크라인 데이터를 1개 slice에서 도출 가능.
+- **교훈**: 새 데이터 파이프라인 전에 기존 derived slice/computed 데이터를 다른 필드 매핑으로 재활용할 수 있는지 먼저 확인하라. 대시보드에서 하나의 base slice → 여러 시리즈 파생 패턴은 state 폭발 없이 확장 가능.
+- (재번호 이관: 구 SKILL.md 인라인 #13 → #90, 2026-07-02 — INDEX 번호가 단일 진실)
+
+### 91. HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (2026-06-12)
+<!-- tier: tactical -->
+
+- **상황**: 히어로 카드 전체(36px)와 세그먼트 셀 인라인(24px) 두 크기로 동일 HeroSparkline 컴포넌트를 써야 했음.
+- **발견**: `height?: number = 36` optional prop 추가로 새 컴포넌트 없이 해결. `<HeroSparkline data={...} color={...} height={24} />`.
+- **교훈**: 기존 컴포넌트 복제보다 optional prop으로 변형을 흡수하는 것이 먼저. 렌더 조건: `spark.length > 1` 가드 필수.
+- (재번호 이관: 구 SKILL.md 인라인 #14 → #91, 2026-07-02 — INDEX 번호가 단일 진실)
+

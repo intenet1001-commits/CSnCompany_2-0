@@ -1,6 +1,24 @@
 # Changelog
 
 
+## [session] 2026-07-02 — 프레임워크 업그레이드 U1-U7: 공유 프로토콜 계층 7종 + /cs-company 엔드투엔드 파이프라인
+
+### Added
+- **U1 AGENT-CARD 표준** (`plugins/shared/AGENT-CARD.md`): 필수 frontmatter(name/description/model/tools) + 5개 본문 섹션(Goal/Backstory/OWNS/Expected Output/Escalates when) 표준화. cs-design 인라인 분석가 5개 + CS-codebase-review 리뷰어 5개를 실제 에이전트 카드로 추출, 기존 17개 에이전트 파일 backfill, card-Read 스폰 패턴(≤5줄 delta)으로 3중 중복 제거
+- **U2 TASK-CONTRACT** (`plugins/shared/TASK-CONTRACT.md`): 모든 Task 스폰에 기계 검증 가능한 CONTRACT 블록(expected_output/acceptance_criteria/re_dispatch_budget: 1) 의무화. 리드는 산출물을 읽기 전에 ls/wc -c/grep 수락 검사 → 실패 시 1회 재디스패치 후 N/A. 리포트 헤더에 `contracts: N issued / M accepted`
+- **U3 DEBATE-PROTOCOL** (`plugins/shared/DEBATE-PROTOCOL.md` + `shared/agents/advocate.md`): REFUTED critical/high 판정에 1회 반론 라운드 + CONTESTED 상태 + '## 쟁점' 리포트 섹션, 워커 ≥3 & finding ≥8이면 peer cross-exam(DUPLICATE_OF/CORROBORATES/CONFLICTS_WITH)
+- **U4 ARTIFACT-CONTRACTS** (`plugins/shared/ARTIFACT-CONTRACTS.md`): cs_artifact frontmatter + registry 등록/staleness 가드로 CLARIFY→PLAN→IMPLEMENT→REVIEW 아티팩트 체인 수리. CS-plan이 CLARIFY.md를 verbatim 인수, smart-run이 PLAN.md 자동 감지(Phase 0.7) + IMPLEMENT-REPORT.md 기록, CS-codebase-review가 REVIEW.md 게이트 기록
+- **U5 MEMORY-PROTOCOL** (`plugins/shared/MEMORY-PROTOCOL.md`): Phase R(Recall) — 단기(registry)/일화(cs-experiencing INDEX)/전략(CORE.md)/에러노트 4계층 회상, 예산 상한(≤3 grep + ≤2 Read) + `recall: E<n>/C<n>/N<n>` 준수 헤더. BTW 경로 split-brain 수정(정본 ~/.claude/.experiencing-btw.json), cs-experiencing 학습 93건으로 재구조화(knowledge/llm-api.md 신설)
+- **U6 HITL-POLICY** (`plugins/shared/HITL-POLICY.md`): auto/gate/always 모드 + --hitl 플래그, 서브에이전트용 CHECKPOINT payload + 버블링 규칙(재상신 1회, 런당 3회 상한), 명명된 체크포인트 5종 레지스트리. CS-plan 2-wave(arch-choice), CS-test build-blocker, smart-run plan-approval, cs-ceo redispatch-confirm, cs-design direction-choice
+- **U7 /cs-company 파이프라인** (`plugins/shared/PIPELINE-PROTOCOL.md` + `cs-ceo-v15/commands/cs-company.md` + `skills/cs-company/`): CLARIFY→PLAN→IMPLEMENT→REVIEW→TEST→SHIP 엔드투엔드 SDLC 컨덕터 — frontmatter+registry 게이트, pipeline.json 상태/--from 재개, 스킵 규칙, cross-phase 리워크 라우팅(게이트당 ≤2, 총 ≤4 hop), GATE-LOOP에 5행 fault-routing 테이블
+
+### Changed
+- 버전업(minor): cs-ceo 15.1.0 (+/cs-company), CS-plan 21.1.0, CS-test 26.1.0, CS-codebase-review 29.1.0, cs-design 20.1.0, cs-clarify 1.1.0, cs-ship 1.1.0, cs-smart-run 1.1.0, cs-end 4.1.0, cs-experiencing 8.1.0
+- marketplace.json에 cs-company 항목 추가 (source ./plugins/cs-ceo-v15, 신규 플러그인 디렉토리 없음)
+- plugins/CLAUDE.md: cs-company 라우팅 규칙 + Loop Engineering 공유 프로토콜 인덱스 갱신
+- artifact_registry.py: REVIEW/IMPLEMENT-REPORT/TEST-REPORT 타입 추가 + `register` CLI 서브커맨드 노출; pre_pass.py ceo-preflight에 ship 경로 추가
+
+
 ## [session] 2026-06-12 — BTW pending 해소: plugins/CLAUDE.md 통합 제거 규칙 (goal-statement 재작성)
 
 ### Changed

@@ -2,12 +2,12 @@
 name: CS-codebase-review
 user-invocable: false
 description: 5-agent parallel codebase review
-version: 29.0.1
+version: 29.1.0
 ---
 
 # CS-codebase-review 실행 프로토콜
 
-검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 시)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 시)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다. 아티팩트 생산(REVIEW.md — Phase 2.5)은 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 Read하고 따른다.
 
 ## Phase 0 — Python Pre-Pass (선택적, 토큰 절감)
 
@@ -74,26 +74,26 @@ ToolSearch(query: "+serena symbol")
 | performance-reviewer | 병목, 비효율 패턴 | SUMMARY (파일 크기, LoC) |
 | maintainability-reviewer | 유지보수성, struct 동기화 | TS_RUST (필드 불일치) |
 
-**각 에이전트 프롬프트 템플릿:**
+각 에이전트의 역할·리뷰 프로토콜·finding 보고 계약(형식/LOW 강등/등급 금지/reviewed_files)은
+`${CLAUDE_PLUGIN_ROOT}/agents/<agent>.md` 카드가 **단일 소스**다 (plugins/shared/AGENT-CARD.md 표준).
+model은 카드 frontmatter를 따른다 — 스폰 시 오버라이드 금지.
+
+**각 에이전트 스폰 프롬프트 (카드-Read 패턴, task delta ≤5줄):**
 ```
-당신은 [ROLE] 전문 리뷰어입니다.
-
-## 대상 프로젝트
-경로: [TARGET_DIR]
-
-## Python Pre-Pass 결과 (결정론적 추출)
-[SUMMARY / TS_RUST / ABSPATH JSON — fallback:true이면 직접 분석]
-
-## 노하우 참고
-[관련 SKILL.md 노하우 항목]
-
-finding 보고 계약 (LOOP-PROTOCOL [a][e]): 발견한 모든 이슈를 빠짐없이 보고하세요. 확신이 낮은 이슈도 제외하지 말고 보고합니다 — 필터링 금지, 필터링·우선순위 선정은 리드가 Phase 2에서 수행합니다.
-각 이슈는 다음 형식으로:
-- 파일:라인 | 심각도(HIGH/MEDIUM/LOW) | 확신도(높음/중간/낮음) | 근거(해당 줄에서 그대로 복사한 코드 1-2줄 인용) | 제안 수정
-file:line과 코드 인용이 불가능한 이슈는 LOW로 강등하여 보고하세요.
-등급(A~F) 평가는 하지 마세요 — 등급 산정은 Phase 2에서만 수행합니다.
-마지막에 검토한 파일 목록(reviewed_files)을 반드시 출력하세요.
+FIRST ACTION (BLOCKING): ${CLAUDE_PLUGIN_ROOT}/agents/[agent].md를 Read하고 그 카드를 당신의 정체성으로 채택하세요.
+대상 경로: [TARGET_DIR]
+Python Pre-Pass JSON (위 표의 담당 열): [SUMMARY / TS_RUST / ABSPATH — fallback:true이면 직접 분석]
+노하우 참고: [관련 SKILL.md 노하우 항목]
+Serena 심볼 컨텍스트 (Phase 0.5 활성 시): [SERENA_SYMBOLS]
 ```
+
+## Phase 1.4 — 교차검토 (Peer Cross-Exam — plugins/shared/DEBATE-PROTOCOL.md Section B)
+
+verifier 디스패치(1.5b) 전에 실행한다. 리뷰어 ≥3개가 결과를 냈고 총 finding ≥8건일 때만
+Section B의 cross-examiner 1개를 스폰한다 (model: sonnet, tools: Read, Grep — finding 목록이 파일이 아니면 프롬프트에 인라인 전달).
+미만이면 스폰 없이 리드가 인라인 중복 제거 (LOOP-PROTOCOL [f]). 병합 규칙:
+`DUPLICATE_OF` → 1건으로 병합(등급 1회 계상, 두 렌즈 병기) / `CORROBORATES` → confidence 상향("2개 렌즈 일치") /
+`CONFLICTS_WITH` → 양쪽 finding을 severity 무관하게 1.5b 검증 대상에 강제 포함.
 
 ## Phase 1.5 — 커버리지 게이트 & 적대적 검증
 
@@ -120,9 +120,17 @@ Python pre-pass(abspath_check, ts_rust_diff) 결정론적 출력으로 이미 �
 ```
 
 판정 규칙:
-- REFUTED → 리포트에서 제외 (조용히 삭제하지 말 것 — REFUTED 건수를 검증 요약에 기록)
+- REFUTED → 1.5c 반론 라운드 대상 여부 확인 후 리포트에서 제외 (조용히 삭제하지 말 것 — REFUTED 건수를 검증 요약에 기록)
 - UNCERTAIN → 심각도 1단계 강등 + "(미확인)" 표기
 - CONFIRMED만 전체 등급(A~F)과 상위 5개 액션 아이템 산정에 반영
+
+### 1.5c 반론 라운드 (Rebuttal — plugins/shared/DEBATE-PROTOCOL.md Section A)
+
+1.5b에서 REFUTED된 finding 중 원 severity critical/high **이고** 원 confidence ≥ 0.8인 것이 있으면 Section A를 실행한다:
+plugins/shared/agents/advocate.md 카드로 advocate 1개 스폰(최대 5건, 라운드 최대 1회) → REBUT 항목만 verifier 라운드 2
+(new_evidence만 재검) → 최종 상태(CONFIRMED/REFUTED/CONTESTED)는 리드가 판정한다.
+최종 CONFIRMED는 등급에 반영, CONTESTED는 Phase 2 리포트의 `## 쟁점 (CONTESTED)` 섹션에 양측 증거와 함께 배치하고
+등급 산술에서 제외한다. **REFUTED 0건이면 전체 스킵 (비용 0)** — 검증 요약에 `debate:` 한 줄(종료 사유 포함)을 기록한다.
 
 ## Phase 2 — 종합 리포트
 
@@ -131,11 +139,38 @@ Python pre-pass(abspath_check, ts_rust_diff) 결정론적 출력으로 이미 �
 - 전체 등급 (A~F, 6단계) — **CONFIRMED 이슈만으로 산정** (등급 산정은 Phase 2가 유일한 지점)
 - 모든 이슈에 출처 태그 부여: `[verified]` = Python pre-pass(TS↔Rust, abspath) 탐지 또는 Phase 1.5b CONFIRMED / `[model-claimed]` = 에이전트 주장, 미검증(LOW 등 검증 범위 밖)
 - 전체 등급 옆에 검증 비율 표기 (예: B — 12건 중 9건 verified)
-- 검증 요약 1줄 (예: "검증: 12건 중 9 CONFIRMED / 2 REFUTED / 1 미확인")
+- 검증 요약 1줄 (예: "검증: 12건 중 9 CONFIRMED / 2 REFUTED / 1 미확인") + 1.5c 실행 시 `debate:` 한 줄
+- 1.5c에서 CONTESTED가 1건 이상이면 `## 쟁점 (CONTESTED)` 섹션에 양측 증거 병기 (0건이면 섹션 생략)
 - 리포트 헤더에 커버리지 % + 총 라운드 수 + 미검토 파일 (LOOP-PROTOCOL [d] — N/A/미응답 에이전트는 등급 상한 적용)
 - 우선순위 상위 5개 액션 아이템 (CONFIRMED 기준)
 - Python 자동 탐지 이슈 (TS↔Rust, 절대경로) 별도 강조
 - critical/high는 본문, 나머지는 부록 배치 (LOOP-PROTOCOL [e])
+
+## Phase 2.5 — REVIEW.md 영속화 + verdict 기록 (plugins/shared/ARTIFACT-CONTRACTS.md [2] + GATE-LOOP RECORD)
+
+Phase 2 종합 직후, 리포트를 세션 간 재개 가능한 아티팩트로 영속화한다:
+
+1. **Write `.cs-artifacts/REVIEW.md`** — Phase 2 종합 내용을 다음 구성으로 저장:
+   - 최상단 `cs_artifact` frontmatter (`type: REVIEW.md`, `producer: CS-codebase-review`,
+     `status`: verdict PASS면 `ready` 아니면 `blocked`, `gate.criterion`: "grade >= B AND CONFIRMED critical 0건",
+     `gate.blocking_items`: CONFIRMED critical 각각 `file:line — 요지` 형식)
+   - 전체 등급 + 검증 비율, 커버리지 % + 총 라운드 수 + 미검토 파일 (헤더)
+   - CONFIRMED finding 전체 — 각각 file:line 증거 필수 (LOOP-PROTOCOL [a])
+   - `## 쟁점 (CONTESTED)` 섹션 (1.5c에서 1건 이상일 때 — 양측 증거 병기)
+   - `## 부록: 기각된 항목 (Discarded)` — REFUTED finding + 반증 증거 (조용한 삭제 금지)
+2. **register + verdict 기록**:
+   ```bash
+   REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
+   if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+   $RUN_PY "$REGISTRY" register REVIEW.md .cs-artifacts/REVIEW.md CS-codebase-review
+   $RUN_PY "$REGISTRY" verdict REVIEW.md <PASS|FAIL> <round> [blocking_item ...]
+   ```
+   - **PASS 기준**: 전체 등급 ≥ B **이고** CONFIRMED critical 0건. 미달이면 FAIL, CONFIRMED critical 각각을 blocking_item으로 기록.
+   - round는 1.5a 커버리지 라운드가 아니라 GATE-LOOP의 gate→fix→re-gate 라운드 번호 (재리뷰 시 find-meta로 이전 round를 복원해 +1).
+3. 재실행(re-review) 시 첫 컨텍스트 단계에서 `find-meta REVIEW.md`로 이전 verdict/blocking_items를 복원하고,
+   GATE-LOOP 규칙대로 이전 blocking_items 범위만 재검증한다 (최대 3라운드, 델타 없으면 즉시 중단 — 종료 사유를 리포트에 기록).
+
+**이유**: 리뷰가 아무 아티팩트도 남기지 않으면 세션이 끊길 때 등급·발견이 전부 증발하고, GATE-LOOP의 라운드 추적이 불가능하다 — REVIEW.md 영속화가 이 플러그인의 GATE-LOOP 준수를 완성한다.
 
 ---
 

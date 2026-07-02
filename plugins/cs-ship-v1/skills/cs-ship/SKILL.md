@@ -1,6 +1,6 @@
 ---
 name: cs-ship
-version: 1.0.0
+version: 1.1.0
 description: |
   Pre-PR validation and commit crafting. Use when user types "/cs-ship", "ship",
   "PR 생성 전 검증", "배포 전 체크", or wants to validate implementation against plan,
@@ -54,6 +54,11 @@ PLAN_META=$(python3 "$REGISTRY" find-meta PLAN.md 2>/dev/null || echo "")
 CLARIFY_DOC=$(python3 "$REGISTRY" find CLARIFY.md 2>/dev/null || echo "")
 [ -n "$PLAN_META" ] && [ "$PLAN_META" != "null" ] && echo "PLAN.md meta: $PLAN_META" || echo "No PLAN.md"
 
+# 상류 리포트 인테이크 (ARTIFACT-CONTRACTS [3] — cs-ship은 세 리포트의 주 소비자, additive: 없으면 조용히 생략)
+IMPL_META=$(python3 "$REGISTRY" find-meta IMPLEMENT-REPORT.md 2>/dev/null || echo "")
+REVIEW_META=$(python3 "$REGISTRY" find-meta REVIEW.md 2>/dev/null || echo "")
+TEST_META=$(python3 "$REGISTRY" find-meta TEST-REPORT.md 2>/dev/null || echo "")
+
 # PLAN.md 및 CLARIFY.md 탐색 (현재 디렉토리 + .cs-artifacts/)
 for loc in "$PWD" "$PWD/.cs-artifacts"; do
   [ -f "$loc/PLAN.md" ]    && echo "PLAN.md found: $loc/PLAN.md"
@@ -71,6 +76,11 @@ PLAN.md가 없으면 ship-lead가 git log 역추론 모드로 전환합니다.
 1회 확인한다 — "PLAN.md가 N일 전 것입니다. 이 스펙 기준으로 검증할까요,
 git log 역추론 모드로 전환할까요?" 이전 gate 기록(`verdict`/`round`/`blocking_items`)이
 있으면 ship-lead에게 전달하여 GATE-LOOP 재검증 시 blocking item만 재확인하게 한다.
+
+**상류 리포트 소비 규칙**: `IMPL_META`/`REVIEW_META`/`TEST_META` 중 `freshness: fresh`인 것만
+경로를 ship-lead에게 `UPSTREAM_REPORTS`로 전달한다 (stale/blocked/부재는 전달하지 않고 시작 안내에
+사유 1줄 표기 — additive, 단독 실행은 그대로 동작). ship-lead는 전달받은 리포트의 verdict/blocking_items를
+pre-pr-validator(스펙 잔여 MISSING 교차 확인)와 coverage-auditor(FAILING/confirmed critical 재확인) 프롬프트에 주입한다.
 
 ### Phase 0 완료 후 시작 안내 출력
 
@@ -98,6 +108,7 @@ SHIP_TARGET: [SHIP_TARGET]
 FIX_MODE: [true/false]
 PLAN_PATH: [PLAN.md 경로 또는 NONE]
 CHANGED_FILES: [git diff --name-only 결과]
+UPSTREAM_REPORTS: [fresh인 IMPLEMENT-REPORT.md / REVIEW.md / TEST-REPORT.md 경로 목록 또는 NONE]
 
 ship-lead.md 프로토콜에 따라 아래 3개 에이전트를 동시에 스폰하세요:
 
@@ -145,6 +156,17 @@ VERIFIED 주장에 대해 인용된 증거를 Read/Bash로 직접 확인합니�
 ship-lead가 3개 에이전트 결과를 수신하면 `.cs-artifacts/SHIP-REPORT.md`를 생성합니다:
 
 ```markdown
+---
+cs_artifact:
+  type: SHIP-REPORT.md
+  producer: cs-ship
+  produced_at: [ISO timestamp]
+  status: [ready | blocked]      # 판정 PASS → ready, WARNINGS/BLOCKED → blocked
+  gate:
+    passed: [판정 == PASS]
+    criterion: "스펙 준수 ≥90% AND 실행 suite 전체 green AND Refuted <2"
+    blocking_items: [MISSING/FAILING 항목 각 1줄]
+---
 # SHIP-REPORT — [날짜]
 
 ## 최종 판정: ✅ PASS / ⚠️ WARNINGS / ❌ BLOCKED
@@ -195,6 +217,18 @@ ship-lead가 3개 에이전트 결과를 수신하면 `.cs-artifacts/SHIP-REPORT
 | 테스트 실행 | 실행된 suite 전체 green | ❌ BLOCKED if any FAILING (다른 점수 무관); ⚠️ WARNINGS if UNVERIFIED-NO-RUNNER |
 | 커밋 메시지 | 금지 패턴 없음 | ⚠️ WARNINGS + 자동 수정 제안 |
 | Refuted claims | Phase 2-0 반박 2개 미만 | ⚠️ 2개 이상 반박 시 verdict 상한 WARNINGS |
+
+**register + verdict 기록 (plugins/shared/ARTIFACT-CONTRACTS.md [2] + GATE-LOOP RECORD)** — SHIP-REPORT.md 생성 직후 ship-lead가 실행 (마지막 프로토콜 단계):
+
+```bash
+REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
+if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+$RUN_PY "$REGISTRY" register SHIP-REPORT.md .cs-artifacts/SHIP-REPORT.md cs-ship
+$RUN_PY "$REGISTRY" verdict SHIP-REPORT.md <PASS|WARNINGS|BLOCKED> <round> [MISSING/FAILING 항목 ...]
+```
+
+- round는 GATE-LOOP의 gate→fix→re-gate 라운드 번호 — Phase 2.5 Fix Loop 각 라운드 재판정 후 frontmatter/verdict를 갱신한다 (재실행 시 `find-meta SHIP-REPORT.md`로 이전 round/blocking_items 복원, blocking item만 재확인).
+- 등록 실패는 non-blocking (경고 1줄) — 판정 자체를 차단하지 않는다. 이 verdict가 /cs-company SHIP 게이트("registry verdict PASS")의 판독 소스다.
 
 ### Phase 2.5 — Fix Loop (FIX_MODE=true이고 verdict가 BLOCKED/WARNINGS일 때만)
 

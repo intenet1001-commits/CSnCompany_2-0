@@ -171,6 +171,7 @@ def cmd_ceo_preflight() -> dict:
         "clarify":      latest_plugin("cs-clarify-"),
         "experiencing": latest_plugin("cs-experiencing-"),
         "ceo":          latest_plugin("cs-ceo-"),
+        "ship":         latest_plugin("cs-ship-"),   # /cs-company SHIP phase (PIPELINE-PROTOCOL)
     }
 
     # superpowers

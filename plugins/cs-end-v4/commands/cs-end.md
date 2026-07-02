@@ -83,6 +83,30 @@ done
 
 `--merge-worktree`가 없으면 Phase 4.5는 조용히 스킵된다 (기존 동작 100% 보존).
 
+**BTW 스토어 일원화 마이그레이션 (1회성)** — 과거 cs-ceo가 마켓플레이스 레벨 경로에 쓰던 split-brain을 캐노니컬 경로(`~/.claude/.experiencing-btw.json`)로 병합한다. 구 파일이 없으면 0 output으로 스킵:
+
+```bash
+OLD_BTW="$HOME/.claude/plugins/marketplaces/.experiencing-btw.json"   # 구 split-brain 경로 (마이그레이션 소스로만 사용)
+BTW_CANON="$HOME/.claude/.experiencing-btw.json"
+if [ -f "$OLD_BTW" ]; then
+  python3 - "$OLD_BTW" "$BTW_CANON" <<'PY'
+import json, sys, os
+old, canon = sys.argv[1], sys.argv[2]
+def load(p):
+    try:
+        with open(p, encoding="utf-8") as f: v = json.load(f)
+        return v if isinstance(v, list) else []
+    except Exception: return []
+merged = load(canon)
+merged += [e for e in load(old) if e not in merged]
+with open(canon, "w", encoding="utf-8") as f:
+    json.dump(merged, f, ensure_ascii=False, indent=2)
+PY
+  mv "$OLD_BTW" "$OLD_BTW.migrated"
+  echo "🔀 BTW 마이그레이션: 구 경로 항목을 $BTW_CANON 에 병합 (원본은 *.migrated 보관)"
+fi
+```
+
 ## Phase 0.5 — Session Pre-Pass Digest (Attention + KV Cache 패턴)
 
 **목적:** 4개 에이전트가 각각 전체 세션 히스토리를 읽는 대신, Python이 1회 추출한 compact digest를 공유함으로써 Phase 1 토큰을 ~60% 절감한다.

@@ -7,7 +7,7 @@ description: |
   using TDD and Clean Architecture. Standard scope uses 4 specialized agents (domain-analyst,
   arch-designer, tdd-strategist, checklist-builder); small scope (single module/util) gets a
   lightweight solo plan from plan-lead.
-version: 21.0.0
+version: 21.1.0
 ---
 
 # CS-plan - TDD + Clean Architecture 코딩 플랜 생성
@@ -26,9 +26,12 @@ main context는 plan-lead 하나만 스폰하고, plan-lead가 팀 오케스트�
 /CS-plan --lang typescript "기능 설명"
 /CS-plan --output docs/plans "기능 설명"
 /CS-plan --lang python --output src/plans "기능 설명"
+/CS-plan --hitl=auto "기능 설명"        # 야간/무인 실행 — arch-choice 체크포인트에서 묻지 않음
 ```
 
 ## 실행 프로토콜
+
+HITL 프로토콜 (BLOCKING): Step 3 스폰 전 plugins/shared/HITL-POLICY.md를 Read하고, 시작 안내에 `hitl: <auto|gate|always>` 한 줄을 포함한다 (런타임 경로: `${CLAUDE_PLUGIN_ROOT}/../shared/HITL-POLICY.md`).
 
 ### Step 1: 인자 파싱
 
@@ -38,9 +41,31 @@ main context는 plan-lead 하나만 스폰하고, plan-lead가 팀 오케스트�
 FEATURE  = 큰따옴표 안의 텍스트, 또는 옵션 제외 나머지 텍스트
 LANG     = --lang [언어] (미지정 시 "미지정 (plan-lead가 코드베이스에서 추론)")
 OUTPUT   = --output [경로] (미지정 시 ".tdd-plans")
+HITL     = --hitl [auto|gate|always] (미지정 시 "gate"; --auto는 --hitl=auto 별칭 — plugins/shared/HITL-POLICY.md [1])
+REWORK   = 상위 호출자(/cs-company conductor)가 전달한 리워크 payload (미전달 시 NONE) —
+           GATE-LOOP "REVIEW — 아키텍처 레이어 위반 → PLAN (delta 재실행)" 라우팅 전용.
+           형식: 위반 항목 목록 + 관련 PLAN.md 섹션 발췌. REWORK ≠ NONE이면 Step 1.4/1.5를 스킵한다
+           (기존 PLAN.md가 이미 있고 스코프는 위반 항목으로 한정 — 새 인테이크/질문 불필요).
 ```
 
 기능 설명이 없으면 사용자에게 기능 설명을 요청하고 중단한다 (문구 자유, 사용 예시 1개 포함 — 예: `/CS-plan "사용자 인증 시스템 (이메일+비밀번호, JWT)"`).
+
+### Step 1.4: Upstream intake — CLARIFY.md 자동 소비 (plugins/shared/ARTIFACT-CONTRACTS.md [3])
+
+Step 1.5 전에 업스트림 아티팩트를 확인한다:
+
+```bash
+REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
+if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+CLARIFY_META=$($RUN_PY "$REGISTRY" find-meta CLARIFY.md 2>/dev/null || echo "")
+```
+
+1. `CLARIFY_META`가 null/빈 값이면 → 이 단계를 조용히 스킵하고 Step 1.5로 진행 (additive — CLARIFY 없이도 기존 경로 그대로).
+2. `freshness: fresh` **이고** frontmatter `status: ready`(또는 `ready_for_plan: true`)면 CLARIFY.md를 Read하고:
+   - **Context Anchor 테이블**, **`→ verify:` 성공 기준**, **HIGH 위험 가정**을 원문 그대로 FEATURE 브리프에 병합한다 (요약 금지 — 재해석에서 정보가 샌다).
+   - Step 1.5의 AskUserQuestion(모호성 질문)을 **SKIP**한다 — clarify가 이미 물었다. 중복 인터럽션 제거. 단, Step 1.5의 5번(스코프 평가 small/standard)은 그대로 수행한다.
+3. `freshness: stale` 또는 `status: blocked`면 AskUserQuestion **1회**: "CLARIFY.md가 N일 전 것입니다(또는 게이트 미통과 상태). 이 요구사항 기준으로 플랜할까요, 무시할까요?" — 무시 선택 시 Step 1.5를 정상 수행.
+4. 소비한 CLARIFY.md의 경로를 Step 3의 plan-lead 프롬프트에 `CLARIFY: [경로]`로 전달한다 (미소비 시 `CLARIFY: NONE`).
 
 ### Step 1.5: 모호성 프리플라이트 (노하우 #3, #5 반영)
 
@@ -59,7 +84,7 @@ plan-lead는 서브에이전트라 AskUserQuestion을 쓸 수 없으므로, 사�
 
 ### Step 2: 시작 안내 출력
 
-플랜 생성 시작을 알리는 짧은 안내를 출력한다 (형식 자유). 필수 포함: FEATURE, LANG(미지정 시 "자동 감지"), OUTPUT 경로, SCOPE, 실행 방식(standard면 plan-lead가 4개 전문 에이전트 팀을 조율, small이면 plan-lead 단독 경량 플랜).
+플랜 생성 시작을 알리는 짧은 안내를 출력한다 (형식 자유). 필수 포함: FEATURE, LANG(미지정 시 "자동 감지"), OUTPUT 경로, SCOPE, `hitl: [HITL]`, 실행 방식(standard면 plan-lead가 2-wave 파이프라인으로 4개 전문 에이전트를 조율, small이면 plan-lead 단독 경량 플랜).
 
 ### cmux 환경: 진행 상황 표시
 
@@ -81,18 +106,33 @@ Task(
   model: "sonnet",
   prompt: "당신은 CS-plan의 plan-lead입니다. 아래 컨텍스트로 플랜을 생성하세요.
 
-FEATURE: [FEATURE]
+FEATURE: [FEATURE]  ← Step 1.4에서 CLARIFY가 병합됐으면 병합본
 LANG: [LANG]
 OUTPUT_DIR: [OUTPUT]
 SCOPE: [SCOPE]
+CLARIFY: [Step 1.4에서 소비한 CLARIFY.md 경로 또는 NONE]
+HITL: [HITL]
+REWORK: [리워크 payload 원문 또는 NONE]
 
-plan-lead.md 프로토콜을 따라 PLAN.md를 생성하세요 (SCOPE 분기 포함)."
+plan-lead.md 프로토콜을 따라 PLAN.md를 생성하세요 (SCOPE 분기 + 2-wave 파이프라인 + arch-choice 체크포인트 포함. REWORK ≠ NONE이면 리워크(REWORK) 경로 — arch-designer + checklist-builder만 재스폰)."
 )
 ```
 
 plan-lead가 에이전트 조율, 파일 생성, PLAN.md 합성을 모두 처리합니다.
-SCOPE=standard면 4개 에이전트 팀을 오케스트레이션하고, SCOPE=small이면 팀 스폰 없이 단독으로 경량 PLAN.md를 작성합니다.
-plan-lead 완료 후 완료 결과를 사용자에게 전달합니다.
+SCOPE=standard면 2-wave 에이전트 팀(1a: domain-analyst ∥ arch-designer → 1b: tdd-strategist ∥ checklist-builder)을 오케스트레이션하고, SCOPE=small이면 팀 스폰 없이 단독으로 경량 PLAN.md를 작성합니다.
+
+### Step 3.5: 체크포인트 버블링 (plugins/shared/HITL-POLICY.md [3])
+
+plan-lead의 Task 결과가 `type: "CHECKPOINT"` JSON이면 (HITL=gate|always에서 arch-choice 발생):
+
+1. AskUserQuestion 1회: payload의 `question` + `options`(각 label에 consequence 병기) + **"작업 취소" 옵션 필수**.
+   - "작업 취소" 선택 → 즉시 종료하되 `resume.artifacts` 경로(지금까지 생성된 domain-analysis.md/architecture.md)를 사용자에게 알린다.
+2. plan-lead를 **재스폰**한다 — Step 3의 원래 프롬프트에 두 줄을 추가: `CHECKPOINT_ANSWER: [선택 label]` + `RESUME: [payload의 resume 블록 원문]`. 재스폰된 plan-lead는 Phase 0~1a를 건너뛰고 Phase 1b부터 진행한다.
+3. **경계 (BOUNDED)**: 재스폰은 checkpoint_id당 최대 1회, 런당 체크포인트 총 3회 — 재스폰된 plan-lead가 같은 checkpoint_id를 다시 반환하면 재스폰 없이 종료하고 종료 사유(`checkpoint arch-choice re-raised after resume`)와 함께 부분 산출물 경로를 보고한다.
+
+CHECKPOINT가 아닌 정상 완료 결과면 이 단계를 조용히 스킵한다. HITL=auto면 plan-lead가 체크포인트에서 멈추지 않으므로 이 단계는 발동하지 않는다.
+
+plan-lead 완료 후 완료 결과를 사용자에게 전달하고, 마지막 줄에 `다음 단계: /smart-run — PLAN.md 자동 감지됨`을 출력합니다 (smart-run Phase 0.7이 registry에서 PLAN.md를 자동 소비).
 
 ```bash
 # cmux 환경: 완료 알림
@@ -140,7 +180,7 @@ fi
 - **발견**: Karpathy의 "Think Before Coding" — 구현 전 모호성을 명시적으로 드러내고 정리해야 함. "if 200 lines could be 50, rewrite it" 원칙: 플랜이 과도하게 복잡하면 단순화 질문을 먼저 던져야 함.
 - **교훈**: plan-lead Step 1(인자 파싱) 직후, 기능 설명의 모호성 평가(명확/보통/모호). 모호하면 AskUserQuestion으로 명확화 질문 1회. 명확하면 스킵.
 
-### 6. 아키텍처 선택 체크포인트 (bkit checkpoint 패턴 학습, 2026-04-20) — ✅ 반영됨 (2026-06, plan-lead arch-designer 프롬프트 + PLAN.md "사용자 확인 필요" 섹션)
+### 6. 아키텍처 선택 체크포인트 (bkit checkpoint 패턴 학습, 2026-04-20) — ✅ 반영됨 (2026-06 부분: PLAN.md 요약 노출 → 2026-07 완전 구현: plan-lead 2-wave 파이프라인 + arch-choice CHECKPOINT STOP-and-return + SKILL Step 3.5 버블링, plugins/shared/HITL-POLICY.md)
 
 - **상황**: plan-lead가 아키텍처 옵션 없이 단일 설계만 생성하여 사용자가 방향 조정 기회를 놓침
 - **발견**: bkit Checkpoint 3 패턴 — Design 단계에서 Minimal/Clean/Pragmatic 3가지 옵션을 제시하고 사용자가 선택하게 함. 선택 후 해당 방향으로 깊게 들어감.

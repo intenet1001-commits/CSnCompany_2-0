@@ -5,7 +5,7 @@ description: |
   15-agent AI Teams web testing skill. Use when user types "/CS-test", "웹 테스트", "playwright test",
   "테스트 실행", "사이트 테스트", or wants comprehensive web app testing covering security, SEO,
   performance, DB, touch interaction, and image optimization with AI agent teams.
-version: 26.0.1
+version: 26.1.0
 ---
 
 # Playwright Test v5 - AI Agent Teams 기반 종합 웹 테스트
@@ -16,7 +16,7 @@ version: 26.0.1
 v5에서는 **터치 인터랙션 검증** + **이미지 최적화 분석**이 추가됩니다.
 (MWC 2026 세션에서 발견된 실제 버그 패턴 기반)
 
-검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 플러그인)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 플러그인)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 체크포인트 처리(build-blocker, --hitl 모드)는 plugins/shared/HITL-POLICY.md를 추가로 Read하고 따르며, protocol 줄 옆에 `hitl: <auto|gate|always>` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다. 아티팩트 생산(TEST-REPORT.md 등록 — Phase 3)은 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 Read하고 따른다. LOOP-PROTOCOL Read 직후(preflight 단계에서) plugins/shared/MEMORY-PROTOCOL.md의 Phase R(회상)을 수행하고, protocol 줄 다음에 `recall: E<n>/C<n>/N<n>` 한 줄을 출력한다 — 매칭된 과거 학습(테스트·브라우저·배포 관련)은 Phase 2 에이전트 디스패치 프롬프트에 주입하며, 이 줄이 없는 리포트는 회상 미수행으로 간주한다.
 
 ## 사용법
 
@@ -42,7 +42,7 @@ v5에서는 **터치 인터랙션 검증** + **이미지 최적화 분석**이 �
 | **security-auditor** | HTTP 보안 헤더·쿠키 플래그·민감정보 노출 감사 | 2 | **v5 신규** |
 | **seo-auditor** | 메타태그·canonical·sitemap·구조화 데이터 분석 | 2 | **v5 신규** |
 | **error-resilience** | 404 페이지·콘솔에러·깨진링크·에러바운더리 검사 | 2 | **v5 신규** |
-| **finding-verifier** | critical/high finding 적대적 재검증 (confirmed/refuted/unreproducible) | 2.5 | **신규** |
+| **finding-verifier** | critical/high finding 적대적 재검증 (CONFIRMED/REFUTED/UNCERTAIN) | 2.5 | **신규** |
 
 ## 실행 프로토콜
 
@@ -82,6 +82,7 @@ fi
 
 ### 사전 준비
 
+0. **HITL 모드 결정**: 인자에서 `--hitl [auto|gate|always]` 파싱 (미지정 시 `gate`; `--auto`는 `--hitl=auto` 별칭 — plugins/shared/HITL-POLICY.md [1]). cs-ceo 등 상위 호출자가 프롬프트에 `HITL: <mode>`를 전달했으면 그 값을 사용한다. 성공 기준 출력 시 `hitl: <mode>` 한 줄을 함께 출력.
 1. URL 인자 확인. 없으면 사용자에게 요청.
 2. **서빙 대상 검증 (localhost/127.0.0.1 URL인 경우만)**: 해당 포트가 실제 dev 서버를 서빙 중인지, 구버전 production build인지 확인 — 방법 자유 (예: lsof, ps). 불일치 의심 시(예: 포트는 살아있는데 dev 프로세스가 다른 포트) 사용자에게 1회 확인. (노하우 #23)
 3. **성공 기준 1문장 출력 (필수)**: 사용자가 기준·중점 라우트·인증 정보를 제공했으면 그대로 사용, 없으면 기본값을 추론해 출력하고 진행 — 예: "성공 기준: P0 에러 0건, 성능 점수 70+, SEO 등급 B 이상". 원격 URL이면 추가 질문 없이 기본 기준으로 시작한다(불필요한 인터랙션 방지). (노하우 #21)
@@ -101,9 +102,25 @@ mkdir -p tests/results tests/screenshots
 > "성공 기준: [기준 문장] — 리포트 JSON에 `\"passFail\": \"pass|fail\"` 필드로 이 기준 대비 판정을 포함하세요."
 > Phase 3에서 test-lead가 REPORT.md 상단에 선언된 성공 기준과 종합 pass/fail을 명시한다.
 
-> 📜 **워커 공통 계약 (필수)**: 모든 워커 Task() 프롬프트에 다음 2줄을 포함한다 —
+> 📜 **워커 공통 계약 (필수)**: 모든 워커 Task() 프롬프트에 다음 3개 항목을 포함한다 —
 > (1) "첫 행동: Read agents/<name>.md — 읽은 뒤에만 테스트 시작"
 > (2) "finding 보고 계약: 모든 finding을 severity+confidence+evidence(file:line 또는 command+output)와 함께 빠짐없이 보고. 필터링 금지 — 필터는 리드가 한다 (LOOP-PROTOCOL [a][e])."
+> (3) 프롬프트 끝에 아래 CONTRACT 블록을 에이전트별 값으로 채워 붙인다 (plugins/shared/TASK-CONTRACT.md — 기존 ">200 bytes + screenshots" 증거 위생 검사를 계약 문법으로 명문화한 것, 검사 내용 동일):
+>
+> ```
+> ## TASK CONTRACT
+> task_id: CS-test:<name>:1
+> expected_output:
+>   artifact: tests/results/<출력 파일 목록 표의 해당 JSON>
+>   format: json
+>   required_keys: [grade, passFail]
+>   min_bytes: 200
+> acceptance_criteria:
+>   - "grep -q '\"passFail\"' tests/results/<해당 JSON>"
+>   - "functional-tester/visual-inspector pass 시: ls tests/screenshots/ 비어있지 않음"
+> context_in: [tests/results/page-map.json]
+> re_dispatch_budget: 1
+> ```
 
 ### 브라우저 사전 검증 (Phase 1-2용)
 
@@ -153,8 +170,12 @@ agents/build-validator.md의 프로토콜을 따르세요.
 
 build-validator 완료 후:
 - build-report.json 읽기
-- grade가 F면: "⚠️ 빌드 검증 F등급: [이슈]" 를 사용자에게 표시
-- 계속 진행 (배포 문제가 있어도 테스트는 유용)
+- **grade가 F면 → `build-blocker` 체크포인트 (plugins/shared/HITL-POLICY.md [4])**:
+  - 옵션 3개: **continue full run** (배포 문제가 있어도 전체 테스트 — default) / **Quick tier only** (사전 준비 5단계의 Quick 티어로 축소) / **abort and fix first** (빌드 이슈 목록만 보고하고 종료)
+  - `hitl=auto` → default(continue full run)를 조용히 채택, 리포트에 `build-blocker: auto default(continue)` 기록
+  - `hitl=gate|always` **이고 main context에서 실행 중** (일반적인 /CS-test 경로 — test-lead가 곧 실행 에이전트): AskUserQuestion 1회로 위 3개 옵션 + "작업 취소" 제시
+  - `hitl=gate|always` **이고 서브에이전트로 스폰됨** (예: cs-ceo가 스폰): AskUserQuestion 불가 — HITL-POLICY [2] 스키마의 CHECKPOINT payload(`checkpoint_id: "build-blocker"`, `default_option: "continue full run"`, `resume: {artifacts: [tests/results/build-report.json], next_phase: "Phase 1", context_note: "빌드 F 사유 요약"}`)를 Task 결과로 반환하고 종료 — 버블링은 호출자가 HITL-POLICY [3]으로 처리하고, 재스폰 시 `CHECKPOINT_ANSWER`에 따라 Phase 1부터 재개한다 (build-validator 재실행 금지, build-report.json Read로 대체)
+- grade가 F가 아니면: 계속 진행
 
 ### Phase 1: 팀 생성 및 탐색
 
@@ -243,6 +264,14 @@ agents/image-optimizer.md의 프로토콜을 따르세요.
 6. WebP 변환 가이드 생성
 ```
 
+### Phase 2.4: 교차검토 (Peer Cross-Exam — plugins/shared/DEBATE-PROTOCOL.md Section B)
+
+병렬 에이전트 완료 후 Phase 2.5 전에 실행한다. 리포트를 낸 에이전트 ≥3개이고 tests/results/*.json 총 finding ≥8건일 때만
+Section B의 cross-examiner 1개를 스폰한다 (model: sonnet, tools: Read, Grep — tests/results/*.json만 읽음).
+미만이면 스폰 없이 리드가 인라인 중복 제거 (LOOP-PROTOCOL [f]). 병합 규칙:
+`DUPLICATE_OF` → 1건으로 병합(등급 1회 계상, 두 렌즈 병기) / `CORROBORATES` → confidence 상향("2개 렌즈 일치") /
+`CONFLICTS_WITH` → 양쪽 finding을 severity 무관하게 Phase 2.5 finding-verifier 검증 대상에 강제 포함.
+
 ### Phase 2.5: 발견 검증 (finding-verifier)
 
 ```bash
@@ -263,9 +292,17 @@ Task(
 tests/results/*.json 의 critical/high finding을 원본 증거를 무시하고 처음부터 재현하세요.
 agents/finding-verifier.md의 프로토콜을 따르세요 (최대 15건, 10분 타임아웃, $BROWSER_MODE 준수).
 결과를 tests/results/verification-report.json에 저장하세요.
-완료 후 test-lead에게 confirmed/refuted/unreproducible 요약을 SendMessage로 전송하세요."""
+완료 후 test-lead에게 CONFIRMED/REFUTED/UNCERTAIN 요약을 SendMessage로 전송하세요."""
 )
 ```
+
+### Phase 2.6: 반론 라운드 (Rebuttal — plugins/shared/DEBATE-PROTOCOL.md Section A)
+
+Phase 2.5에서 REFUTED된 finding 중 원 severity critical/high **이고** 원 confidence ≥ 0.8인 것이 있으면 Section A를 실행한다:
+plugins/shared/agents/advocate.md 카드로 advocate 1개 스폰(최대 5건, 라운드 최대 1회) → REBUT 항목만 finding-verifier 라운드 2
+(`DEBATE round 2` — new_evidence만 재검) → 최종 상태(CONFIRMED/REFUTED/CONTESTED)는 리드가 판정한다.
+최종 CONFIRMED는 등급에 반영, CONTESTED는 REPORT.md의 `## 쟁점 (CONTESTED)` 섹션에 양측 증거와 함께 배치하고
+등급 산정에서 제외한다. **REFUTED 0건이면 전체 스킵 (비용 0)** — 검증 요약 줄에 `debate:` 한 줄(종료 사유 포함)을 덧붙인다.
 
 ### Phase 3: 결과 취합 및 REPORT.md 생성
 
@@ -275,15 +312,35 @@ agents/finding-verifier.md의 프로토콜을 따르세요 (최대 15건, 10분 
 
 스폰된 에이전트의 JSON 파일 + `verification-report.json`(Phase 2.5 실행 시) 읽기 후 REPORT.md 생성 (touch + image 섹션 포함).
 
-**검증 결과 반영**: confirmed + unverified finding만 등급에 반영. refuted finding은 등급에서 제외하고
-부록 "검증에서 기각된 항목"에 반증 증거와 함께 나열. 등급 섹션에 한 줄 추가: "검증: N건 확인 / N건 기각 / N건 미검증".
+**검증 결과 반영** (판정 어휘는 plugins/shared/agents/verifier.md가 governing spec): CONFIRMED + NOT-RECHECKED(검증 상한 초과 — 반증된 적 없음, 캐비앗 표기) finding만 등급에 반영.
+UNVERIFIED(증거 포인터 없음)는 LOOP-PROTOCOL [a]에 따라 등급/verdict 계산에서 제외하고 부록에 나열.
+REFUTED finding은 (Phase 2.6 반론 라운드 반영 후) 등급에서 제외하고 부록 "검증에서 기각된 항목"에 반증 증거와 함께 나열.
+UNCERTAIN(환경 실패 등 체크 불가)은 confirmed-with-caveat로 취급(등급 반영 + 캐비앗 표기).
+CONTESTED는 `## 쟁점 (CONTESTED)` 섹션에 양측 증거 병기, 등급 미반영. 등급 섹션에 한 줄 추가: "검증: N건 확인 / N건 기각 / N건 미검증" (+ Phase 2.6 실행 시 `debate:` 한 줄).
 
 **등급 산정 규칙** (LOOP-PROTOCOL [d] COVERAGE HONESTY — agents/test-lead.md Phase 3과 동일):
 - 커버리지 = 완료 에이전트 / 스폰한 에이전트 수 (Standard 풀 런 = 13). REPORT.md 헤더에 `**커버리지**: N/[스폰 수] 에이전트 완료 (X%)` + 스코프 티어 출력 + `incomplete_agents` 목록 표기
 - N/A 1-2개 → 최대 B / 3-5개 → 최대 C / 6개 이상 → **Incomplete** (cmux 알림에도 등급 대신 Incomplete)
 - confirmed critical finding 1건 이상 → 종합 등급 상한 C (노하우 #17)
 - REPORT.md 상단에 선언된 성공 기준 + 종합 pass/fail 명시
-- 증거 위생: 비-N/A JSON이 유효하고 >200 bytes인지, functional/visual pass 시 tests/screenshots/ 비어있지 않은지 확인. 빈/깨진 파일은 N/A 취급
+- 증거 위생 = 계약 수락 (TASK-CONTRACT [2]): JSON 내용을 읽기 **전에** 각 워커 계약의 `wc -c`(>200 bytes) + grep assertion을 실행하고, functional/visual pass 시 tests/screenshots/ 비어있지 않은지 확인. 수락 실패 시 실패 assertion 원문 인용 1회 재디스패치(`re_dispatch_budget: 1`), 2회째 실패 → 빈/깨진 파일과 동일하게 N/A 취급 + `incomplete_agents` 기록
+- REPORT.md 헤더에 `contracts: N issued / M accepted` 한 줄 출력 (TASK-CONTRACT [4] — 커버리지 라인 바로 아래)
+
+**TEST-REPORT.md 등록 + verdict 기록 (plugins/shared/ARTIFACT-CONTRACTS.md [2] + GATE-LOOP RECORD)** — REPORT.md 생성 직후:
+
+1. REPORT.md 최상단에 `cs_artifact` frontmatter 삽입 (`type: TEST-REPORT.md`, `producer: CS-test`,
+   `status`: 종합 pass면 `ready` 아니면 `blocked`,
+   `gate`: `{passed: 종합 pass/fail, criterion: "<사전 준비 3단계에서 선언한 성공 기준 1문장>", blocking_items: [confirmed critical finding 각 1줄]}`)
+2. registry 등록 + verdict 기록:
+   ```bash
+   REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
+   if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+   $RUN_PY "$REGISTRY" register TEST-REPORT.md tests/results/REPORT.md CS-test
+   $RUN_PY "$REGISTRY" verdict TEST-REPORT.md <PASS|FAIL> <round> [confirmed critical 항목 ...]
+   ```
+   - PASS = 종합 pass (성공 기준 충족 **이고** confirmed critical 0건). 미달이면 FAIL + confirmed critical 각각이 blocking_item.
+   - round는 GATE-LOOP의 gate→fix→re-gate 라운드 번호 — 재테스트 시 `find-meta TEST-REPORT.md`로 이전 round/blocking_items를 복원해 이전 실패 항목만 재검증한다 (최대 3라운드, 델타 없으면 즉시 중단 — 종료 사유를 REPORT.md에 기록).
+   - 등록 실패는 non-blocking (경고 1줄) — 테스트 결과 자체를 차단하지 않는다.
 
 팀 종료: shutdown_request → shutdown_response 확인 → TeamDelete.
 

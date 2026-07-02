@@ -62,3 +62,12 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: `${{ secrets.* }}`를 `run:` 문자열 내에 직접 보간하면 secret 값에 shell 메타문자가 포함될 경우 injection이 가능하다. `env:` 블록에서 환경변수로 바인딩하고 `${VAR_NAME}` 형태로 참조하면 서브프로세스에 값이 직접 전달되어 shell이 값을 파싱하지 않는다.
 - **교훈**: GitHub Actions에서 secrets를 shell command에 넘길 때는 항상 `env:` 블록 바인딩 패턴 사용. lint rule: `run:` 블록 내 `${{ secrets.` 패턴은 곧 injection 위험 신호.
 - **근거**: `.github/workflows/weekly-parking.yml` L15-17, L31-33 `env: CRON_SECRET: ${{ secrets.CRON_SECRET }}` + `run:` 내 `${CRON_SECRET}` 참조
+
+### 85. minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17)
+<!-- tier: tactical -->
+
+- **상황**: Vercel에 코드 픽스가 반영됐는지 확인하기 위해 minified JS 번들에서 변경 흔적을 탐색해야 했음.
+- **발견**: minified JS는 지역 변수명(rollingTraderTotal 등)을 단축 식별자로 치환하므로 원본 변수명으로 grep해도 검색 불가. 반면 객체 property name(`d8_total_uv`), 문자열 리터럴, 특징적인 연산자 패턴(`??` + 삼항 조합)은 minify 후에도 보존되어 배포 여부 판별 지표로 사용 가능.
+- **교훈**: 배포 검증 시 변수명 대신 property name, 문자열 리터럴, 로직 패턴(??/삼항 조합)을 grep 대상으로 사용한다.
+- **근거**: `rollingTraderTotal` grep → 검색 불가, `d8_total_uv` property name + `??` 패턴으로 Before/After 구분 성공 (page-7236727e66aef288.js, dash1-v2 세션 2026-06-17)
+

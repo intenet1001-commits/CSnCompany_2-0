@@ -64,3 +64,13 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: `git pull --rebase`는 uncommitted working tree changes가 있으면 `error: cannot pull with rebase: You have unstaged changes`로 중단한다. 빌드 스크립트가 생성한 파일이 자동으로 커밋되지 않으면 다음 pull에서 conflict가 발생한다.
 - **교훈**: Windows 빌드 후 빌드 아티팩트(build-number.json, tauri.conf.json) 변경이 있으면 즉시 커밋하거나, pull 전 `git stash` → pull → `git stash pop` 절차를 따른다. 가장 안전한 순서: pull → build → commit artifacts → push.
 - **근거**: `git stash` 후 `git pull --rebase` 성공. 이후 `git stash pop`에서 remote v102 vs local v98 conflict → `git checkout --ours` + `git stash drop`으로 해결.
+
+### 92. git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17)
+<!-- tier: tactical -->
+
+- **상황**: 사용자가 특정 커밋 해시(defd9c1...)를 로컬에 pull 요청 시, 해당 커밋이 어느 원격 브랜치에 속하는지 먼저 확인해야 했음.
+- **발견**: `git fetch origin` → `git cat-file -t <hash>`로 객체 존재 확인 → `git branch -r --contains <hash>`로 포함 브랜치 특정 → `git merge --ff-only <remote-branch>` 순으로 안전하게 적용. fetch 없이는 `unknown revision` 오류 발생.
+- **교훈**: 알 수 없는 커밋 해시 merge 요청: (1) fetch → (2) cat-file -t 존재 확인 → (3) branch -r --contains 브랜치 특정 → (4) ff-only merge. 이 순서를 생략하면 중단됨.
+- **근거**: `git merge --ff-only origin/claude/csncompany-plugin-auto-install-am7h2x` → "Fast-forward / 6 files changed, 175 insertions(+)" (2026-06-17 세션)
+- (재번호 이관: 구 SKILL.md 인라인 #15 → #92, 2026-07-02 — INDEX 번호가 단일 진실)
+

@@ -14,6 +14,7 @@ TDD + Clean Architecture 기반의 즉시 실행 가능한 코딩 플랜을 자�
 /CS-plan --lang typescript "기능 설명"
 /CS-plan --output docs/plans "기능 설명"
 /CS-plan --lang python --output src/plans "기능 설명"
+/CS-plan --hitl=auto "기능 설명"
 ```
 
 ## 옵션
@@ -22,6 +23,7 @@ TDD + Clean Architecture 기반의 즉시 실행 가능한 코딩 플랜을 자�
 |------|------|--------|
 | `--lang` | 구현 언어 (typescript, python, java, go, kotlin 등) | 자동 감지 |
 | `--output` | 플랜 저장 디렉토리 | `.tdd-plans` |
+| `--hitl` | HITL 모드: `auto`(중간 질문 없음 — arch-choice에서 권장안 자동 채택) / `gate`(arch-choice 체크포인트에서 아키텍처 선택 질문) / `always`(모든 Phase 전환마다 확인). `--auto`는 `--hitl=auto` 별칭. plugins/shared/HITL-POLICY.md 참조 | `gate` |
 
 ## 예시
 
@@ -34,10 +36,13 @@ TDD + Clean Architecture 기반의 즉시 실행 가능한 코딩 플랜을 자�
 
 ## 에이전트 팀 구성
 
-4개의 전문 Claude AI 에이전트가 병렬로 플랜을 생성합니다:
+4개의 전문 Claude AI 에이전트가 2-wave 파이프라인으로 플랜을 생성합니다 (wave 사이에 arch-choice 체크포인트 — gate 모드에서 사용자가 아키텍처 방향 선택):
 
+**Wave 1a (병렬)**
 1. **domain-analyst** - DDD 기반 도메인 분석 (Aggregate, Entity, Value Object, Bounded Context)
-2. **arch-designer** - Clean Architecture 레이어 설계 (4레이어 + SOLID + 인터페이스)
+2. **arch-designer** - Clean Architecture 레이어 설계 (4레이어 + SOLID + 인터페이스, 2-3개 방향 옵션)
+
+**Wave 1b (병렬 — 확정 용어집/아키텍처 임베드)**
 3. **tdd-strategist** - TDD 테스트 케이스 전략 (Red-Green-Refactor, Given/When/Then)
 4. **checklist-builder** - 레이어별 구현 체크리스트 (Inside-Out 순서, Definition of Done)
 

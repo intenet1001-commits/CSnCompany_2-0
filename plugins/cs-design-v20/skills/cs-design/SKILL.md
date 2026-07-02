@@ -7,7 +7,7 @@ description: |
   Generation triggers: "/cs-design --gen", "디자인 만들어줘", "UI 생성", "design generate",
   "make a design", "create UI", "디자인 생성".
   Generation produces ec-* namespaced CSS, oklch() colors, self-contained HTML or Next.js TSX.
-version: 20.0.0
+version: 20.1.0
 ---
 
 # CS-design v2 — 디자인 리뷰 + claude.ai/design급 생성
@@ -31,6 +31,7 @@ version: 20.0.0
 /cs-design --focus responsive           # 반응형/접근성만 분석
 /cs-design --focus antipatterns         # 안티패턴 탐지만 실행
 /cs-design --fix                        # 발견된 안티패턴 자동 수정
+/cs-design --hitl=auto                  # 무인 실행 — direction-choice 체크포인트에서 묻지 않음
 ```
 
 ### 생성 모드 (v2 신규 — claude.ai/design 동등)
@@ -50,13 +51,16 @@ version: 20.0.0
 
 ## 5개 분석 관점
 
-| 관점 | 역할 | 참조 |
+역할 상세·분석 항목·출력 스키마는 각 에이전트 카드(`agents/<name>.md`)가 **단일 소스**다
+(plugins/shared/AGENT-CARD.md 표준 — 여기에 중복 기술하지 않는다).
+
+| 관점 | 한 줄 | 카드 |
 |------|------|------|
-| **visual-hierarchy** | 폰트 스케일, 색상 대비, 공간 구조 감사 | references/typography.md + color-contrast.md |
-| **interaction-quality** | 8대 컴포넌트 상태, focus, loading, error | references/interaction-states.md |
-| **design-system-consistency** | 토큰 일관성, 컴포넌트 재사용률, 명명 규칙 | gstack /design-consultation 패턴 |
-| **responsive-accessibility** | 모바일 우선, WCAG AA, 4pt 간격 시스템 | references/spacing-layout.md |
-| **anti-pattern-detector** | 24개 AI slop 지표, 안티패턴 코드 탐지 | references/anti-patterns.md |
+| **visual-hierarchy** | 폰트 스케일·색상 대비·공간 계층 감사 | agents/visual-hierarchy.md |
+| **interaction-quality** | 8대 컴포넌트 상태, focus, loading, error | agents/interaction-quality.md |
+| **design-system-consistency** | 토큰 일관성·재사용률·명명 규칙 | agents/design-system-consistency.md |
+| **responsive-accessibility** | 모바일 우선, WCAG AA, 4pt 간격 | agents/responsive-accessibility.md |
+| **anti-pattern-detector** | 24개 AI slop 지표 탐지 (+ --fix) | agents/anti-pattern-detector.md |
 
 ## 실행 프로토콜
 
@@ -72,6 +76,7 @@ DESIGN_PATH = 지정 경로 (미지정 시 현재 작업 디렉토리, 리뷰 �
 FOCUS       = --focus [aspect] (선택: visual/interaction/consistency/responsive/antipatterns)
 FIX_MODE    = --fix (선택: 안티패턴 자동 수정 활성화)
 OUTPUT_DIR  = "design-results"
+HITL        = --hitl [auto|gate|always] (미지정 시 "gate"; --auto는 --hitl=auto 별칭 — plugins/shared/HITL-POLICY.md [1])
 ```
 
 > **GEN_MODE = true 이면 → Step 2-GEN-0으로 분기. 리뷰 프로토콜(Step 2~4) 건너뜀.**
@@ -160,6 +165,7 @@ FOCUS: [FOCUS 또는 "none"]
 FIX_MODE: [true/false]
 OUTPUT_DIR: [OUTPUT_DIR]
 DESIGN_CONTEXT: [컨텍스트 내용 또는 "not provided"]
+HITL: [HITL]
 
 agents/design-lead.md 프로토콜을 따라 분석 에이전트 팀을 오케스트레이션하고 DESIGN-REVIEW.md를 생성하세요.
 SKILL.md의 'CS-design v1 노하우' 섹션 중 분석에 적용 가능한 패턴(특히 5, 6, 12번)을 에이전트 프롬프트에 반영하세요."
@@ -167,6 +173,16 @@ SKILL.md의 'CS-design v1 노하우' 섹션 중 분석에 적용 가능한 패�
 ```
 
 design-lead가 5개 에이전트 조율, 결과 수집, DESIGN-REVIEW.md 합성을 모두 처리합니다.
+
+### Step 4.5: 체크포인트 버블링 (plugins/shared/HITL-POLICY.md [3])
+
+design-lead의 Task 결과가 `type: "CHECKPOINT"` JSON이면 (HITL=gate|always에서 direction-choice 발생 — visual-hierarchy가 방향 A/B/C를 제시한 경우):
+
+1. AskUserQuestion 1회: payload의 `question` + `options`(방향 A/B/C, 각 label에 consequence 병기) + **"작업 취소" 옵션 필수**. "작업 취소" → `resume.artifacts`(생성된 분석 리포트 경로)를 알리고 종료.
+2. design-lead를 **재스폰** — Step 4의 원래 프롬프트에 `CHECKPOINT_ANSWER: [선택 방향]` + `RESUME: [payload의 resume 블록 원문]`을 추가. 재스폰된 design-lead는 분석 에이전트를 다시 돌리지 않고 Step 5(DESIGN-REVIEW.md 생성)부터 진행한다.
+3. **경계 (BOUNDED)**: 재스폰은 checkpoint_id당 최대 1회, 런당 체크포인트 총 3회 — 재스폰된 design-lead가 같은 checkpoint_id를 다시 반환하면 재스폰 없이 종료 사유(`checkpoint direction-choice re-raised after resume`)와 부분 산출물 경로를 보고한다.
+
+CHECKPOINT가 아닌 정상 완료(방향 제시가 없었거나 HITL=auto)면 이 단계를 조용히 스킵한다.
 
 ## 에러 처리
 
@@ -201,7 +217,7 @@ design-lead가 5개 에이전트 조율, 결과 수집, DESIGN-REVIEW.md 합성�
 - **발견**: fontFamily: "monospace" 지정 시 Edge Runtime에서 한글 미지원으로 글씨 깨짐. MAU/problems OG 이미지는 fontFamily 미지정으로 문제 없음.
 - **교훈**: next/og Edge Runtime 한글 텍스트에 fontFamily 명시 금지(특히 monospace). 한글 필요 시 fetch()로 Noto Sans KR 로드 후 fonts 옵션 전달. MAU/problems 스타일 전체너비 레이아웃이 렌더링 안정적.
 
-### 5. 디자인 방향 결정 시 3가지 변형 제시 패턴 (gstack design-shotgun 학습, 2026-04-20) ✅ 반영됨 (2026-06)
+### 5. 디자인 방향 결정 시 3가지 변형 제시 패턴 (gstack design-shotgun 학습, 2026-04-20) ✅ 반영됨 (2026-06 부분: visual-hierarchy 3선택지 제시 → 2026-07 완전 구현: design-lead Step 4.8 direction-choice CHECKPOINT + SKILL Step 4.5 버블링으로 "사용자가 선택" 루프 폐합, plugins/shared/HITL-POLICY.md)
 
 - **상황**: design-lead가 단일 방향 권장안만 제시하여 사용자가 비교 선택 기회가 없음
 - **발견**: gstack `/design-shotgun`은 3가지 시각적 변형(현재 스타일 개선 / 대안 스타일 / 최소 개입)을 생성하고 사용자가 비교 선택하게 함. 승인 패턴 학습으로 이후 제안을 편향시킴.

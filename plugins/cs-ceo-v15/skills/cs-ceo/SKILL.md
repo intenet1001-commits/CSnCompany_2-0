@@ -9,7 +9,7 @@ description: |
   v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지. AGENT 타입은 Task(subagent_type)로 직접 호출. 외부 플러그인 에이전트(oh-my-claudecode:executor 등) 지원.
   설치된 스킬/에이전트를 자동 탐색하고, 타이밍(Pre/In/Post/Wraps)은 파트너 description을 읽고 판단해 근거 한 줄과 함께 결정한다.
   Use when user types "/cs-ceo", "cs-ceo", "/goal", or "/cs-partnership".
-version: 15.0.1
+version: 15.1.0
 allowed-tools:
   - Task
   - Agent
@@ -148,9 +148,10 @@ echo "CEO 버전: $(cat $LATEST_CEO/VERSION)"
 에이전트 파일: $LATEST_CEO/agents/ceo.md
 ```
 
-Task() 스폰 시 유저 요청을 원문 그대로 전달 (`with [partner]:` 구문 포함):
+Task() 스폰 시 유저 요청을 원문 그대로 전달 (`with [partner]:` 구문 포함), `--hitl` 파싱 결과를 함께 전달:
 ```
-유저 요청: [원문 그대로]
+유저 요청: [원문 그대로 — --hitl 플래그는 제거]
+HITL: [auto|gate|always — 미지정 시 gate, --auto는 --hitl=auto 별칭 (plugins/shared/HITL-POLICY.md [1])]
 ```
 
 CEO 에이전트 내부 처리:
@@ -158,6 +159,16 @@ CEO 에이전트 내부 처리:
 - Partnership Registry: 파트너 경로 확보
 - Phase -1~0: 컨텍스트 점검 + 도메인/파트너 경로 확인
 - Phase 1~5: 공수 추정 → 모드 결정 → 실행 → 리포트
+
+### Step 2.5: 체크포인트 버블링 (plugins/shared/HITL-POLICY.md [3])
+
+CEO의 Task 결과가 `type: "CHECKPOINT"` JSON이면 (CEO 또는 그 하위 도메인 리드가 STOP한 경우):
+
+1. AskUserQuestion 1회: payload의 `question` + `options`(consequence 병기) + **"작업 취소" 옵션 필수**. "작업 취소" → `resume.artifacts` 경로를 알리고 종료.
+2. CEO를 **재스폰** — Step 2의 원래 프롬프트에 `CHECKPOINT_ANSWER: [선택 label]` + `RESUME: [resume 블록 원문]`을 추가. 재스폰된 CEO는 `resume.artifacts`를 Read하고 `next_phase`부터 재개한다 (완료된 Phase 재실행 금지).
+3. **경계 (BOUNDED)**: 같은 checkpoint_id 재스폰 최대 1회, 런당 체크포인트 총 3회 — 초과 시 재스폰 없이 종료 사유(`checkpoint <id> re-raised after resume` 또는 `checkpoint budget exhausted`)와 부분 결과를 보고한다.
+
+CHECKPOINT가 아니면 조용히 스킵한다.
 
 ### Step 3: 결과 출력
 

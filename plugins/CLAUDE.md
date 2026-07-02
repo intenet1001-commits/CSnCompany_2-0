@@ -11,7 +11,7 @@ Key routing rules:
 - Codebase review, architecture review, code quality check → invoke CS-codebase-review
 - Design review, UI audit, UX analysis, 디자인 리뷰, anti-pattern detection → invoke cs-design
 - Sync plugins, push to GitHub, update marketplace → invoke cs-sync
-- Complex multi-step task, plan then execute in parallel → invoke smart-run
+- Complex multi-step task, plan then execute in parallel, 플랜 실행, execute a CS-plan PLAN.md → invoke smart-run (registered PLAN.md auto-detected — Phase 0.7 PLAN INTAKE)
 - English conversation, convert session to dialog → invoke convo-maker
 - Product ideas, "is this worth building", brainstorming → invoke office-hours
 - Bugs, errors, "why is this broken" → invoke investigate
@@ -21,6 +21,7 @@ Key routing rules:
 - Save progress, checkpoint, resume → invoke checkpoint
 - "목표", complex multi-step task, unsure which domain, /goal → invoke cs-ceo
 - Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
+- 한 문장으로 전체 개발, one-sentence to shipped, full SDLC pipeline (요구사항→배포 준비) → invoke cs-company
 - Error capture, error note, 에러노트, 에러 기록, 오류 정리 → invoke cs-error-notes
 - Create hook, block behavior, prevent pattern, 훅 생성, 동작 차단, 이 패턴 막아줘 → invoke hookify
 - Code navigation, find symbol, go to definition, 코드 탐색, 심볼 검색, 정의 찾기, 참조 분석 → use serena (mcp__serena__* tools or /serena skill)
@@ -36,6 +37,8 @@ Key routing rules:
 - 모든 CS 리드(lead) 에이전트는 plugins/shared/LOOP-PROTOCOL.md를 따른다
   (EVIDENCE / SUCCESS CRITERIA FIRST / BOUNDED LOOP / COVERAGE HONESTY / REPORT FULL, FILTER DOWNSTREAM / OUTPUT PROPORTIONALITY).
   verdict 산출 플러그인(cs-ship, CS-test, CS-codebase-review)은 plugins/shared/GATE-LOOP.md를 추가로 따른다.
+  파이프라인 아티팩트(CLARIFY/PLAN/IMPLEMENT-REPORT/REVIEW/TEST-REPORT/SHIP-REPORT)를 생산/소비하는
+  리드는 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 따른다 (frontmatter + register/find-meta 계약).
 - 학습 반영 규칙: 교훈이 프로토콜 변경을 지시하면 같은 커밋에서 해당 SKILL/agents/*.md에
   반영하고 ✅ 반영됨 표시한다. 미반영 교훈은 실행되지 않는다.
 - 통합 제거 규칙: 외부 시스템 통합·의존성을 제거하는 변경은 같은 커밋에서 커플링된
@@ -55,11 +58,13 @@ Key routing rules:
 
 | 플러그인 | 디렉토리 | 설명 |
 |---|---|---|
-| cs-end | `./plugins/cs-end-v3` | 🏁 Session Closer |
+| cs-end | `./plugins/cs-end-v4` | 🏁 Session Closer |
+| cs-worktree | `./plugins/cs-worktree-v1` | 🌿 Worktree Launcher |
 | cs-error-notes | `./plugins/cs-error-notes-v1` | 📝 Error Note Manager |
 | cs-ceo | `./plugins/cs-ceo-v15` | 🧭 CEO |
 | goal | `./plugins/cs-ceo-v15` | 🎯 Goal |
 | cs-partnership | `./plugins/cs-ceo-v15` | 🤝 Partnership |
+| cs-company | `./plugins/cs-ceo-v15` | 🏢 Company Pipeline |
 | cs-clarify | `./plugins/cs-clarify-v1` | 💬 PM |
 | CS-plan | `./plugins/CS-plan-v21` | 🏗️ Architect |
 | cs-design | `./plugins/cs-design-v20` | 🎨 Designer |
@@ -69,7 +74,7 @@ Key routing rules:
 | cs-ship | `./plugins/cs-ship-v1` | 🚢 DevOps |
 | cs-smart-run | `./plugins/cs-smart-run` | ⚡ Team Lead |
 | cs-experiencing | `./plugins/cs-experiencing-v8` | 📚 Knowledge Keeper |
-| cs-core-memory | `./plugins/cs-core-memory-v1` | 🧠 Long-term Core Memory |
 | convo-maker | `./plugins/convo-maker` | 🗣️ Language Coach |
+| cs-core-memory | `./plugins/cs-core-memory-v1` | 장기 핵심 메모리 |
 
 <!-- AUTO-PLUGIN-INVENTORY:END -->

@@ -74,3 +74,21 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: settings.local.json permissions.allow 배열에서 항목 1개를 제거해야 했음.
 - **발견**: python3 `json.load` → 리스트 필터 → `json.dump(indent=2)`가 구조적 유효성을 보장. 텍스트 치환·라인 삭제는 trailing comma 등으로 파일을 깨뜨릴 수 있고, settings 파일이 깨지면 전체 권한 규칙이 조용히 무효화됨.
 - **교훈**: .json 설정 수정은 언어 내장 파서로 라운드트립하고, 수정 직후 `json.load` 재검증 1줄을 덧붙인다 (#36 Python conflict 파싱, #41 Python 수술적 교체와 같은 계열 — JSON 특화).
+
+### 89. Korean 파일에서 Edit 툴 실패 — Python writelines 패턴 (2026-06-12)
+<!-- tier: principle -->
+
+- **상황**: Next.js 대시보드(`app/mau/page.tsx`)에서 한국어 문자열이 포함된 라인을 Edit 툴로 수정하려 하자 old_string 매칭이 반복 실패함.
+- **발견**: Edit 툴은 멀티바이트(한국어) 문자 포함 문자열 매칭에 신뢰할 수 없음. Python `readlines()` + 0-index 행 번호 직접 지정 후 `writelines()`가 안정적 대안.
+- **교훈**: 한국어가 포함된 파일 수정 시 Edit 툴 먼저 시도하지 말고 즉시 Python `readlines/writelines` + 행 번호 패턴으로 처리하라.
+- (재번호 이관: 구 SKILL.md 인라인 #12 → #89, 2026-07-02 — INDEX 번호가 단일 진실)
+
+### 93. CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5)에서 의존성 조기 차단 (2026-06-17)
+<!-- tier: tactical -->
+
+- **상황**: cs-ceo, CS-test, CS-codebase-review가 serena/playwright/hookify 등 공식 플러그인에 의존하지만 런타임 진입 후에야 누락을 감지해 비용이 낭비되었음.
+- **발견**: pre_pass.py에 `_find_official_plugin()` + `_find_mcp_server()` 헬퍼를 추가하고 ceo.md Phase -3.5에서 preflight 단계에 감지·차단. CS-test는 playwright 미설치 시 Install/Skip/Abort AskUserQuestion 제공. OFFICIAL-PLUGINS.md가 설치 명령어 단일 진실.
+- **교훈**: 공식 플러그인 의존성은 멀티에이전트 워크플로우 진입 전 preflight 단계(-3.5)에서 차단하는 것이 비용 효율적. context7 패턴(누락 감지 → AskUserQuestion 설치 유도)을 공식 플러그인에 동일 적용.
+- **근거**: `defd9c1 feat: serena 통합 + 공식 플러그인 자동설치 유도 시스템 추가` — ceo.md +56줄, pre_pass.py +64줄, OFFICIAL-PLUGINS.md 신규 (2026-06-17)
+- (재번호 이관: 구 SKILL.md 인라인 #16 → #93, 2026-07-02 — INDEX 번호가 단일 진실)
+

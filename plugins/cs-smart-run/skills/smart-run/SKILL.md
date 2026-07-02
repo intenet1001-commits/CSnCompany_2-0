@@ -8,7 +8,7 @@ description: |
   checks the Definition of Done with tool evidence.
   Use when asked to "smart run", "/smart-run", "플랜실행", or when the user
   wants Opus-quality planning with Sonnet-speed execution across multiple skills.
-version: 1.0.0
+version: 1.1.0
 allowed-tools:
   - Agent
   - Read
@@ -22,17 +22,19 @@ allowed-tools:
 
 # Smart Run — Plan with Opus, Execute with Sonnet
 
-검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다. 아티팩트 소비/생산(PLAN.md 인테이크, IMPLEMENT-REPORT.md 등록)은 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 Read하고 따른다. 체크포인트 처리(plan-approval, --hitl 모드)는 plugins/shared/HITL-POLICY.md를 추가로 Read하고 따르며, protocol 줄 옆에 `hitl: <auto|gate|always>` 한 줄을 출력한다.
 
 ## How this skill works
 
 When invoked, you orchestrate these phases:
 
 0. **SPEC CHECK** — confirm goal/constraints/acceptance criteria before any agent spawn
+0.7. **PLAN INTAKE** — consume a fresh, accepted CS-plan PLAN.md if one exists; skip Opus planning entirely in that case
 1. **PLAN phase** — spawn a single Opus agent to think deeply and produce a structured plan
 1.5. **PLAN REVIEW** — one Sonnet critic refutes the plan; Opus revises once if defects found
 2. **EXEC phase** — spawn one or more Sonnet agents to implement the plan
 2.5. **VERIFY** — an independent agent checks the Definition of Done with tool evidence (max 2 verify→fix rounds)
+3. **REPORT** — summarize + persist `.cs-artifacts/IMPLEMENT-REPORT.md`
 
 ---
 
@@ -69,6 +71,42 @@ For large or contested requirements, suggest running `/cs-clarify` first instead
 
 Pass the **resolved spec** (task + answers, restated in 2-4 lines) to Phase 1,
 not the raw task string.
+
+---
+
+## Phase 0.7: PLAN INTAKE (orchestrator — plugins/shared/ARTIFACT-CONTRACTS.md [3])
+
+Opus 플래너를 스폰하기 전에 CS-plan이 만든 PLAN.md가 있는지 확인한다:
+
+```bash
+REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
+if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+PLAN_META=$($RUN_PY "$REGISTRY" find-meta PLAN.md 2>/dev/null || echo "")
+# registry 미등록 구버전 폴백: Glob .tdd-plans/PLAN.md
+```
+
+**분기 (경계: 사용자 확인 최대 1회):**
+
+- **PLAN.md 없음** (find-meta null + Glob 미발견) → 이 Phase를 조용히 스킵하고 Phase 1로 진행 (기존 경로 그대로 — purely additive).
+- **`freshness: stale`** (기본 7일) 또는 frontmatter **`status: blocked`** → AskUserQuestion **1회**: "PLAN.md가 N일 전 것입니다(또는 게이트 미통과). 이 플랜으로 실행할까요, 새로 플랜할까요?" — 거절 시 Phase 1로 폴스루.
+- **`freshness: fresh` 이고 accepted** (`status: ready`, 사용자가 위 질문에서 수락했거나 질문 불필요) → **Phase 1(Opus 플래너)과 Phase 1.5(critic)를 SKIP**한다. 플랜은 CS-plan Phase 2a 정합성 게이트를 이미 통과했다 — 이중 비평은 비용만 든다.
+
+**체크리스트 → 실행 스텝 결정적 변환 (SKIP 경로일 때):**
+
+PLAN.md와 같은 디렉토리의 `implementation-checklist.md`(경량 플랜이면 PLAN.md 내 구현 체크리스트 섹션)와 `tdd-strategy.md`를 Read하고, LLM 재플래닝 없이 결정적으로 변환한다:
+
+1. Inside-Out 섹션 순서(VO → Entities → Repo fake → Services → Use Cases → Repo impl → Controllers → Infra)가 **순차 스텝 그룹**이 된다 — 그룹 간 순서 고정.
+2. 한 섹션 안에서 서로 다른 파일을 만드는 독립 항목은 `[PARALLEL]`로 표시 (같은 파일을 건드리면 순차).
+3. 각 실행 에이전트 프롬프트에 반드시 포함:
+   - (a) 체크리스트 항목 원문 (🔴 RED / 🟢 GREEN / 🔵 RFCT 체크박스 포함)
+   - (b) tdd-strategy.md에서 해당 단위에 매칭되는 Given/When/Then 케이스 — 이것이 그 스텝의 **Definition of Done**
+   - (c) 체크리스트의 'Critical Files / 충돌 위험' 섹션 — **do-not-touch 가드레일** (여기 명시된 완화 전략 외 방식으로 해당 파일 수정 금지)
+4. 실행 에이전트는 🔴 test-first 순서를 지키고(테스트 먼저 작성·실패 확인 후 구현), 완료한 항목의 체크박스를 `[ ]`→`[x]`로 직접 갱신한다 — 체크리스트 파일이 **세션 간 재개 상태**다 (재실행 시 `[x]` 항목 스킵).
+5. Phase 2.5 verifier는 각 스텝의 DoD(Given/When/Then)를 해당 테스트 **재실행**으로 반증한다 — 실행자의 self-report는 증거가 아니다.
+
+변환 결과(스텝 그룹 + PARALLEL 표시)를 Phase 2의 플랜으로 사용하고, PLAN.md의 Definition of Done을 성공 기준 요약에 사용한다.
+
+**이유**: CS-plan의 산출물이 실행으로 이어지지 않으면 플래닝 rigor가 통째로 버려진다 — 그리고 이미 정합성-게이트된 플랜을 Opus로 다시 플래닝하는 것은 정보를 잃는 재해석이다.
 
 ---
 
@@ -210,10 +248,27 @@ Return a checklist: item → PASS/FAIL → evidence. List any FAILed items with 
 ## Phase 3: REPORT
 
 After verification completes, summarize:
-- What was planned (Opus), including the Phase 1.5 critic's verdict
+- What was planned (Opus — or "PLAN INTAKE: [PLAN.md 경로]" when Phase 0.7 skipped planning), including the Phase 1.5 critic's verdict when it ran
 - What was executed (Sonnet agents)
 - Verification results: each Definition of Done item with PASS/FAIL and evidence
 - Any steps that failed or need follow-up (unresolved FAILs go here)
+
+**IMPLEMENT-REPORT.md 영속화 (plugins/shared/ARTIFACT-CONTRACTS.md [2])** — 실행이 파일을 변경했으면
+(Phase 0.7 PLAN INTAKE 모드에서는 필수) `.cs-artifacts/IMPLEMENT-REPORT.md`를 Write하고 등록한다:
+
+- `cs_artifact` frontmatter (`type: IMPLEMENT-REPORT.md`, `producer: cs-smart-run`,
+  `status`: 미완료(UNDONE/FAIL) 항목 0건이면 `ready` 아니면 `blocked`,
+  `gate`: `{passed, criterion: "Definition of Done 전 항목 PASS", blocking_items: [남은 FAIL/UNDONE 항목]}`)
+- 스텝 진행률: done/total (PLAN INTAKE 모드면 체크리스트 `[x]`/전체 기준)
+- 테스트 러너 요약 라인 **원문 인용** (coverage-auditor 컨벤션 — 예: `Tests: 2 failed, 41 passed`; 러너 없으면 "runner not detected")
+- 변경된 파일 목록 (정확한 경로)
+- UNDONE 항목 + 사유 (verify→fix 예산 소진분 포함, 종료 사유 명시 — 예: "2라운드 후 델타 없음으로 중단")
+
+```bash
+REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
+if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+$RUN_PY "$REGISTRY" register IMPLEMENT-REPORT.md .cs-artifacts/IMPLEMENT-REPORT.md cs-smart-run
+```
 
 If any step failed, was re-planned, or a correction worked, draft a candidate
 learning entry (task, plan shape, failed step, correction) and end the report with:
@@ -225,12 +280,17 @@ learning entry (task, plan shape, failed step, correction) and end the report wi
 
 When the user runs `/smart-run <task>` or `/플랜실행 <task>`:
 
+0. Parse `--hitl [auto|gate|always]` from the invocation (default `gate`; `--auto` is an alias for `--hitl=auto` — plugins/shared/HITL-POLICY.md [1]). Print `hitl: <mode>` next to the protocol line.
 1. Confirm you understood the task (one line)
 2. Run Phase 0 (SPEC CHECK); ask clarifying questions only if goal/constraints/acceptance criteria are missing
+2.5. Run Phase 0.7 (PLAN INTAKE) — fresh + accepted PLAN.md 발견 시 "**[PLAN INTAKE]** CS-plan PLAN.md 감지 — Opus 플래닝 스킵" 안내 후 steps 3-5를 건너뛰고 step 6으로
 3. Announce: "**[PLAN]** Thinking with Opus..."
 4. Run Phase 1 (Opus agent); if it returned BLOCKING QUESTIONS, resolve via AskUserQuestion and re-run Phase 1
 5. Announce: "**[REVIEW]** Critiquing plan..." then run Phase 1.5 (Sonnet critic, one Opus revision pass max)
-6. Show the plan to the user, ask for approval or proceed automatically at L2+ (at L2+, auto-proceed only after the critic pass; the revised plan replaces the original shown to the user)
+6. **`plan-approval` checkpoint (plugins/shared/HITL-POLICY.md [4])** — show the plan (the revised plan when the critic ran; PLAN INTAKE 경로에서는 변환된 스텝 그룹 요약) to the user, then:
+   - `hitl=gate|always` → AskUserQuestion once: approve (플랜대로 실행 — default) / revise (사용자 수정 지시 1회 반영 후 재확인 없이 진행) / 작업 취소. **Effort level(L2+)과 무관하게 묻는다** — 이전의 "L2+ 자동 진행"은 gate 모드에서 더 이상 적용되지 않는다.
+   - `hitl=auto` → default(approve)를 조용히 채택하고 진행 — 기존 L2+ 무정지 동작은 이 플래그로 복원된다. 리포트에 `plan-approval: auto default(approve)` 기록.
+   - 서브에이전트로 실행 중이라 AskUserQuestion이 불가하면 → HITL-POLICY [2] 스키마의 CHECKPOINT payload(`checkpoint_id: "plan-approval"`, `default_option: "approve"`, `resume: {artifacts: [플랜 텍스트를 저장한 파일 경로], next_phase: "Phase 2", context_note: "승인 시 플랜 무변경 실행"}`)를 결과로 반환한다 — 버블링은 호출자가 HITL-POLICY [3]으로 처리.
 7. Announce: "**[EXEC]** Executing with Sonnet..."
 8. Run Phase 2 (Sonnet agents)
 9. Announce: "**[VERIFY]** Checking Definition of Done..." then run Phase 2.5 (max 2 verify→fix rounds, escalate to Opus on 2nd retry)

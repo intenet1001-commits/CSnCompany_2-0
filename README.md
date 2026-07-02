@@ -47,6 +47,28 @@ You don't need to remember which command does what — type `/cs-ceo "your goal"
 
 ---
 
+## 🆕 What's new (2026-07)
+
+**`/cs-company` — the whole company in one command.** One sentence in, a shipped feature out: it runs the full SDLC pipeline `CLARIFY → PLAN → IMPLEMENT → REVIEW → TEST → SHIP`, passing artifacts between phases through gates and routing rework back to the right phase (e.g. a failed test re-opens IMPLEMENT, a requirements gap re-opens PLAN).
+
+```
+/cs-company "add a dark-mode toggle with settings persistence"
+```
+
+**Shared protocol layer.** All teammates now follow the same set of protocols in `plugins/shared/`, so every plugin behaves predictably:
+
+| Protocol | What it standardizes |
+|----------|----------------------|
+| `AGENT-CARD.md` | One card per agent: goal, backstory, ownership, expected output |
+| `TASK-CONTRACT.md` | Every agent spawn carries a machine-checkable output contract |
+| `DEBATE-PROTOCOL.md` | Disputed findings get a rebuttal round instead of silent discard |
+| `ARTIFACT-CONTRACTS.md` | CLARIFY.md → PLAN.md → reports flow between plugins automatically |
+| `MEMORY-PROTOCOL.md` | Leads recall past learnings/artifacts before starting work |
+| `HITL-POLICY.md` | Human checkpoints (`--hitl auto/gate/always`) at key decisions |
+| `PIPELINE-PROTOCOL.md` | The `/cs-company` phase table, gates, and rework routing |
+
+---
+
 ## 🚀 Install in 60 seconds
 
 ### Prerequisite

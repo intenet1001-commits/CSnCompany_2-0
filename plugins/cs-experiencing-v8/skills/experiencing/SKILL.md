@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.0.7
+version: 8.1.0
 allowed-tools:
   - Read
   - Write
@@ -68,6 +68,8 @@ test/plan/review/design/pipeline 프로토콜은 에이전트 디스패치 직�
 3. 선별 항목의 본문을 위치 컬럼(인라인 또는 `knowledge/<topic>.md`)에서 읽어
    디스패치 프롬프트에 그대로 주입 ("과거 학습: ..." 블록)
 4. 매칭 없으면 주입 생략 — 사용자에게 묻거나 지연하지 않는다
+5. 리포트/출력 헤더에 표준 회상 헤더 `recall: E<매칭 학습 수>/C<core 항목 수>/N<에러노트 수>` 한 줄을 출력한다
+   (`plugins/shared/MEMORY-PROTOCOL.md` Phase R 표준 — 이 스킬은 기존의 더 풍부한 회상 플로우를 유지하되 헤더 형식만 공유한다)
 
 ### `/experiencing` (인수 없음)
 
@@ -409,7 +411,7 @@ LEAD_DIR=$(ls -d "$BASE/cs-experiencing-v"* 2>/dev/null | sort -V | tail -1)
 세션 중 발견한 개선 아이디어를 즉시 캡처합니다.
 
 ```bash
-BTW_FILE="$(dirname $(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0" 2>/dev/null || echo "/tmp"))/.experiencing-btw.json"
+BTW_FILE="$HOME/.claude/.experiencing-btw.json"   # 캐노니컬 경로 — pre_pass.py session-digest와 동일 (split-brain 금지)
 # {id, idea, date, status: "pending"} 형태로 JSON 배열에 추가
 ```
 
@@ -465,7 +467,7 @@ echo "📋 cs-smart-run: v$VER"
 
 ## experiencing 노하우
 
-### 학습 INDEX (전체 80건 — 1줄/항목, 단일 진실)
+### 학습 INDEX (전체 93건 — 1줄/항목, 단일 진실)
 
 **검색 프로토콜 (read-side, 디스패치 전 필수):** fan-out을 수행하는 모든 프로토콜(test/plan/review/design/pipeline)은
 에이전트 디스패치 전에 이 INDEX를 현재 태스크의 키워드(기술 스택·도메인 명사)로 grep하고,
@@ -566,13 +568,21 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 82 | spawn_wt_cmd — Windows Terminal(wt.exe) 없을 때 cmd.exe 폴백 패턴 (2026-06-14) | tactical | tauri, windows, terminal, spawn, wt.exe | knowledge/tauri-windows.md |
 | 83 | 빌드 아티팩트 unstaged → git pull --rebase 실패 (2026-06-14) | tactical | git, pull, rebase, unstaged, build-artifact | knowledge/git-worktree.md |
 | 84 | 멀티기기 build-number 역행 방지 — 빌드 전 pull 필수 (2026-06-14) | tactical | tauri, build-number, multi-device, pull | knowledge/tauri-windows.md |
-| 85 | minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17) | tactical | vercel, minify, bundle, 배포검증, property-name | 인라인 |
-| 86 | 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17) | principle | cus_type, fallback, 집계, segment, data-modeling | 인라인 |
-| 87 | 구조화 JSON 추출 태스크에는 소형 LLM + 출력 토큰 상한 축소가 충분하다 (2026-06-30) | tactical | llm, gpt-4o-mini, token, latency, structured-output | 인라인 |
-| 88 | 단일 LLM 호출에서 다중 엔티티를 동시 추출하여 복합 발화를 처리한다 (2026-06-30) | principle | llm, schema, multi-entity, voice-order, response-design | 인라인 |
+| 85 | minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17) | tactical | vercel, minify, bundle, 배포검증, property-name | knowledge/deployment.md |
+| 86 | 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17) | principle | cus_type, fallback, 집계, segment, data-modeling | knowledge/data-sync-db.md |
+| 87 | 구조화 JSON 추출 태스크에는 소형 LLM + 출력 토큰 상한 축소가 충분하다 (2026-06-30) | tactical | llm, gpt-4o-mini, token, latency, structured-output | knowledge/llm-api.md |
+| 88 | 단일 LLM 호출에서 다중 엔티티를 동시 추출하여 복합 발화를 처리한다 (2026-06-30) | principle | llm, schema, multi-entity, voice-order, response-design | knowledge/llm-api.md |
+| 89 | Korean 파일에서 Edit 툴 실패 — Python writelines 패턴 (2026-06-12) | principle | claude-code, edit-tool, 한국어, 멀티바이트, python | knowledge/claude-code-platform.md |
+| 90 | Derived slice 재사용으로 다수 sparkline 데이터 생성 (2026-06-12) | principle | react, derived-slice, sparkline, dashboard | knowledge/react-frontend.md |
+| 91 | HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (2026-06-12) | tactical | react, props, sparkline, variant | knowledge/react-frontend.md |
+| 92 | git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17) | tactical | git, cat-file, branch-contains, ff-only-merge | knowledge/git-worktree.md |
+| 93 | CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5)에서 의존성 조기 차단 (2026-06-17) | tactical | preflight, official-plugins, serena, playwright | knowledge/claude-code-platform.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
+> 재번호 tombstone (2026-07-02): 구 인라인 본문 #12→#89, #13→#90, #14→#91, #15→#92, #16→#93 —
+> INDEX #12-16(knowledge/ 이관분)과 번호가 충돌했던 인라인 본문을 INDEX 일관 번호로 재부여해 `knowledge/`로 이관했다.
+> #85-88 본문도 같은 날 `knowledge/`로 이관(번호 유지). 이제 이 파일의 인라인 본문은 오케스트레이터 학습 #1-6, #10-11뿐이다.
 
 ### 오케스트레이터 도메인 학습 (인라인: #1-6, #10-11)
 
@@ -632,72 +642,3 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **상황**: CS볼트V5(Obsidian vault) 등 `.env`가 없는 폴더에서 작업할 때마다 Claude Code 입력창이 회색으로 굳어버림
 - **발견**: `notification-hook.sh`, `stop-hook.sh` 모두 `.env` 없을 시 `exit 1` 반환 → Claude Code는 훅 비정상 종료를 UI 블로킹으로 처리. 훅이 "해당 없음"인 경우에도 `exit 1`이면 입력창이 그레이아웃됨
 - **교훈**: 훅의 전제조건(`.env`, 토큰 등)이 충족되지 않을 때는 반드시 `exit 0`으로 종료. `exit 1`은 의도적으로 사용자를 멈춰야 할 진짜 오류에만 사용. "이 훅은 여기에 해당 없음" = `exit 0`
-
-### 12. Korean 파일에서 Edit 툴 실패 — Python writelines 패턴 (2026-06-12)
-<!-- tier: principle -->
-
-- **상황**: Next.js 대시보드(`app/mau/page.tsx`)에서 한국어 문자열이 포함된 라인을 Edit 툴로 수정하려 하자 old_string 매칭이 반복 실패함.
-- **발견**: Edit 툴은 멀티바이트(한국어) 문자 포함 문자열 매칭에 신뢰할 수 없음. Python `readlines()` + 0-index 행 번호 직접 지정 후 `writelines()`가 안정적 대안.
-- **교훈**: 한국어가 포함된 파일 수정 시 Edit 툴 먼저 시도하지 말고 즉시 Python `readlines/writelines` + 행 번호 패턴으로 처리하라.
-
-### 13. Derived slice 재사용으로 다수 sparkline 데이터 생성 (2026-06-12)
-<!-- tier: principle -->
-
-- **상황**: MAU 히어로 카드에 세그먼트별(신규방문자, Returning, Resurrecting, 기존→해외첫거래) 스파크라인을 추가해야 했으나, 각 세그먼트마다 별도 DB 쿼리나 state를 만들 뻔했음.
-- **발견**: 이미 계산된 `heroSnapSlice = snapshots.slice(0, selectedMonthIdx + 1)`를 재사용하고, 각 세그먼트가 `.map(s => ({ name: s.label, value: s.traders.returning }))` 처럼 다른 필드만 매핑하면 N개 스파크라인 데이터를 1개 slice에서 도출 가능.
-- **교훈**: 새 데이터 파이프라인 전에 기존 derived slice/computed 데이터를 다른 필드 매핑으로 재활용할 수 있는지 먼저 확인하라. 대시보드에서 하나의 base slice → 여러 시리즈 파생 패턴은 state 폭발 없이 확장 가능.
-
-### 14. HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (2026-06-12)
-<!-- tier: tactical -->
-
-- **상황**: 히어로 카드 전체(36px)와 세그먼트 셀 인라인(24px) 두 크기로 동일 HeroSparkline 컴포넌트를 써야 했음.
-- **발견**: `height?: number = 36` optional prop 추가로 새 컴포넌트 없이 해결. `<HeroSparkline data={...} color={...} height={24} />`.
-- **교훈**: 기존 컴포넌트 복제보다 optional prop으로 변형을 흡수하는 것이 먼저. 렌더 조건: `spark.length > 1` 가드 필수.
-
-### 15. git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17)
-<!-- tier: tactical -->
-
-- **상황**: 사용자가 특정 커밋 해시(defd9c1...)를 로컬에 pull 요청 시, 해당 커밋이 어느 원격 브랜치에 속하는지 먼저 확인해야 했음.
-- **발견**: `git fetch origin` → `git cat-file -t <hash>`로 객체 존재 확인 → `git branch -r --contains <hash>`로 포함 브랜치 특정 → `git merge --ff-only <remote-branch>` 순으로 안전하게 적용. fetch 없이는 `unknown revision` 오류 발생.
-- **교훈**: 알 수 없는 커밋 해시 merge 요청: (1) fetch → (2) cat-file -t 존재 확인 → (3) branch -r --contains 브랜치 특정 → (4) ff-only merge. 이 순서를 생략하면 중단됨.
-- **근거**: `git merge --ff-only origin/claude/csncompany-plugin-auto-install-am7h2x` → "Fast-forward / 6 files changed, 175 insertions(+)" (2026-06-17 세션)
-
-### 16. CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5)에서 의존성 조기 차단 (2026-06-17)
-<!-- tier: tactical -->
-
-- **상황**: cs-ceo, CS-test, CS-codebase-review가 serena/playwright/hookify 등 공식 플러그인에 의존하지만 런타임 진입 후에야 누락을 감지해 비용이 낭비되었음.
-- **발견**: pre_pass.py에 `_find_official_plugin()` + `_find_mcp_server()` 헬퍼를 추가하고 ceo.md Phase -3.5에서 preflight 단계에 감지·차단. CS-test는 playwright 미설치 시 Install/Skip/Abort AskUserQuestion 제공. OFFICIAL-PLUGINS.md가 설치 명령어 단일 진실.
-- **교훈**: 공식 플러그인 의존성은 멀티에이전트 워크플로우 진입 전 preflight 단계(-3.5)에서 차단하는 것이 비용 효율적. context7 패턴(누락 감지 → AskUserQuestion 설치 유도)을 공식 플러그인에 동일 적용.
-- **근거**: `defd9c1 feat: serena 통합 + 공식 플러그인 자동설치 유도 시스템 추가` — ceo.md +56줄, pre_pass.py +64줄, OFFICIAL-PLUGINS.md 신규 (2026-06-17)
-
-### 85. minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17)
-<!-- tier: tactical -->
-
-- **상황**: Vercel에 코드 픽스가 반영됐는지 확인하기 위해 minified JS 번들에서 변경 흔적을 탐색해야 했음.
-- **발견**: minified JS는 지역 변수명(rollingTraderTotal 등)을 단축 식별자로 치환하므로 원본 변수명으로 grep해도 검색 불가. 반면 객체 property name(`d8_total_uv`), 문자열 리터럴, 특징적인 연산자 패턴(`??` + 삼항 조합)은 minify 후에도 보존되어 배포 여부 판별 지표로 사용 가능.
-- **교훈**: 배포 검증 시 변수명 대신 property name, 문자열 리터럴, 로직 패턴(??/삼항 조합)을 grep 대상으로 사용한다.
-- **근거**: `rollingTraderTotal` grep → 검색 불가, `d8_total_uv` property name + `??` 패턴으로 Before/After 구분 성공 (page-7236727e66aef288.js, dash1-v2 세션 2026-06-17)
-
-### 87. 구조화 JSON 추출 태스크에는 소형 LLM + 출력 토큰 상한 축소가 충분하다 (2026-06-30)
-<!-- tier: tactical -->
-
-- **상황**: voice-order API의 응답 지연 문제 해결 중 (gpt-5.5, max_completion_tokens=1000 사용)
-- **발견**: 음식/커피 이름 매칭처럼 '후보 목록에서 선택 → 고정 포맷 JSON 반환'만 하는 태스크에서 대형 모델은 과도하다. gpt-4o-mini + 출력 토큰 200으로 교체했을 때 속도 3-5배 개선, 품질 동일.
-- **교훈**: LLM 호출 설계 시 "패턴 매칭 → 고정 포맷 JSON 출력" 태스크라면 사용 가능한 최소 모델 + 예상 최대 출력 길이로 토큰 상한을 설정한다. 대형 모델은 자유 생성·다단계 추론이 필요한 경우에만 사용한다.
-- **근거**: `route.ts line 84-89: model "gpt-5.5" → "gpt-4o-mini", max_completion_tokens 1000 → 200` (2026-06-30 세션, 속도 3-5배 개선 확인)
-
-### 88. 단일 LLM 호출에서 다중 엔티티를 동시 추출하여 복합 발화를 처리한다 (2026-06-30)
-<!-- tier: principle -->
-
-- **상황**: "알탕에 카페라테아이스" 같은 rice+coffee 복합 발화가 rice만 추출되고 coffee는 버려지는 UX 문제 발견
-- **발견**: rice/restaurant step의 system prompt에 coffeeMatched·coffeeTemp 보조 필드를 추가하자, 기존 GPT 호출 1회로 두 엔티티를 동시 추출할 수 있었다. 별도 coffee step 호출 없이 confirm으로 즉시 이동 가능.
-- **교훈**: 사용자 발화에 여러 엔티티가 섞일 가능성이 있는 step은 system prompt JSON 스키마에 보조 엔티티 필드를 미리 정의한다. LLM 추가 호출 없이 응답 스키마 확장만으로 복합 입력을 처리할 수 있다 — per-invocation overhead >> per-token cost이므로 스키마 확장이 항상 추가 호출보다 싸다.
-- **근거**: `buildSystemPrompt() rice step: coffeeMatched/coffeeTemp 필드 추가 → voice-order-bot.tsx coffeeResult로 즉시 confirm 이동` (app/api/voice-order/route.ts + components/voice-order-bot.tsx, 2026-06-30)
-
-### 86. 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17)
-<!-- tier: principle -->
-
-- **상황**: 퍼널 D8 체결완료 카드가 신규고객(M0) 선택 시 전체 거래고객수(312,218)를 표시. D5(22,851)보다 큰 비정상 값으로 발현.
-- **발견**: 버그 원인: `rollingTraderTotal`(mau_transaction_rolling.total_cus_cnt = 전체 합계)을 cus_type 분기 없이 모든 케이스에 적용. `funnel_rolling.total_ose_trd_cus_cnt`는 cus_type별로 분리된 실제 값을 가짐. DB에 세그먼트별 컬럼과 전체 합계 컬럼이 공존할 때, 전체 합계를 기본값으로 쓰면 세그먼트 모드에서 전체값이 세그먼트값을 무음으로 대체한다.
-- **교훈**: 세그먼트(cus_type)별로 분리된 컬럼이 있을 때, 전체 합계 fallback은 세그먼트별 값이 NULL인 경우에만 적용한다. `segmentCol ?? aggregateFallback` 패턴이 정준(canonical) 형태. 어떤 스택에서도 "세그먼트 컬럼 우선, 전체 합계는 마지막 fallback" 원칙이 적용된다.
-- **근거**: Before: `val: (period === 'rolling' ? rollingTraderTotal : ...)` → 신규고객 D8=312,218 / After: `val: (d.d8_total_uv ?? (period === 'rolling' ? rollingTraderTotal : ...))` → 신규고객 D8=1,829 (app/mau/page.tsx line 3433, 2026-06-17)

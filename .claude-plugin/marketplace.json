@@ -37,6 +37,11 @@
       "source": "./plugins/cs-ceo-v15"
     },
     {
+      "name": "cs-company",
+      "description": "🏢 Company Pipeline — /cs-company runs the full SDLC: CLARIFY→PLAN→IMPLEMENT→REVIEW→TEST→SHIP with artifact gates, bounded cross-phase rework, pipeline.json resume (--from) and human checkpoints. Each phase stays an independently usable plugin.",
+      "source": "./plugins/cs-ceo-v15"
+    },
+    {
       "name": "cs-clarify",
       "description": "💬 PM — Requirements clarification before planning. 4-agent Socratic elicitation surfaces hidden assumptions, validates scope, prevents over-engineering.",
       "source": "./plugins/cs-clarify-v1"
