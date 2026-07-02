@@ -41,7 +41,7 @@ title: [에러 제목]
 date: YYYY-MM-DD
 status: open|resolved
 severity: critical|major|minor
-domain: [cs-ceo|cs-end|cs-test|cs-plan|cs-design|cs-codebase-review|general]
+domain: [plugins/CLAUDE.md "플러그인 인벤토리" 표의 디렉토리명 중 하나|general]
 project: [프로젝트명 또는 "-"]
 tags: []
 ---
@@ -142,14 +142,17 @@ AskUserQuestion(
 
 #### Step 3 — 도메인 선택
 
+도메인 옵션은 하드코딩하지 않고, `plugins/CLAUDE.md`의 "플러그인 인벤토리" 표에서 디렉토리명을
+읽어 그때그때 생성한다 (표가 갱신되면 옵션도 자동으로 동기화되어 드리프트가 없다).
+
 ```
 AskUserQuestion(
   question: "어느 도메인에서 발생했나요?",
   options: [
-    "cs-ceo / cs-end / cs-experiencing",
-    "cs-test / cs-plan / cs-design",
-    "cs-codebase-review / cs-ship",
-    "general (플러그인 외 프로젝트)"
+    "[인벤토리 표 1행: 예 cs-ceo / cs-end / cs-error-notes]",
+    "[인벤토리 표 2행: 예 cs-clarify / CS-plan / cs-design]",
+    "[인벤토리 표 3행: 예 CS-test / CS-codebase-review / cs-ship]",
+    "general (인벤토리 표에 없는 외부 프로젝트)"
   ]
 )
 ```
@@ -223,9 +226,12 @@ grep -rl "[키워드]" "$ERROR_NOTES_DIR"/*.md 2>/dev/null | head -10
 1. **토큰 추출**: 에러 메시지에서 변별력 있는 토큰 2-4개를 추출 — 식별자, 에러 코드, 라이브러리/함수 이름.
    타임스탬프, 절대 경로, 줄번호 등 세션마다 달라지는 부분은 제거한다.
 2. **매칭**: 각 토큰을 `grep -i`로 `~/.claude/error-notes/INDEX.md`와 노트 본문(`*.md`)에 대조한다.
+   INDEX.md가 아직 없는 첫 실행/새 프로젝트에서는 아래 grep 전에 조용히 종료한다 (질문 금지):
    ```bash
    ERROR_NOTES_DIR="$HOME/.claude/error-notes"
-   grep -i "[토큰]" "$ERROR_NOTES_DIR/INDEX.md"
+   INDEX="$ERROR_NOTES_DIR/INDEX.md"
+   [ ! -f "$INDEX" ] && exit 0  # 조용히 통과, 질문 금지
+   grep -i "[토큰]" "$INDEX" 2>/dev/null
    grep -ril "[토큰]" "$ERROR_NOTES_DIR"/ERR-*.md 2>/dev/null
    ```
 3. **랭킹**: `status: resolved` 노트 우선, 토큰 매칭 수가 많은 순.
@@ -277,6 +283,9 @@ INDEX.md 해당 행도 동일하게 갱신합니다.
 ### `/cs-error-notes patterns`
 
 반복 에러 패턴을 분석해 요약 리포트를 생성합니다.
+
+INDEX.md가 없거나 노트가 0개면 "분석할 에러노트가 없습니다"를 출력하고 즉시 종료합니다
+(빈 도메인별/자주 등장/미해결 섹션을 억지로 채우지 않습니다).
 
 분석 기준:
 1. **도메인별 빈도** — 어느 도메인에서 가장 많이 발생하는가

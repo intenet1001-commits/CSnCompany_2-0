@@ -209,6 +209,9 @@ class [이름] {
 ```
 
 ### Repository Interfaces
+
+> ❌ **DOES NOT OWN**: Repository 메서드 시그니처의 정본은 domain-analysis.md의 'Repository Interface' 섹션이다. 새 메서드 시그니처를 창작하지 않고 domain-analysis.md의 정의를 그대로 인용/구체화만 한다.
+
 ```
 interface [이름]Repository {
   [메서드 시그니처들]
@@ -290,7 +293,7 @@ class [UseCaseName]UseCase {
    SendMessage(
      type: "message",
      recipient: "plan-lead",
-     content: "아키텍처 설계 완료. [N]개 레이어, [N]개 유스케이스 인터랙터, [N]개 포트 인터페이스, [N]개 어댑터 설계. 주요 결정: [핵심 아키텍처 결정]",
+     content: "아키텍처 설계 완료. [N]개 레이어, [N]개 유스케이스 인터랙터, [N]개 포트 인터페이스, [N]개 어댑터 설계. 주요 결정: [핵심 아키텍처 결정]. 가정·우려·미해결 항목: [항목별 severity(높음/중간/낮음)+confidence(높음/중간/낮음)+근거(file:line 또는 판단 사유) — 없으면 '없음' 명시]",
      summary: "아키텍처 설계 완료"
    )
    ```

@@ -1,0 +1,36 @@
+{
+  "name": "review-fix",
+  "goal": "코드베이스를 탐색·리뷰하고 리뷰어↔수정자 역할극 루프로 HIGH 이슈를 수렴시킨 뒤 검증한다",
+  "success_criteria": "HIGH 이슈 0건(수정됨) 또는 미해결 항목이 모두 근거와 함께 티켓화",
+  "context_dir": ".cs-chain/review-fix",
+  "chain": [
+    {
+      "phase": "explore",
+      "domain": "CS-codebase-review",
+      "phaseType": "simple",
+      "expected_output": "파일 구조 + import 그래프 요약 (Python pre-pass 결과)",
+      "speaker": "parallel"
+    },
+    {
+      "phase": "review",
+      "domain": "CS-codebase-review",
+      "phaseType": "composed",
+      "inputs": ["explore.report"],
+      "cycleNum": 3,
+      "instructor": "reviewer",
+      "assistant": "fixer",
+      "break_on": "<INFO> Finished",
+      "termination": "max_turns(3) OR sentinel(<INFO> Finished) OR no_delta",
+      "expected_output": "각 라운드: 리뷰어 최우선 이슈 1건 → 수정자 diff → 재리뷰. 루프 종료 시 잔여 HIGH 목록",
+      "note": "opt-in — 코드 수정은 사용자 승인 또는 --fix 컨텍스트에서만. 승인 없으면 instructor 지시만 산출하고 assistant는 패치 대신 패치 계획을 낸다."
+    },
+    {
+      "phase": "test",
+      "domain": "CS-test",
+      "phaseType": "simple",
+      "inputs": ["review.report"],
+      "expected_output": "tests/results/REPORT.md — 수정 후 회귀 없음 확인",
+      "speaker": "parallel"
+    }
+  ]
+}

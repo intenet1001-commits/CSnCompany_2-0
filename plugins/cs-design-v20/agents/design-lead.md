@@ -118,7 +118,9 @@ Task(
 
   다음을 분석하고 0-10 점수로 평가하세요:
   1. CSS 변수/토큰 사용률: 하드코딩된 색상(#hex, rgb) vs 변수 사용
-  2. 간격값 일관성: 4pt 그리드 기반인가 (4, 8, 12, 16, 24, 32, 48, 64, 96px)
+  2. 간격값 일관성: 4pt 그리드 기반인가 (4, 8, 12, 16, 24, 32, 48, 64, 96px) — 개별 위반 사례
+     나열은 anti-pattern-detector 담당이므로, 여기서는 그리드 준수율(%)만 집계하고 file:line
+     단위 개별 hit은 보고하지 않는다.
   3. 컴포넌트 재사용률: 동일 패턴이 여러 곳에 인라인으로 반복되는가
   4. 시맨틱 토큰 명명: --color-action-primary (good) vs --color-blue-500 (bad)
   5. 일관된 spacing 토큰 사용 여부
@@ -171,7 +173,9 @@ Task(
   3. 그라디언트 텍스트: background-clip: text
   4. 사이드스트라이프 border: border-left: [3px+], border-right: [3px+]
   5. 카드인카드: 중첩된 .card > .card 또는 rounded border 중첩
-  6. 비4pt 간격: px 값이 4의 배수가 아닌 경우 (3px, 5px, 7px, 10px, 15px 등)
+  6. 비4pt 간격: design-system-consistency가 이미 4pt 그리드 전반의 준수율(%)을 채점하므로,
+     여기서는 anti-patterns.md에 명시된 개별 hard-coded px 오프셋(3px, 5px, 7px, 10px, 15px 등)만
+     [ANTIPATTERN] 태그로 file:line 단위 보고하고 전역 그리드 준수율은 산정하지 않는다
   7. outline: none (without replacement)
   8. placeholder-only label (no visible label element)
 
@@ -187,10 +191,21 @@ Task(
 
 ## Step 4: 결과 수집 대기
 
-모든 에이전트 완료 (SendMessage 수신) 후:
+모든 에이전트 완료 (SendMessage 수신) 후, cat 실행 전 아래 5개 파일의 존재 여부를 먼저 확인한다:
 
 ```bash
-ls [OUTPUT_DIR]/
+ls [OUTPUT_DIR]/*.json
+```
+
+누락됐거나 cat 결과가 JSON 파싱에 실패하는 리포트는 동일 프롬프트로 즉시 1회만 재스폰한다
+(최대 1회 재시도). 재시도 후에도 없으면 해당 관점을 `N/A`로 기록하고, Step 5 리포트 헤더에
+커버리지 `X/5`를 출력한다. N/A 개수에 따라 LOOP-PROTOCOL [d] COVERAGE HONESTY 등급 상한을
+종합 등급에 적용한다 (N/A 1-2개 → 최대 B, 3-5개 → 최대 C, 6개 이상은 이 워크플로우에 해당 없음
+— 5관점 전체 소실 시 Incomplete로 보고).
+
+재시도까지 마친 뒤 존재가 확인된 리포트만 cat한다:
+
+```bash
 cat [OUTPUT_DIR]/visual-report.json
 cat [OUTPUT_DIR]/interaction-report.json
 cat [OUTPUT_DIR]/consistency-report.json

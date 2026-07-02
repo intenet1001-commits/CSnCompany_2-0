@@ -36,6 +36,11 @@ Key routing rules:
 - 모든 CS 리드(lead) 에이전트는 plugins/shared/LOOP-PROTOCOL.md를 따른다
   (EVIDENCE / SUCCESS CRITERIA FIRST / BOUNDED LOOP / COVERAGE HONESTY / REPORT FULL, FILTER DOWNSTREAM / OUTPUT PROPORTIONALITY).
   verdict 산출 플러그인(cs-ship, CS-test, CS-codebase-review)은 plugins/shared/GATE-LOOP.md를 추가로 따른다.
+- 오케스트레이션 확장: 다중 도메인이 순서·조건·재작업 루프로 얽히면 plugins/shared/ORCHESTRATION-PATTERNS.md
+  (P1 speaker selection / P2 termination conditions / P3 declarative chain manifest / P4 instructor-assistant 역할극 /
+  P5 persona+output 계약 — CrewAI/AutoGen/ChatDev 벤치마크 이식)를 LOOP-PROTOCOL 위에 얹는다.
+  선언적 파이프라인은 plugins/shared/chains/, 페르소나 계약은 plugins/shared/agents/AGENT-PERSONA-CONTRACT.md.
+  정적 fan-out으로 충분하면 켜지 않는다 (Simplicity First).
 - 학습 반영 규칙: 교훈이 프로토콜 변경을 지시하면 같은 커밋에서 해당 SKILL/agents/*.md에
   반영하고 ✅ 반영됨 표시한다. 미반영 교훈은 실행되지 않는다.
 - 통합 제거 규칙: 외부 시스템 통합·의존성을 제거하는 변경은 같은 커밋에서 커플링된

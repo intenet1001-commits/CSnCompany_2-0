@@ -59,4 +59,4 @@ feat(auth): add JWT refresh token rotation
 **금지 패턴 탐지**: 없음 ✅ / [패턴명] 발견 ⚠️
 ```
 
-`ship-commit.md` 생성 후 SendMessage(recipient: "ship-lead") 전송.
+`.cs-artifacts/ship-commit.md` 생성 후 SendMessage(recipient: "ship-lead") 전송.

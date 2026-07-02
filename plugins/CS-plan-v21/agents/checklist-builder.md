@@ -108,7 +108,7 @@ Clean Architecture + TDD에서 권장하는 구현 순서:
 
 ### Step 1: 기능 분석
 
-입력된 기능 설명과 CONTEXT(코드베이스 서베이) 블록에서:
+가장 먼저 `[OUTPUT_DIR]/tdd-strategy.md`를 Read한다. tdd-strategist가 정의한 Given/When/Then 테스트명(`[메서드/기능]_[시나리오]_[예상결과]` 규칙)이 RED 체크박스 라벨의 정본이므로, 아래 분석은 이 파일과 CONTEXT 블록을 함께 참조해 수행하고 **새 테스트명을 창작하지 않는다** — tdd-strategy.md에 아직 없는 컴포넌트만 보수적으로 추가 명명한다:
 - 구현할 컴포넌트 목록 파악 (Value Object, Entity, Use Case 등)
 - 각 컴포넌트의 의존 관계 파악
 - 구현 순서 결정 (의존성 없는 것부터)
@@ -116,7 +116,7 @@ Clean Architecture + TDD에서 권장하는 구현 순서:
 
 ### Step 2: 레이어별 체크리스트 생성
 
-각 구현 단위에 대해 Red-Green-Refactor 체크박스 생성:
+각 구현 단위에 대해 Red-Green-Refactor 체크박스 생성. RED 라벨(`[테스트명]`)은 Step 1에서 읽은 tdd-strategy.md의 테스트명 문자열을 그대로 옮겨쓴다:
 
 ```markdown
 ### [컴포넌트명]
@@ -350,7 +350,7 @@ CONTEXT의 `CRITICAL_FILES`(대형/고변경 파일)를 기반으로 작성. CON
    SendMessage(
      type: "message",
      recipient: "plan-lead",
-     content: "구현 체크리스트 완료. 총 [N]개 체크박스, [N]개 Phase, Red-Green-Refactor 사이클 [N]개 정의. Definition of Done [N]개 항목.",
+     content: "구현 체크리스트 완료. 총 [N]개 체크박스, [N]개 Phase, Red-Green-Refactor 사이클 [N]개 정의. Definition of Done [N]개 항목. 가정·우려·미해결 항목: [항목별 severity(높음/중간/낮음)+confidence(높음/중간/낮음)+근거(file:line 또는 판단 사유) — 없으면 '없음' 명시]",
      summary: "구현 체크리스트 완료"
    )
    ```

@@ -149,6 +149,8 @@ ship-lead가 3개 에이전트 결과를 수신하면 `.cs-artifacts/SHIP-REPORT
 
 ## 최종 판정: ✅ PASS / ⚠️ WARNINGS / ❌ BLOCKED
 
+에이전트 커버리지: X/3 (LOOP-PROTOCOL [d] COVERAGE HONESTY)
+
 | 검증 영역 | 결과 |
 |-----------|------|
 | 스펙 준수 | X/Y 항목 DONE (XX%) |
@@ -195,6 +197,16 @@ ship-lead가 3개 에이전트 결과를 수신하면 `.cs-artifacts/SHIP-REPORT
 | 테스트 실행 | 실행된 suite 전체 green | ❌ BLOCKED if any FAILING (다른 점수 무관); ⚠️ WARNINGS if UNVERIFIED-NO-RUNNER |
 | 커밋 메시지 | 금지 패턴 없음 | ⚠️ WARNINGS + 자동 수정 제안 |
 | Refuted claims | Phase 2-0 반박 2개 미만 | ⚠️ 2개 이상 반박 시 verdict 상한 WARNINGS |
+| 에이전트 커버리지 (LOOP-PROTOCOL [d]) | 3개 중 3개 응답 | 1개 UNKNOWN → verdict 상한 WARNINGS; 2개 이상 UNKNOWN → verdict 상한 BLOCKED |
+
+**RECORD (GATE-LOOP.md 필수 단계)**: 판정이 확정되면 세션이 끊겨도 다음 게이트가 복원할 수 있도록
+즉시 기록한다:
+
+```bash
+python3 "$REGISTRY" verdict SHIP <PASS|FAIL|WARNINGS|BLOCKED> <round> [blocking_item ...]
+```
+
+Phase 2.5로 진입하지 않는 라운드(즉시 PASS/BLOCKED 확정)도 round=1로 기록한다.
 
 ### Phase 2.5 — Fix Loop (FIX_MODE=true이고 verdict가 BLOCKED/WARNINGS일 때만)
 
@@ -207,6 +219,8 @@ ship-lead가 3개 에이전트 결과를 수신하면 `.cs-artifacts/SHIP-REPORT
 3. 종료 조건: verdict PASS / 2라운드 도달 / 라운드 간 델타 없음(MISSING 집합 동일 → STUCK 표시).
 4. 자동 commit/push 금지 — 최종 액션은 사용자 몫.
 5. 라운드 이력은 SHIP-REPORT.md `## Fix Rounds`에 기록.
+6. 각 라운드 종료마다 RECORD를 재실행한다: `python3 "$REGISTRY" verdict SHIP <verdict> <round> [blocking_item ...]`
+   — round 번호를 갱신해 다음 게이트가 find-meta로 최신 라운드 상태를 복원할 수 있게 한다.
 
 ### Phase 2 완료 후 결과 출력
 
@@ -223,7 +237,9 @@ ship-lead가 3개 에이전트 결과를 수신하면 `.cs-artifacts/SHIP-REPORT
 
 - **git repo 없음**: `git diff` 실패 시 ship-lead가 파일 시스템 직접 스캔으로 전환
 - **PLAN.md 없음**: pre-pr-validator가 git log 역추론 모드 활성화 (결과 신뢰도 명시)
-- **에이전트 실패**: ship-lead가 실패한 에이전트 영역을 UNKNOWN으로 표시하고 나머지로 판정 진행
+- **에이전트 실패**: ship-lead가 실패한 에이전트 영역을 UNKNOWN으로 표시하고 나머지로 판정 진행하되,
+  LOOP-PROTOCOL [d] COVERAGE HONESTY에 따라 verdict 상한을 건다 (UNKNOWN 1개 → WARNINGS, 2개 이상 → BLOCKED).
+  SHIP-REPORT.md 헤더의 "에이전트 커버리지: X/3"에 반영한다.
 - **.cs-artifacts/ 없음**: ship-lead가 자동 생성
 
 ## Artifacts

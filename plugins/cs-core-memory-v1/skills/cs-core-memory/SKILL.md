@@ -27,6 +27,7 @@ This is NOT a log reader — it is a pattern matcher that answers: "What does ou
 /cs-core-memory status               # Show CORE.md summary stats
 /cs-core-memory warnings             # List all Recurring Issues with hit_count >= 2
 /cs-core-memory decisions            # List all Key Decisions
+/cs-core-memory contested            # List all Contested Entries, oldest-unresolved first
 /cs-core-memory full                 # Dump entire CORE.md (for deep review)
 ```
 
@@ -167,6 +168,20 @@ Separate output into:
 
 ---
 
+### `/cs-core-memory contested`
+
+List all Contested Entries, sorted by `sessions_unresolved` descending:
+
+```bash
+sed -n '/^## Contested Entries/,/^## Growth/p' "$CORE_MEMORY"
+```
+
+Highlight any with `sessions_unresolved >= 3` as CRITICAL — these have survived 3+ memory-keeper
+runs without resolution and need an explicit user decision (accept one side, merge, or archive
+both) rather than continuing to accumulate silently.
+
+---
+
 ### `/cs-core-memory full`
 
 Read and output entire CORE.md verbatim. Prepend:
@@ -176,15 +191,21 @@ Read and output entire CORE.md verbatim. Prepend:
 
 ---
 
-## Integration: Called by cs-ceo Phase G
+## Integration: Referenced by cs-ceo Phase G.5
 
-When cs-ceo calls this skill after confirming GOAL_STATEMENT, pass the goal statement as the [topic]:
+cs-ceo does NOT invoke this skill via `Skill()` — Phase G.5 in `cs-ceo-v15/agents/ceo.md`
+performs an **inline recall** instead (CEO reads `CORE.md` directly and filters, no Task/Skill
+spawn). Phase G.5 reimplements a simplified 3-tier priority version of the ranking described
+in Step 2-4 above (Key Decisions with `constraint: yes` → Strategic Patterns `validated` →
+Recurring Issues `hit_count >= 2`), rather than the full 5-tier scored ranking in this file.
 
-```
-Skill(skill="cs-core-memory", args="recall [GOAL_STATEMENT keywords]")
-```
+The two implementations are intentionally decoupled for performance (no extra tool call at
+session start) but must be kept in sync manually: any change to the recall/ranking logic here
+should be mirrored in `cs-ceo-v15/agents/ceo.md` Phase G.5, and vice versa.
 
-The output is injected into CEO's planning context verbatim, under the label:
+The `recall`/`status`/`warnings`/`decisions`/`full` subcommands above remain the canonical,
+user-invocable entry points (`/cs-core-memory recall [topic]`, etc.) and use the full scoring
+algorithm. Phase G.5's output convention mirrors this file's Step 5 format:
 ```
 📚 Core Memory: [relevant insight]
 ```

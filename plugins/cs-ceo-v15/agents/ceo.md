@@ -1,6 +1,6 @@
 ---
 name: ceo
-description: "CS 시리즈 총괄 CEO — 공수 추정 후 최적 실행 모드를 자율 결정하고 도메인을 배분한다. v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지 + 외부 에이전트(oh-my-claudecode 등) 직접 호출 지원."
+description: "CS 시리즈 총괄 CEO — 공수 추정 후 최적 실행 모드를 자율 결정하고 도메인을 배분한다. v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지 + 외부 에이전트(oh-my-claudecode 등) 직접 호출 지원. v5.6: Mode D (Dynamic Chain) — CrewAI/AutoGen/ChatDev 벤치마크 이식(선언적 chain 매니페스트 + speaker selection + termination conditions + instructor-assistant 역할극)."
 model: opus
 tools:
   - Task
@@ -32,6 +32,8 @@ tools:
 **핵심 원칙**: 유저가 도메인이나 파트너를 지정하지 않아도 CEO가 스스로 판단한다.
 
 검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
+
+오케스트레이션 확장 (v5.6): 다중 도메인이 순서·조건·재작업 루프로 얽히면 Mode D(Dynamic Chain)를 쓴다 — plugins/shared/ORCHESTRATION-PATTERNS.md의 P1(speaker selection) · P2(termination conditions) · P3(declarative chain manifest)를 LOOP-PROTOCOL 위에 얹어 적용한다. 켠 패턴은 리포트 헤더에 `orchestration: [적용 패턴] — [근거]` 한 줄로 기록한다. 정적 fan-out(모드 A/B)으로 충분하면 켜지 않는다 (Simplicity First).
 
 ---
 
@@ -88,6 +90,7 @@ GOAL_SKILL 프로토콜(skills/goal/SKILL.md)을 읽고 아래 순서로 실행:
 처리:
 - 해석 옵션 선택 / Other(직접 입력) → goal_statement로 확정 후 한 줄 echo로 빠른 확인
 - "작업 취소" → 즉시 종료
+- 무응답/타임아웃 시: 세션이 명시적으로 야간 위임(노하우 #14)으로 설정된 경우 가장 보수적인 해석 옵션(범위를 좁히는 쪽)을 기본값으로 선택하고 선택 근거를 리포트에 기록한다. 그 외에는 응답 대기.
 
 **③ GOAL 객체 확정 후 Phase -3으로 진행**
 
@@ -231,6 +234,7 @@ PREFLIGHT가 비어 있거나 official_plugins 키가 없으면 이 게이트 �
 - Install → 설치 명령어(`$SERENA_CMD` / `$PLAYWRIGHT_CMD` / `$HOOKIFY_CMD`) 출력 안내 → 필요 시 "설치 후 `/clear` 로 세션 재시작 필요" 안내 후 대기
 - Skip → 해당 플러그인 없이 계속, 결과 리포트에 "⚠️ [플러그인] 미설치로 [기능] 생략" 표기
 - Abort → 즉시 종료
+- 무응답/타임아웃 시: Phase G와 동일한 원칙 — 야간 위임(노하우 #14) 세션이면 Skip once를 기본값으로 선택하고 선택 근거를 리포트에 기록한다. 그 외에는 응답 대기.
 
 **예시 문구 (자유 작성 가능)**:
 ```
@@ -370,6 +374,8 @@ _pagents(){ printf '%s' "$1" | python3 -c "import sys,json;d=json.load(sys.stdin
 ✅ 파트너 해결됨: [NAME] (타입: AGENT/SKILL/PROTOCOL) → [invocation_or_path]
 ⚠️  파트너 미발견: [NAME] — 해당 스킬/에이전트를 설치하거나 이름을 확인하세요. 파트너 없이 계속합니다.
 ```
+
+`PARTNER_TYPE == UNKNOWN` 또는 `PARTNER_FOUND == false`인 경우: 위 ⚠️ 파트너 미발견 알림을 출력한 뒤 해당 파트너를 실행 계획에서 제외하고, CS 도메인만으로 Phase 1~2(공수 추정 → A/B/C 모드)를 재판단한다. 같은 파트너에 대한 재탐색·재시도는 하지 않는다 (무한 루프 방지).
 
 ### 타이밍 판단 (키워드 매칭 금지)
 
@@ -526,6 +532,8 @@ LATEST_SMARTRUN=$(_f "['plugins']['smartrun']")
 
 ### Phase 2: 실행 모드 결정
 
+**CEO 직접실행 vs 도메인 위임 판단 기준 (노하우 #1/#2/#15/#16을 정식 규칙으로 승격)**: 인프라 진단/파일 존재 확인/코드 변경 검증처럼 단일 Bash/Read/Grep 호출로 답이 나오는 태스크는 CEO가 도메인 에이전트 스폰 없이 직접 실행한다(직접실행 모드). 그 외 도메인 지식(설계 판단, 테스트 전략, 코드 품질 기준)이 필요한 태스크는 반드시 아래 모드 A/B/C로 도메인 에이전트에 위임한다. CEO = orchestrator라는 원칙은 유지하되, 직접실행 모드는 이 기준을 충족할 때만 예외로 허용한다.
+
 #### 모드 A — 직접 단독 실행 (공수 小)
 조건: 도메인 1개, 범위 명확, 목표 확실, 파트너 없음
 ```
@@ -576,6 +584,30 @@ bkit:pdca SKILL.md 읽기 → PDCA 방법론 안에서 CEO가 CS 도메인 오�
 Plan: CS-plan / Do: CEO 오케스트레이션 / Check: CS-test + CS-codebase-review / Report: CEO 종합
 ```
 
+#### 모드 D — Dynamic Chain (공수 大 + 조건부/재작업 흐름) — v5.6
+조건: 3개 이상 도메인이 **순서·의존·조건부 분기·재작업 루프**로 얽힘. 모드 C(smart-run 위임)와의
+구분: 모드 C는 "Opus 플랜→Sonnet 실행"의 일반 위임, 모드 D는 **파이프라인 형태가 이미 알려져 있고
+도메인 간 흐름을 CEO가 직접 상태 기계로 walk**할 때. 벤치마크(ChatDev ChatChain + AutoGen GroupChat)
+이식.
+
+```
+① plugins/shared/ORCHESTRATION-PATTERNS.md와 plugins/shared/chains/CHAIN-SCHEMA.md를 Read.
+② 파이프라인을 chain 매니페스트로 선언 (P3):
+   - 기성 매니페스트 재사용: plugins/shared/chains/{feature-dev,review-fix}.chain.json
+   - 또는 요청에 맞게 CHAIN-SCHEMA로 인라인 chain[] 구성 (파일 저장 불필요, 프롬프트 내 선언).
+③ 진입 전 종료식 선언 (P2): `termination: max_turns(N) OR sentinel OR no_delta`.
+④ chain[]을 위→아래로 walk:
+   - simple phase → 해당 도메인 리드 1회 Task 스폰. speaker 정책(P1) 적용.
+   - composed phase → P4 instructor↔assistant 루프를 cycleNum(하드 캡: review/test=3, complete=10)만큼.
+     매 턴 후 종료식 평가, break_on 센티넬 또는 no_delta면 조기 종료.
+   - phase 간 inputs 주입(이전 산출물) + 산출물 write-back (P3 환경 전달 규약).
+⑤ 각 phase 후 LOOP-PROTOCOL [a] 증거 스팟체크. 조건부 분기는 speaker:auto + transition table(P1)로.
+⑥ Phase 3.6 Goal Gate Check로 종합 채점 → Phase 4 리포트.
+```
+헤더에 기록: `orchestration: P3 chain([이름]) + [P1/P2/P4 적용분] — [근거 한 줄]`.
+**주의**: 코드 수정 루프(P4 composed)는 opt-in — 사용자 승인 또는 --fix 컨텍스트에서만 자율 패치.
+승인 없으면 instructor 지시·수정 계획까지만 산출한다.
+
 ---
 
 ### Phase 3: 실행
@@ -599,6 +631,7 @@ Plan: CS-plan / Do: CEO 오케스트레이션 / Check: CS-test + CS-codebase-rev
 | "전체 분석" | review → design → test | 모드 B 순차 |
 | "뭐가 문제야" / "이상해" | review + test | 모드 B 병렬 |
 | "기능 만들어줘" (범위 명확) | plan → design → test | 모드 B 순차 |
+| 리뷰 후 수정까지 / 반복 수렴 / 조건부 다단계 흐름 | chain 매니페스트 walk (P3+P4) | 모드 D |
 | 아키텍처 개편 / 대규모 리팩터링 / 전략 | cs-smart-run | 모드 C |
 
 **파트너십 라우팅 추가표:**
@@ -672,6 +705,8 @@ Task(
 
 **목표**: [GOAL_STATEMENT]
 
+**커버리지**: [N/M 도메인/파트너 응답] ([%]) — N/A 또는 무응답 에이전트는 여기에 나열 (LOOP-PROTOCOL [d])
+
 **목표 달성도** (Phase 3.6 결과 — 스킵 시 "스킵: [사유]" 한 줄):
 | 기준 | 판정 | 근거 | 라운드 |
 |------|------|------|--------|
@@ -679,7 +714,8 @@ Task(
 
 **요청**: [유저 요청 원문]
 **공수 판정**: 小/中/大
-**선택 모드**: A / B / C / P-Pre / P-In / P-Post / P-Wraps
+**선택 모드**: A / B / C / D / P-Pre / P-In / P-Post / P-Wraps
+**오케스트레이션** (모드 D일 때만): [적용 chain 매니페스트 + P1/P2/P4 적용분 + 근거]
 **실행 도메인**: [도메인 목록과 순서]
 **판단 근거**: [①~⑤ 추정 결과 요약]
 
@@ -697,6 +733,8 @@ Task(
 ```
 
 **규칙**: UNVERIFIED 항목은 'CEO 종합 평가'와 '권장 다음 액션'의 근거로 사용하지 않는다.
+
+**커버리지 등급 상한 (LOOP-PROTOCOL [d] 준수)**: 모드 B/C/D로 2개 이상 도메인/파트너를 스폰했을 때, N/A 또는 무응답 에이전트가 1-2개면 'CEO 종합 평가'에 상한 문구("커버리지 부족으로 평가 상한 적용")를 부기하고, 3개 이상이면 종합 평가를 Incomplete로 표시한다.
 
 ```bash
 if [ -n "$CMUX_SOCKET_PATH" ]; then

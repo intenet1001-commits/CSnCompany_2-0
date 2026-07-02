@@ -24,6 +24,8 @@ allowed-tools:
 
 검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
 
+오케스트레이션 확장 (v1.1): VERIFY→fix 루프(Phase 2.5)는 plugins/shared/ORCHESTRATION-PATTERNS.md의 P4(instructor-assistant 역할극) + P2(조합 가능한 종료 조건)로 정식화한다 — verifier=instructor(지시), executor=assistant(수정), 종료식 `max_turns(2) OR sentinel OR no_delta`.
+
 ## How this skill works
 
 When invoked, you orchestrate these phases:
@@ -112,6 +114,14 @@ Wait for the Opus agent to return the plan before proceeding.
 If Phase 1 returned **BLOCKING QUESTIONS**, resolve them via AskUserQuestion
 and re-run Phase 1 with the answers before any Sonnet agent is spawned.
 
+If the Opus agent returns no output, or a plan missing any of ## Goal /
+## Steps / ## Definition of Done, retry once with an explicit format
+reminder ("Your last response did not include a valid ## Goal/## Steps/##
+Definition of Done structure — return the plan in exactly that format").
+On a second empty or malformed result, stop and report a STUCK finding to
+the user per LOOP-PROTOCOL [c] instead of proceeding to Phase 1.5 with a
+broken plan.
+
 ---
 
 ## Phase 1.5: PLAN REVIEW (Sonnet critic)
@@ -138,6 +148,12 @@ ONE revision pass ("Revise the plan to address these defects; change only what
 is needed"). Do not loop further — proceed to Phase 2 with the revised plan.
 Include the critic's verdict in the Phase 3 report.
 
+If the critic agent returns no output, or a response that is neither
+"NO DEFECTS" nor a numbered defect list, retry once with an explicit format
+reminder. On a second empty/malformed result, skip Phase 1.5 (proceed with
+the Phase 1 plan unreviewed) and report a STUCK finding to the user per
+LOOP-PROTOCOL [c] rather than blocking the run indefinitely.
+
 ---
 
 ## Phase 2: EXEC (Sonnet)
@@ -152,7 +168,8 @@ Read the plan from Phase 1. For each step:
 
 Spawn each execution agent with `model: "sonnet"`.
 
-Prompt each Sonnet execution agent with:
+Prompt each Sonnet execution agent with (per plugins/shared/agents/AGENT-PERSONA-CONTRACT.md
+§2 Task contract — `expected_output` is required, `context` carries prior output verbatim):
 ```
 You are an expert implementer. Execute this specific step from a larger plan:
 
@@ -162,8 +179,15 @@ You are an expert implementer. Execute this specific step from a larger plan:
 ## Full Plan Context
 <full plan from Opus>
 
+## Expected Output
+완료 형태: <1-line spec of what this step must return, derived from the step's
+stated input/output dependencies in the plan — e.g. "modified file X with Y
+passing" or "JSON summary of Z">
+
 ## Prior Step Results (if any)
-<results>
+<verbatim "files changed / commands run + exit status / output next step needs"
+block returned by the upstream agent(s) this step depends on — never a
+paraphrased or vague prose summary>
 
 Execute completely. Return: what you did, files changed (exact paths), commands you ran with their exit status, and any output the next step needs.
 ```
@@ -176,24 +200,52 @@ After all execution agents complete, spawn ONE independent `model: "sonnet"`
 agent that did NOT execute any step. Skip this phase only if the plan was
 read-only (no files changed, no commands with side effects).
 
+이 디스패치는 line 25의 검증 프로토콜 마당대로 plugins/shared/agents/verifier.md를
+그대로 재사용한다 — 첫 행동으로 verifier.md를 Read시키고, 그 OWNS/DOES NOT OWN
+경계(finding 재검증만 수행, 새 finding 발굴·수정은 하지 않음)와 JSON 출력 계약을
+그대로 프롬프트에 주입한다. 각 Definition of Done 항목을 finding으로 취급한다.
+
 Prompt the verifier with:
 ```
-You are an adversarial verifier. Your job is to REFUTE the claim that this plan is complete. Do not trust the executors' self-reports.
+첫 행동: Read plugins/shared/agents/verifier.md — 아래 임무는 그 파일의 계약을 따른다.
 
-## Definition of Done (from the plan)
+📌 OWNS: 이 태스크의 finding = 아래 Definition of Done 각 항목. 재검증(반증 시도) +
+CONFIRMED/REFUTED/UNCERTAIN 판정 + counter-evidence 수집만 한다.
+❌ DOES NOT OWN: 새로운 결함/DoD 항목 발굴, 코드 수정, 최종 grade 계산.
+
+You are an adversarial verifier. Do not trust the executors' self-reports —
+확인이 아니라 반박이 기본 자세다.
+
+## Definition of Done (from the plan) — 각 항목이 하나의 finding이다
 <DoD section from the Opus plan>
 
 ## Claimed results per step
 <each step's self-report>
 
-For EVERY Definition of Done item:
-1. Gather tool evidence yourself — re-run the relevant tests/builds/lints, read the changed files, run `git diff`/`git status` to confirm claimed changes actually exist.
-2. Mark the item PASS or FAIL, citing the exact command output or file content as evidence. A self-report is never evidence.
+For EVERY Definition of Done item, gather tool evidence yourself — re-run the
+relevant tests/builds/lints, read the changed files, run `git diff`/`git status`
+to confirm claimed changes actually exist. 증거가 약하면 기본 판정은 REFUTED.
 
-Return a checklist: item → PASS/FAIL → evidence. List any FAILed items with the specific gap.
+Return ONLY a JSON array, one object per DoD item, per verifier.md's output contract:
+[
+  {
+    "id": "<DoD item 식별자>",
+    "verdict": "CONFIRMED | REFUTED | UNCERTAIN",
+    "counter_evidence": "file:line 인용 또는 command+output 스니펫. CONFIRMED면 재확인한 증거, REFUTED면 모순 증거, UNCERTAIN이면 체크 불가 사유."
+  }
+]
 ```
+CONFIRMED는 PASS로, REFUTED는 FAIL로, UNCERTAIN은 FAIL로 취급해 아래 verify→fix
+루프에 넘긴다.
 
-**verify→fix 루프 (BOUNDED, 최대 2라운드)**:
+**verify→fix 루프 (BOUNDED, 최대 2라운드) — P4 instructor-assistant + P2 종료식**:
+
+이 루프를 ORCHESTRATION-PATTERNS.md P4 역할극으로 구성한다:
+- **instructor = verifier**: FAIL 항목마다 "무엇이 왜 틀렸는지 + 어떤 증거로 확인했는지"를 한 번에
+  하나씩 지시한다 (ChatDev "one highest-priority comment" — 가장 중요한 것부터).
+- **assistant = executor**: 지시받은 항목만 수정한다. 스스로 새 작업을 벌이지 않는다.
+- **종료식 (P2)**: 루프 진입 전 선언 → `max_turns(2) OR sentinel(모든 DoD PASS) OR no_delta`.
+  매 라운드 후 평가하고, 종료 시 어떤 조건이 발화했는지 리포트에 기록 (`종료: no_delta @ round 2`).
 
 1. If any item FAILs: re-dispatch ONLY the failed steps with added context —
    the original step description, the failed attempt's output, the verifier's

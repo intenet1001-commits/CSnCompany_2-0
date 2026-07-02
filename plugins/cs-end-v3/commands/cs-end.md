@@ -115,6 +115,8 @@ fi
 
 **Digest 요약 출력** (디버그용) — 출력에 반드시 포함: 사용 도메인(없으면 "탐지 없음" 명시), 노하우 항목 수, BTW pending 개수, 오래된 항목 수. 포맷은 자유.
 
+**성공 기준 선언 (LOOP-PROTOCOL [b], Phase 1 fan-out 직전 필수):** Digest 요약 직후 한 줄로 출력한다 — `성공 기준: 4-Agent(doc-updater/learning-extractor/version-scout/followup-suggester) 각각 유효 JSON 반환 + Phase 2 Learning Gate 판정 완료 + (push 대상 시) Phase 4 커밋 성공`. Phase 5·6 리포트는 이 기준 대비 채점 결과(`기준 대비: PASS/FAIL (n/n 통과)`)를 첫 줄에 출력한다.
+
 ## Phase 1 — 4-Agent 병렬 분석 (Shared Digest 주입)
 
 4개 에이전트를 **단일 메시지에 병렬로** 스폰합니다.
@@ -142,6 +144,7 @@ fi
 **계약 체크 (Phase 2 진입 전):**
 - `learning-extractor` 후보에 상황/발견/교훈/tier/pre_scores 중 하나라도 누락 → 해당 에이전트에 1회 재포맷 요청.
 - `version-scout` 출력에 domain 매핑이 없으면 → Phase 3의 fallback 규칙 (a) (AskUserQuestion 확인)로 처리한다. 자동 전체 버전업 금지.
+- `doc-updater` 후보에 file/needed_change/reason 중 하나라도 누락되면 해당 항목만 드롭하고 나머지는 사용한다. 배열 전체가 파싱 불가하면 doc-updater를 1회 재실행한다 (140번째 줄 "해당 에이전트만 1회 재실행" 규칙 재사용, 재실행도 실패하면 N/A 처리).
 
 ## Phase 1.5 — Core Memory Update (장기 핵심 메모리 갱신)
 
@@ -174,12 +177,24 @@ memory-keeper 출력 (JSON):
 
 ```bash
 CORE_MEMORY_SUMMARY=$(printf '%s' "$CORE_RESULT" | python3 -c \
-  "import sys,json; d=json.load(sys.stdin); print(d.get('core_memory_summary',''))" 2>/dev/null)
+  "import sys,json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('core_memory_summary',''))
+except Exception:
+    print('__PARSE_ERROR__')" 2>/dev/null)
+
+if [ "$CORE_MEMORY_SUMMARY" = "__PARSE_ERROR__" ]; then
+  echo "⚠️ Core Memory Update skipped: memory-keeper 출력이 유효한 JSON이 아님"
+  CORE_MEMORY_SUMMARY=""
+fi
 ```
+
+`try/except`로 감싸 파싱 실패(`json.load` 예외)를 "정상적으로 비어 있음"과 구분한다 — `2>/dev/null`만으로는 python3의 비정상 종료가 빈 문자열로 삼켜져, memory-keeper가 `status: error`를 명시하지 않은 채 단순히 깨진 JSON을 반환한 경우 아래 경고 없이 완전히 조용해지는 문제가 있었다.
 
 **Phase 6 compact 6번째 필드 (`top_insight`):** `CORE_MEMORY_SUMMARY`가 비어 있지 않으면 5-field compact에 `top_insight` 필드로 추가한다. 비어 있으면 필드 자체를 생략한다 (기존 5-field 파싱에 영향 없음).
 
-**실패 시 처리:** `LATEST_CORE`가 비어 있거나 memory-keeper Task가 오류를 반환하면 `CORE_MEMORY_SUMMARY=""` 로 설정하고 다음 경고 한 줄을 출력한 뒤 Phase 2로 계속 진행한다 — 이 Phase는 블로커가 되어서는 안 된다:
+**실패 시 처리:** `LATEST_CORE`가 비어 있거나 memory-keeper Task가 오류를 반환하거나, 위 파싱에서 `__PARSE_ERROR__`가 감지되면 `CORE_MEMORY_SUMMARY=""` 로 설정하고 다음 경고 한 줄을 출력한 뒤 Phase 2로 계속 진행한다 — 이 Phase는 블로커가 되어서는 안 된다:
 
 ```
 ⚠️ Core Memory Update skipped: <오류 사유 1줄>
@@ -312,6 +327,8 @@ OPEN_COUNT=$(grep -c "| open |" "$INDEX" 2>/dev/null || echo 0)
 - 발견 필드에 "해결", "수정", "fix", "resolved" + 원인 분석 포함
 
 감지 시 AskUserQuestion으로 저장 여부를 확인한다 — 의도: 에러→해결 시퀀스가 감지되었음을 알리고 저장할지 묻는다. 옵션은 (1) 저장 (`~/.claude/error-notes/`에 기록), (2) 건너뛰기. 문구는 자유.
+
+건너뛰기 선택 시: 저장하지 않고 Phase 2.5로 진행하되, learning-extractor 결과 원본은 그대로 유지한다 (error-ref 태그 없음). "감지됐지만 미저장"과 "미감지"는 이 태그 유무로만 구분되며 그 외 산출물 차이는 없다.
 
 저장 선택 시:
 - learning-extractor 결과를 5-필드 포맷으로 변환 (상황/문제점/시도/원인/해결점)
@@ -492,6 +509,7 @@ _ps() { printf '%s' "$1" | python3 -c "import sys,json;print(json.load(sys.stdin
 
 Phase 4 완료 직후 리포트를 출력한다. 출력에 반드시 포함 (포맷은 자유, 두 레포를 시각적으로 구분할 것):
 
+- **커버리지 (LOOP-PROTOCOL [d], 목록 맨 앞에 출력)**: `커버리지: X/4 에이전트 (완전 응답 기준)` — Phase 1에서 재실행 후에도 실패해 N/A 처리된 에이전트가 있으면 이름을 함께 명시 (`N/A: <에이전트명>`). 4/4면 N/A 목록 생략.
 - **마켓플레이스 레포**: 레포 이름 + 상태(PUSHED/SKIPPED) + PUSHED면 branch와 remote, SKIPPED면 사유(--no-push 모드 / author 아님)
 - **프로젝트 레포**: 레포 이름 + 상태(PUSHED/UNPUSHED/해당없음) + UNPUSHED면 미push 커밋 수와 수동 push 명령(`git -C <path> push origin <branch>`)
 
@@ -515,11 +533,13 @@ Phase 1의 `learning-extractor`·`followup-suggester` 결과와 Session Digest�
 
 | 필드 | 출처 | 내용 |
 |------|------|------|
-| `DONE` | `followup-suggester` 완료 목록 + `doc-updater` 결과 | 이번 세션 완료 항목 1-2줄 |
+| `DONE` | `followup-suggester` 완료 목록 (source:session 중 완료 표시분) | 이번 세션 완료 항목 1-2줄 |
 | `LEARNED` | Learning Gate 통과 항목 중 최고 점수 1개 | 핵심 발견 1줄 |
 | `DOMAINS` | `DOMAINS_USED` | 이번 세션 활성 CS 도메인 |
-| `NEXT` | `followup-suggester` 최우선 항목 | 다음 세션 첫 번째 구체적 액션 |
+| `NEXT` | `followup-suggester` 최우선 항목 (`doc-updater` needed_change가 있으면 그중 우선순위 1건을 합산) | 다음 세션 첫 번째 구체적 액션 |
 | `BTWS` | `BTW_COUNT` + `BTW_PENDING` 첫 항목 제목 | 미처리 BTW 수 + 최우선 1개 |
+
+`doc-updater`는 "이미 완료된 것"이 아니라 "아직 반영 안 된 문서 변경 필요 항목"(needed_change/reason)을 산출하므로 `DONE`이 아니라 `NEXT`에 합류시킨다 — 두 산출물의 의미가 반대이기 때문이다.
 
 `/compact` 인자는 DONE + LEARNED 필드를 1-2줄로 합성하여 생성합니다.
 
@@ -529,7 +549,7 @@ Phase 1의 `learning-extractor`·`followup-suggester` 결과와 Session Digest�
 
 1. 세션 종결이 완료되었고 context 정리를 권한다는 안내
 2. 복사해 실행할 수 있는 `/compact [DONE 요약 + LEARNED 핵심 1-2줄]` 한 줄
-3. 5-field 재개 정보 — `DONE` / `LEARNED`(없으면 "저장된 학습 없음" 명시) / `DOMAINS` / `NEXT` / `BTWS`(pending 개수 + 최우선 1개 또는 "없음") 각 필드를 라벨과 함께
+3. 5-field 재개 정보 — `DONE` / `LEARNED`(없으면 "저장된 학습 없음" 명시) / `DOMAINS` / `NEXT` / `BTWS`(pending 개수 + 최우선 1개 또는 "없음") 각 필드를 라벨과 함께. Phase 5에서 N/A 처리된 에이전트가 1개 이상이면 `DONE` 필드 끝에 `(N/A: <에이전트명>)`을 덧붙여 커버리지 결손을 다음 세션에도 전달한다 (LOOP-PROTOCOL [d]).
 4. 대안으로 `/clear` (완전 초기화) 안내
 
 **예시:**

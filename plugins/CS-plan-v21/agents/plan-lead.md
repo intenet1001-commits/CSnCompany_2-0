@@ -317,6 +317,10 @@ Task(
 4. Domain Services → 5. Use Case Interactors → 6. Repository 실제 구현
 7. Controllers/Adapters → 8. Infrastructure/DI 설정
 
+## 선행 조건
+
+작업을 시작하기 전에 '[OUTPUT_DIR]/tdd-strategy.md'를 Read한다. tdd-strategist가 정의한 Given/When/Then 테스트명이 RED 체크박스 라벨의 정본이므로 그대로 인용하고, 새 테스트명을 창작하지 않는다.
+
 ## Red-Green-Refactor 체크박스 패턴
 
 각 구현 단위마다:
@@ -364,7 +368,8 @@ Task(
 
 **2a-2. 정합성 검증** — domain-analysis.md에서 명칭 테이블(Aggregates, Entities, VOs, Use Cases, Domain Events)을 구축하고 교차 확인 (domain-analysis가 어휘의 single source of truth):
 - architecture.md가 동일한 유스케이스/엔티티 명칭 사용 (개명/누락 없음)
-- tdd-strategy.md의 모든 테스트 그룹이 도메인 요소에 매핑되고 implementation-checklist.md에 🔴 RED 항목으로 등장
+- architecture.md의 'Repository Interfaces' 메서드 시그니처가 domain-analysis.md의 'Repository Interface' 섹션(정본)과 일치 — arch-designer가 새 메서드를 창작했으면 불일치로 플래그
+- tdd-strategy.md의 모든 테스트 그룹이 도메인 요소에 매핑되고 implementation-checklist.md에 🔴 RED 항목으로 등장 — **테스트명 문자열이 완전히 일치**해야 한다 (checklist-builder가 tdd-strategy.md의 테스트명을 그대로 인용했는지 확인, 창작된 별도 테스트명은 불일치로 플래그)
 - checklist가 architecture.md에 선언된 모든 레이어 인터페이스를 커버
 - 과대 설계 플래그: FEATURE에서 추적 불가능한 Aggregate/Use Case/레이어 컴포넌트는 YAGNI-의심으로 표시
 
@@ -385,7 +390,7 @@ Task(
    SendMessage(type: "shutdown_request", recipient: "tdd-strategist", content: "플랜 생성 완료, 종료 요청")
    SendMessage(type: "shutdown_request", recipient: "checklist-builder", content: "플랜 생성 완료, 종료 요청")
    ```
-   모든 `shutdown_response(approve: true)` 수신 후 `TeamDelete` 호출.
+   모든 `shutdown_response(approve: true)` 수신 후 `TeamDelete` 호출. 각 `shutdown_response` 대기는 2분으로 제한 — 미응답 에이전트가 있으면 더 기다리지 않고 `TeamDelete`를 강제 진행하며, 완료 메시지에 미응답 에이전트명을 기록한다.
 
 4. **완료 메시지 출력** — 형식은 자유, 다음 정보를 반드시 포함:
    - 생성된 5개 파일 목록 + 각 한 줄 설명 (domain-analysis.md / architecture.md / tdd-strategy.md / implementation-checklist.md / PLAN.md)
@@ -394,5 +399,6 @@ Task(
 
 ## 에러 처리
 
+- **TeamCreate/TaskCreate 실패** (Phase 0): 1회 재시도한다. 재시도도 실패하면 SCOPE=standard 경로를 포기하고 Phase -1의 SCOPE=small 경량 경로로 자동 폴백하여 plan-lead 단독으로 PLAN.md를 작성하며, 완료 메시지에 폴백 사유(API 오류/인프라 장애 등)를 명시한다.
 - **에이전트 실패**: 먼저 Phase 2a-3에 따라 **1회 재스폰/수정 요청** (5분 타임아웃). 그래도 실패하면 해당 섹션을 "⚠️ 생성 실패 - 수동 작성 필요"로 표시하되, 실패한 품질 기준을 PLAN.md에 명시하고 나머지로 PLAN.md 생성
 - **타임아웃**: 개별 에이전트 10분, Phase 2a 예산 8분, 전체 25분
