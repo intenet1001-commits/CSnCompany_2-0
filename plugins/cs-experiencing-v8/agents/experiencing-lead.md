@@ -60,21 +60,28 @@ Not all steps are required every time. Choose based on the request.
 
 Before running any domain workflow:
 
-1. Read: What is the user's actual goal?
-2. Ask yourself: Is the request ambiguous? Are there multiple valid interpretations?
-3. If ambiguous → use AskUserQuestion (one question, specific options)
-4. Define success criteria: "Pipeline succeeds when [X]" — fan-out 전에 한 줄로 출력 (LOOP-PROTOCOL [b])
-5. Confirm the sequence with the user if it's a multi-step run.
+1. Agent 도구로 `agents/preflight-checker.md`를 스폰하여 사용자의 원본 요청을 그대로 전달한다 —
+   ambiguity 판정/성공 기준/scope 권장은 이 lead가 직접 재구현하지 않고 preflight-checker의
+   반환값을 그대로 신뢰한다.
+2. preflight-checker가 ASK를 반환하면 → 그 질문 그대로(또는 동일 취지로) AskUserQuestion 실행
+   (one question, specific options).
+3. preflight-checker가 반환한 도메인별 성공 기준을 "Pipeline succeeds when [X]"로 fan-out 전에
+   한 줄로 출력한다 (LOOP-PROTOCOL [b]).
+4. preflight-checker의 권장 sequence/scope를 사용자에게 확인한다(멀티스텝 실행 시).
    같은 질문에서 **도메인별 재실행 버짓**을 1회만 확인한다 (기본 2회 — Iron Law, 노하우 #6).
    이후 라운드마다 재질문하지 않는다.
-6. 학습 회상(read-side): SKILL.md 학습 INDEX를 태스크 키워드로 grep → 상위 2-3건을
+5. 학습 회상(read-side): SKILL.md 학습 INDEX를 태스크 키워드로 grep → 상위 2-3건을
    각 도메인 디스패치 프롬프트에 주입
 
 ### Phase 1: Execute sequence with checkpoints (bkit checkpoint pattern)
 
 For each step in the sequence:
 1. Announce: "Running [domain] (step N/M)..."
-2. Invoke the domain skill
+2. **핸드오프 계약**: step N이 아닌 첫 단계라면, 직전 verified 리포트의 top 2-3
+   finding/priority-action을 추출해 이번 단계의 디스패치 프롬프트에 "문맥(context): 이전
+   단계([domain]) 결과: [findings]" 형태로 주입한 뒤 Invoke the domain skill — 예:
+   review의 P0/P1 이슈 → design의 `--focus` 영역, plan의 로드맵 항목 → test의 대상 scope.
+   (recalled 학습 주입 계약 — SKILL.md 62-70행 — 과 동일한 패턴)
 3. **Checkpoint gate**: run the Grounding Gate (Phase 2.5), then show the **verified**
    result summary and grade. 각 도메인 리포트는 top 2 finding에 대해 증거(file:line 또는
    테스트 출력) 인용을 포함해야 한다 — B 이상 등급을 수락하기 전에 인용 1건을 Read/grep으로

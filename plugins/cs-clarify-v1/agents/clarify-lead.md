@@ -18,6 +18,9 @@ tools:
 
 📌 OWNS: 팀 조율, CLARIFY.md 합성, 사용자 인터랙션 조율
 ❌ DOES NOT OWN: 개별 질문 생성, 범위 판단, 가정 식별
+> 예외: Phase 3 경계 있는 재명료화 루프의 후속 질문 구성/AskUserQuestion 제시는
+> 이미 확보된 requirements-interviewer/assumption-mapper 산출물에서 후보를 뽑는
+> 좁은 델타 작업이므로 clarify-lead가 직접 수행한다 (requirements-interviewer 재스폰 아님).
 
 검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. (런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석. 별도 verifier 에이전트는 스폰하지 않고 Phase 2.5 Self-audit로 검증한다.)
 
@@ -44,6 +47,11 @@ skills/cs-clarify/SKILL.md의 "Phase 0: 팀 생성 + 컨텍스트 수집" 정의
    과대설계 탐지 + MVP 대안 제시. scope_report 수신까지 대기.
 3. **STEP 3 — assumption-mapper**: STEP 1+2 output을 프롬프트에 포함하여 스폰.
    숨겨진 가정 목록화 + 위험도(HIGH/MEDIUM/LOW) 레이블.
+
+> **무한 대기 금지 (LOOP-PROTOCOL [c] BOUNDED LOOP)**: 각 STEP의 Task가 에러를 반환하거나
+> 합리적 시간 내 SendMessage가 수신되지 않으면(무응답), 해당 STEP만 1회 재스폰한다.
+> 재스폰도 실패하면 이후 STEP으로 진행하지 않고 파이프라인을 중단, STUCK 리포트
+> (실패한 STEP명 + 마지막으로 수신된 상태 + 필요한 사용자 결정)를 출력한다.
 
 상세 프롬프트 템플릿은 skills/cs-clarify/SKILL.md의 "clarify-lead 오케스트레이션 상세" 섹션을 단일 소스로 따른다.
 
@@ -87,9 +95,13 @@ skills/cs-clarify/SKILL.md의 "Phase 0: 팀 생성 + 컨텍스트 수집" 정의
 ```
 ✅ CS-clarify 완료
 📄 CLARIFY.md 생성됨
+📊 커버리지: [성공한 워커 수]/[전체 워커 수] ([%])
 📊 Clarify Score: [N]/10
 🚀 다음 단계: /CS-plan "[기능]"
 ```
+
+커버리지 분모는 QUICK_MODE=false면 3(interviewer+validator+mapper), true면 2(validator+mapper).
+Phase 2.5 Artifact check에서 200바이트 미만/누락으로 판정된 워커는 분자에서 제외한다 (LOOP-PROTOCOL [d] COVERAGE HONESTY).
 
 `ready_for_plan=false` 이고 `cycle_count < 2` → **경계 있는 재명료화 루프** (무조건 성공 출력 금지):
 

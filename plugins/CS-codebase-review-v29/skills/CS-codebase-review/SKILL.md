@@ -89,7 +89,7 @@ ToolSearch(query: "+serena symbol")
 
 finding 보고 계약 (LOOP-PROTOCOL [a][e]): 발견한 모든 이슈를 빠짐없이 보고하세요. 확신이 낮은 이슈도 제외하지 말고 보고합니다 — 필터링 금지, 필터링·우선순위 선정은 리드가 Phase 2에서 수행합니다.
 각 이슈는 다음 형식으로:
-- 파일:라인 | 심각도(HIGH/MEDIUM/LOW) | 확신도(높음/중간/낮음) | 근거(해당 줄에서 그대로 복사한 코드 1-2줄 인용) | 제안 수정
+- ID(에이전트 내 임시 순번, 리드가 Phase 1.5b에서 F001부터 전체 재부여) | 파일:라인 | 심각도(HIGH/MEDIUM/LOW) | 확신도(높음/중간/낮음) | 근거(해당 줄에서 그대로 복사한 코드 1-2줄 인용) | 제안 수정
 file:line과 코드 인용이 불가능한 이슈는 LOW로 강등하여 보고하세요.
 등급(A~F) 평가는 하지 마세요 — 등급 산정은 Phase 2에서만 수행합니다.
 마지막에 검토한 파일 목록(reviewed_files)을 반드시 출력하세요.
@@ -105,8 +105,11 @@ file:line과 코드 인용이 불가능한 이슈는 LOW로 강등하여 보고�
    - Round 1에서 어떤 렌즈도 커버하지 않은 디렉토리에서 HIGH 이슈 ≥1건 발생
 3. 추가 라운드는 관련 렌즈만 재디스패치하고, 미커버 파일/디렉토리로 범위를 명시한다 ("다음 파일만 검토: ..."). 이미 검토된 파일은 재검토하지 않는다.
 4. 종료 조건: 추가 라운드가 새 HIGH 이슈 0건이거나 라운드 캡 도달 → Phase 1.5b로 진행. 총 라운드 수, 최종 커버리지 %, 미검토 파일 목록을 Phase 2 리포트에 기록한다.
+5. 무응답 에이전트 감지 (커버리지 % 계산과 별개): 5개 에이전트 중 완전 무응답/빈 출력(reviewed_files 없음 그리고 findings 없음)인 에이전트가 있으면 즉시 N/A로 표시하고, 커버리지 % 산정에서는 제외한 채 해당 에이전트만 1회 재디스패치한다(같은 프롬프트, 원본 대상 범위 유지). 재시도도 무응답이면 Phase 2 리포트에 `<agent> N/A (2회 무응답)`로 기록하고 LOOP-PROTOCOL [d] 등급 상한을 적용한다.
 
 ### 1.5b 적대적 검증 (Refuter — plugins/shared/agents/verifier.md 의미론)
+
+취합된 findings에 F001부터 순번을 매겨(에이전트 내 임시 순번은 폐기하고 전체 기준으로 통일) verifier 프롬프트에 id 필드와 함께 전달하고, verifier 출력(JSON `id` 필드)으로 원본 finding에 판정을 매핑한다.
 
 모든 HIGH/MEDIUM finding에 대해 verifier 에이전트 1개를 스폰한다 (>10건이면 2개로 배치 분할). 프롬프트:
 
@@ -136,6 +139,7 @@ Python pre-pass(abspath_check, ts_rust_diff) 결정론적 출력으로 이미 �
 - 우선순위 상위 5개 액션 아이템 (CONFIRMED 기준)
 - Python 자동 탐지 이슈 (TS↔Rust, 절대경로) 별도 강조
 - critical/high는 본문, 나머지는 부록 배치 (LOOP-PROTOCOL [e])
+- GATE-LOOP 연동 (plugins/shared/GATE-LOOP.md): 등급 산정 후 `python3 plugins/shared/artifact_registry.py verdict codebase-review <PASS|WARNINGS|BLOCKED> <round> [critical finding id...]`로 verdict를 기록한다. CONFIRMED critical/high가 남아있으면 BLOCKED로 기록하고, GATE-LOOP.md의 3라운드 상한 재게이트 루프(직전 라운드의 blocking_items만 재검증)를 적용한다.
 
 ---
 

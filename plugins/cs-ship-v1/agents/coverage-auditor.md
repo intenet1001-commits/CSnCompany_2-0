@@ -41,13 +41,16 @@ find . -name "*.test.*" -o -name "*.spec.*" | grep -v node_modules
 
 러너를 탐지할 수 없으면 (예: markdown 전용 repo) 모든 경로를 **UNVERIFIED-NO-RUNNER**로 표시하고 그 사실을 보고한다. VERIFIED를 묵시적으로 주지 않는다.
 
+**타임아웃 처리**: 러너는 탐지됐지만 5분 내 실행이 끝나지 않으면(대형 e2e suite 등) 해당 경로를
+green 완료로 간주하지 않는다 — **UNVERIFIED-NO-RUNNER**로 분류하고 증거란에 `"timeout after 5min: <실행한 명령>"`을 기록한다.
+
 ### Step 3: 분류 (실행 결과 기반)
 
 - **VERIFIED**: 테스트 파일 존재 **AND** 해당 테스트가 실행되어 green (러너 출력 라인을 증거로 인용)
 - **PARTIAL**: 테스트 존재 + green이나 핵심 케이스 미커버, 또는 스코프 실행 불가
 - **MISSING**: 테스트 파일 없음 또는 빈 파일
 - **FAILING**: 실행된 테스트 중 red 존재 → 실패 테스트 이름 명시 (1개라도 있으면 ship-lead가 BLOCKED 처리)
-- **UNVERIFIED-NO-RUNNER**: 러너 탐지 불가 → 실행 검증 불가능
+- **UNVERIFIED-NO-RUNNER**: 러너 탐지 불가, 또는 러너는 탐지됐으나 5분 타임아웃으로 완료를 확인하지 못한 경우 → 실행 검증 불가능
 
 ### Iron Law (gstack): 동일 갭에 3회 탐색 실패 시 STUCK 리포트
 
@@ -65,4 +68,4 @@ find . -name "*.test.*" -o -name "*.spec.*" | grep -v node_modules
 VERIFIED: X개 | PARTIAL: Y개 | MISSING: Z개 | FAILING: W개
 ```
 
-`ship-coverage.md` 생성 후 SendMessage(recipient: "ship-lead") 전송.
+`.cs-artifacts/ship-coverage.md` 생성 후 SendMessage(recipient: "ship-lead") 전송.

@@ -67,6 +67,10 @@ tools:
    - TaskCreate: "대상 URL 탐색 및 page-map.json 생성"
    - page-explorer 완료 대기
 
+5. **page-explorer 실패 복구** — page-explorer가 10분 내 미완료이거나, page-map.json이 없거나(<100 bytes) pages 배열이 비어있으면:
+   - 1회만 재시도 (대상을 단일 페이지로 축소해 재스폰)
+   - 재시도도 실패하면 Phase 2를 스폰하지 않고 사용자에게 "페이지 탐색 실패 — URL 접근 불가 또는 타임아웃"을 알린 뒤 REPORT.md 생성 없이 종료한다
+
 ### Phase 2: 병렬 테스트 (스코프 티어별 에이전트 동시)
 
 page-explorer가 완료되면 page-map.json을 읽고, **스코프 티어**를 정한 뒤(SKILL.md 사전 준비 5단계와 동일) 스폰 목록의 에이전트를 동시에 스폰:
@@ -110,6 +114,18 @@ page-explorer가 완료되면 page-map.json을 읽고, **스코프 티어**를 �
    - agents/finding-verifier.md 프로토콜 준수 (최대 15건, 10분 타임아웃)
    - 출력: `tests/results/verification-report.json`
    - finding-verifier 완료 대기 (SendMessage 수신)
+
+### Phase 2.6: 게이트 루프 (GATE-LOOP.md 준수, 최대 3라운드)
+
+Phase 0에서 선언한 성공 기준을 이 시점의 각 에이전트 `passFail`/finding 종합에 대입해 PASS/FAIL을 판정한다.
+
+- **PASS** → 라운드 이력 없이 Phase 3으로 진행.
+- **FAIL/BLOCKED** → round=1부터 시작해 최대 3라운드까지:
+  1. FAIL을 유발한 scope(예: critical/high finding을 낸 워커)만 재디스패치 — 전체 재실행 금지.
+  2. `python3 plugins/shared/artifact_registry.py verdict CS-TEST <PASS|FAIL|BLOCKED> <round> [blocking_item ...]` 로 verdict + round + blocking_items 기록.
+  3. RE-GATE: 직전 라운드에서 실패했던 항목만 재검증.
+  4. 델타(신규로 PASS 전환된 항목) 없는 라운드가 나오면 round 3을 기다리지 않고 즉시 중단.
+  5. round > 3 또는 델타 없음으로 중단된 경우: 루프를 멈추고 STUCK으로 처리 — 라운드별 verdict와 남은 blocking_items를 REPORT.md에 부록으로 첨부한 뒤 사용자에게 에스컬레이션한다 (자동 PASS 처리 금지).
 
 ### Phase 3: 결과 취합
 

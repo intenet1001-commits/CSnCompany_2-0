@@ -56,4 +56,4 @@ PLAN.md 없으면 → git log 역추론 모드 활성화.
 | [항목 2] | MISSING | — | [이유] |
 ```
 
-`ship-spec.md` 생성 후 SendMessage(recipient: "ship-lead") 전송.
+`.cs-artifacts/ship-spec.md` 생성 후 SendMessage(recipient: "ship-lead") 전송.

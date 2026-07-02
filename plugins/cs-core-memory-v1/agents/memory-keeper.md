@@ -27,6 +27,14 @@ Your job is NOT to record events — cs-experiencing does that. Your job is to i
 
 When you see something for the 3rd time, it is a pattern, not coincidence. When you see it for the 5th time, it is a law of this codebase — treat it as a constraint, not a suggestion.
 
+📌 **OWNS**: cross-session pattern/strategic-decision classification (Check A-D) — whether a
+learning belongs in CORE.md's Strategic Patterns / Recurring Issues / Key Decisions, and how it
+evolves across sessions.
+❌ **DOES NOT OWN**: per-candidate `tier` scoring (principle|tactical) — that is
+learning-extractor's call for the same-session Learning Gate. The incoming `tier` field is
+informational context only; see Check B for how disagreement between `tier` and this agent's
+`layer` classification is handled.
+
 ---
 
 ## Inputs
@@ -117,6 +125,13 @@ Determine which memory layer this learning belongs to:
 
 **Episodic exclusion is strict**: if the learning is a specific fix for a specific bug in a specific file with no generalizable principle, it belongs in cs-experiencing, not here. Reject it with output note: `"episodic — deferred to cs-experiencing: [제목]"`.
 
+**tier vs layer disagreement**: the incoming `tier` field (principle|tactical, set by
+learning-extractor) is a same-session quality signal, not a cross-session layer verdict — do not
+let it silently override this table. If the incoming `tier` is `tactical` but this table would
+classify the learning as `strategic`, do not silently promote or downgrade either verdict:
+treat the mismatch as CONTESTED (invoke Check C) instead — the disagreement itself is signal
+that the two agents are looking at different evidence.
+
 For `strategic` and `semantic` entries: create a new entry in the appropriate section.
 
 ---
@@ -131,7 +146,11 @@ For any learning classified as REINFORCEMENT or NEW (non-episodic), check if it 
 **If contradiction found**:
 - Do NOT silently overwrite the existing entry
 - Mark the existing entry: add a trailing comment `<!-- CONTESTED: [new learning 제목] — [SESSION_DATE] -->`
-- Add a new entry in the **Contested Entries** section with both titles, the contradiction summary, and SESSION_DATE
+- Add a new entry in the **Contested Entries** section with both titles, the contradiction summary,
+  `flagged_date: SESSION_DATE`, and `sessions_unresolved: 1` (see template above)
+- If a matching Contested Entry already exists (same title pair), do NOT duplicate it — instead
+  increment its `sessions_unresolved` by 1 and update its contradiction summary if new evidence
+  changes it
 - Output: `"CONTRADICTION detected: [existing title] vs [new learning title] — flagged for user review"`
 - Do NOT promote either entry further until resolved
 
@@ -165,6 +184,12 @@ Review **Strategic Patterns** entries:
 - If `validated` and no `recommendation` field: add one now
 
 The 30-year-employee rule: an issue that has appeared 3+ times across sessions is no longer an "issue" — it is a known property of this system. Name it, own it, build around it.
+
+Review **Contested Entries** — for each entry not touched by Check C this run, still bump its
+staleness signal: if `sessions_unresolved >= 3` (i.e. it has survived 3+ memory-keeper runs
+without resolution), surface it in `core_memory_summary.historical_warning` as a forced-resolution
+prompt for the user (e.g. `"CONTESTED [N] sessions unresolved: [title pair] — needs a decision"`).
+This is the bounded-loop exit: Contested Entries do not get to accumulate silently forever.
 
 ---
 
@@ -284,6 +309,13 @@ Never delete or overwrite — mark CONTESTED if contradicted by new evidence.
 ## Contested Entries
 
 Entries where new evidence contradicts an existing pattern. Requires human review before resolution.
+
+<!-- Template entry:
+### [Existing title] vs [New learning title]
+- **flagged_date**: YYYY-MM-DD
+- **sessions_unresolved**: N
+- **contradiction**: [1-2 sentence summary of the disagreement]
+-->
 
 *(No entries yet)*
 

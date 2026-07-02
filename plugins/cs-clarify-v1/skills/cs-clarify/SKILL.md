@@ -288,6 +288,7 @@ clarify-lead는 자기 출력에 자기 점수를 매기지 않습니다. 점수
 ```
 ✅ CS-clarify 완료
 📄 CLARIFY.md 생성됨: [OUTPUT]/CLARIFY.md
+📊 커버리지: [성공한 워커 수]/[전체 워커 수] ([%])
 📊 Clarify Score: [N]/10
 🔁 Clarify Cycles: [cycle_count]
 🚀 ready_for_plan: [true/false]
@@ -295,6 +296,9 @@ clarify-lead는 자기 출력에 자기 점수를 매기지 않습니다. 점수
 [ready_for_plan=true인 경우]
 ➡️  다음 단계: /CS-plan "[FEATURE]" 로 진행하세요.
 ```
+
+커버리지 분모는 QUICK_MODE=false면 3(interviewer+validator+mapper), true면 2(validator+mapper).
+Phase 2.5 Artifact check에서 200바이트 미만/누락으로 판정된 워커는 분자에서 제외한다 (LOOP-PROTOCOL [d] COVERAGE HONESTY).
 
 **`ready_for_plan=false`인 경우 — 경계 있는 재명료화 루프** (단순 종료 금지):
 

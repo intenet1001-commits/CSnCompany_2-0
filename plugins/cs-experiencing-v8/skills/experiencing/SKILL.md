@@ -92,6 +92,7 @@ echo "📦 cs-smart-run | 현재 콘텐츠 버전: $VERSION"
    ```bash
    BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
    LATEST_TEST=$(ls -d "$BASE/CS-test-v"* 2>/dev/null | sort -V | tail -1)
+   if [ -z "$LATEST_TEST" ]; then echo "❌ CS-test 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
    ```
 2. `$LATEST_TEST/VERSION` 읽기 → 현재 버전 확인
 3. `$LATEST_TEST/skills/CS-test/SKILL.md` 프로토콜 실행
@@ -103,6 +104,7 @@ echo "📦 cs-smart-run | 현재 콘텐츠 버전: $VERSION"
    ```bash
    BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
    LATEST_PLAN=$(ls -d "$BASE/CS-plan-v"* 2>/dev/null | sort -V | tail -1)
+   if [ -z "$LATEST_PLAN" ]; then echo "❌ CS-plan 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
    ```
 2. `$LATEST_PLAN/VERSION` 읽기 → 현재 버전 확인
 3. **학습 회상**(공통 read-side 단계) 수행 후 `$LATEST_PLAN/skills/CS-plan/SKILL.md` 프로토콜 실행
@@ -113,6 +115,7 @@ echo "📦 cs-smart-run | 현재 콘텐츠 버전: $VERSION"
    ```bash
    BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
    LATEST_REVIEW=$(ls -d "$BASE/CS-codebase-review-v"* 2>/dev/null | sort -V | tail -1)
+   if [ -z "$LATEST_REVIEW" ]; then echo "❌ CS-codebase-review 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
    ```
 2. `$LATEST_REVIEW/VERSION` 읽기 → 현재 버전 확인
 3. `$LATEST_REVIEW/skills/CS-codebase-review/SKILL.md` 프로토콜 실행
@@ -137,6 +140,7 @@ echo "📦 cs-smart-run | 현재 콘텐츠 버전: $VERSION"
    ```bash
    BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
    LATEST_DESIGN=$(ls -d "$BASE/cs-design-v"* 2>/dev/null | sort -V | tail -1)
+   if [ -z "$LATEST_DESIGN" ]; then echo "❌ cs-design 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
    ```
 2. `$LATEST_DESIGN/VERSION` 읽기 → 현재 버전 확인
 3. `$LATEST_DESIGN/skills/cs-design/SKILL.md` 프로토콜 실행
@@ -171,12 +175,17 @@ echo "📦 cs-smart-run | 현재 콘텐츠 버전: $VERSION"
 - 반복 적용 가능한 팁, 설정, 명령어
 - 공식 문서/가정과 실제 동작의 차이
 
+각 발견에는 근거(세션 내 실제 command 출력, 파일 경로, 또는 에러 메시지 인용) 1건을 첨부한다
+(plugins/shared/LOOP-PROTOCOL.md [a] EVIDENCE 준용). 근거를 제시할 수 없는 항목은 tier를
+자동으로 `tactical`로 강등하고, 1-B 확인 문구에 `[근거없음]` 경고를 함께 노출한다.
+
 **1-B. 발견사항이 있으면 → 제안 후 확인 (AskUserQuestion 1회)**
 
 ```
 💡 CS-[DOMAIN] — AI가 분석한 이번 세션 핵심 학습:
 
 "[AI가 추출한 학습 제목]: [구체적 발견 내용 1-2줄]"
+근거: [command 출력/파일:줄/에러 메시지 인용]  ← 없으면 "[근거없음] tier: tactical로 강등"
 
 이대로 저장할까요?
 ```
@@ -250,11 +259,14 @@ Edit 도구로:
 #### STEP 4b: 버전 메타데이터 정합성 검증 (push 차단 게이트)
 
 ```bash
-python3 "$BASE_PATH/shared/scripts/pre_pass.py" version-check "$NEW_DIR"
+bash "$BASE_PATH/shared/run_prepass.sh" version-check "$NEW_DIR"
 ```
 
-`"ok": false`이면 불일치 소스(plugin.json / SKILL frontmatter)를 VERSION 파일
-값으로 맞춘 뒤 재실행한다. ok가 될 때까지 commit/push 단계로 진행하지 않는다 —
+(`plugins/CLAUDE.md`의 Python 실행 규칙 준수 — `shared/scripts/*.py`를 `python3`로 직접 호출하지
+않고 항상 이 진입점을 통해 python3 → uv run → uv install 순 자동 폴백을 태운다.)
+
+`"ok": false`이거나 스크립트가 non-zero로 종료하면, 불일치 소스(plugin.json / SKILL frontmatter)를
+VERSION 파일 값으로 맞춘 뒤 재실행한다. ok가 될 때까지 commit/push 단계로 진행하지 않는다 —
 자가 업그레이드가 낡은 자기 서술을 배포하는 것을 막는 게이트.
 (숫자 정규화 비교: `1` == `1.0.0`)
 

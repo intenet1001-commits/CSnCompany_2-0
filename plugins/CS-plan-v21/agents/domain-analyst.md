@@ -148,6 +148,9 @@ Aggregate: [이름]
 - `[이벤트명]`: [발생 시점] - 페이로드: [데이터]
 
 **Repository Interface**
+
+> 📌 **OWNS**: Repository 메서드 시그니처의 정본은 이 문서다. arch-designer는 architecture.md에서 이 시그니처를 그대로 인용/구체화만 하며 새로 창작하지 않는다.
+
 ```
 interface [이름]Repository {
   findById(id: [IdType]): Promise<[Entity] | null>
@@ -182,7 +185,7 @@ interface [이름]Repository {
    SendMessage(
      type: "message",
      recipient: "plan-lead",
-     content: "도메인 분석 완료. Aggregate [N]개, 유스케이스 [N]개, VO [N]개, Domain Event [N]개 식별. 주요 도메인: [핵심 개념 요약]",
+     content: "도메인 분석 완료. Aggregate [N]개, 유스케이스 [N]개, VO [N]개, Domain Event [N]개 식별. 주요 도메인: [핵심 개념 요약]. 가정·우려·미해결 항목: [항목별 severity(높음/중간/낮음)+confidence(높음/중간/낮음)+근거(file:line 또는 판단 사유) — 없으면 '없음' 명시]",
      summary: "도메인 분석 완료"
    )
    ```

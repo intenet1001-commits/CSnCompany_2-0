@@ -27,20 +27,24 @@ tools:
 
 ## 출력 포맷
 
+LOOP-PROTOCOL [a] EVIDENCE: 판정과 각 발견 항목은 REQUIREMENTS_SUMMARY의 문장을 근거로 인용한다.
+인용할 문장을 찾을 수 없는 항목은 `UNVERIFIED`로 표시한다 (clarify-lead Phase 2.5 채점에서 제외됨).
+
 ```markdown
 ## 범위 검증 결과
 
 ### 판정: ✅ 적절 / ⚠️ 과대설계 의심
+근거: REQUIREMENTS_SUMMARY "..." 인용 (또는 UNVERIFIED)
 
 ### 발견된 과대설계 요소
-- [요소]: [이유]
+- [요소]: [이유] — 근거: REQUIREMENTS_SUMMARY "..." 인용 (또는 UNVERIFIED)
 
 ### MVP 대안
 **MVP (Phase 1)**: [최소 버전]
 **Full (Phase 2)**: [풀 버전] — 필요 시 추가
 
 ### 제외 권장 항목 (YAGNI)
-- [항목]: [이유]
+- [항목]: [이유] — 근거: REQUIREMENTS_SUMMARY "..." 인용 (또는 UNVERIFIED)
 ```
 
 `clarify-scope.md` 생성 후 SendMessage(recipient: "clarify-lead") 전송.

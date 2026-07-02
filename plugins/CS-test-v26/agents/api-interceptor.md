@@ -36,7 +36,7 @@ ToolSearch(query: "+playwright network console navigate evaluate click")
 
 ### Step 1: page-map 분석
 
-> 📌 **역할 경계**: og:image 검증은 social-share-auditor 담당. 이 에이전트는 API/네트워크 트래픽에 집중.
+> 📌 **역할 경계**: og:image 검증은 social-share-auditor 담당. 콘솔 에러 분류/등급 반영은 error-resilience 담당 — 이 에이전트는 콘솔 에러를 참고 정보로만 수집(`consoleErrors` 필드는 유지)하고 grade 산정에는 반영하지 않는다. 이 에이전트는 API/네트워크 트래픽에 집중.
 
 `tests/results/page-map.json` 읽기. ogMeta["og:image"] 값 메모.
 
@@ -126,11 +126,13 @@ ToolSearch(query: "+playwright network console navigate evaluate click")
 
 | 등급 | 기준 |
 |------|------|
-| A | 실패 요청 0, 콘솔 에러 0, 평균 응답 < 200ms |
-| B | 실패 ≤ 2, 콘솔 에러 ≤ 2, 평균 < 500ms |
-| C | 실패 ≤ 5, 콘솔 에러 ≤ 5, 평균 < 1s |
+| A | 실패 요청 0, 평균 응답 < 200ms |
+| B | 실패 ≤ 2, 평균 < 500ms |
+| C | 실패 ≤ 5, 평균 < 1s |
 | D | 그 외 |
 | F | 실패 > 10 또는 5xx 존재 |
+
+> 콘솔 에러는 위 등급 산정에 포함하지 않는다 (역할 경계 참고 — error-resilience가 등급 반영을 전담).
 
 ## 완료 보고
 

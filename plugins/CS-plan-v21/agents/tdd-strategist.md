@@ -260,7 +260,7 @@ Then:  [검증]
    SendMessage(
      type: "message",
      recipient: "plan-lead",
-     content: "TDD 전략 완료. Unit 테스트 [N]개, Integration 테스트 [N]개 설계. Phase [N]단계 실행 순서 정의. 주요 엣지 케이스 [N]개 식별.",
+     content: "TDD 전략 완료. Unit 테스트 [N]개, Integration 테스트 [N]개 설계. Phase [N]단계 실행 순서 정의. 주요 엣지 케이스 [N]개 식별. 가정·우려·미해결 항목: [항목별 severity(높음/중간/낮음)+confidence(높음/중간/낮음)+근거(file:line 또는 판단 사유) — 없으면 '없음' 명시]",
      summary: "TDD 전략 완료"
    )
    ```
