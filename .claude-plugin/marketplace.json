@@ -8,8 +8,13 @@
   "plugins": [
     {
       "name": "cs-end",
-      "description": "🏁 Session Closer — 4-Agent analysis + TIL save + error note capture (Phase 2.2) + plugin version-up + GitHub push. Self-contained, no external vault. (/cs-end)",
-      "source": "./plugins/cs-end-v3"
+      "description": "🏁 Session Closer — 4-Agent analysis + TIL save + error note capture (Phase 2.2) + plugin version-up + GitHub push + optional worktree merge (Phase 4.5, --merge-worktree). Self-contained, no external vault. (/cs-end)",
+      "source": "./plugins/cs-end-v4"
+    },
+    {
+      "name": "cs-worktree",
+      "description": "🌿 Worktree Launcher — /cs-start creates an isolated git worktree + branch for a target project and records a manifest so cs-end --merge-worktree can merge it back (PR by default). Non-destructive: no force-push, no auto-conflict-resolution. (/cs-start)",
+      "source": "./plugins/cs-worktree-v1"
     },
     {
       "name": "cs-error-notes",
