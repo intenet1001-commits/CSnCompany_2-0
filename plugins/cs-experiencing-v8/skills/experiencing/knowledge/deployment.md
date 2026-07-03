@@ -37,10 +37,13 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 
 ### 76. NEXT_PUBLIC_ anon key를 서버 전용 route에서 사용하면 RLS에 silently 차단된다 (2026-06-14)
 <!-- tier: principle -->
+<!-- error-ref: ERR-2026-07-03-001 -->
 - **상황**: `app/api/cron/auto-register/route.ts`에서 `NEXT_PUBLIC_SUPABASE_ANON_KEY`로 Supabase 클라이언트를 생성했다. RLS가 활성화된 `fp_cars`/`fp_logs` 테이블을 읽고 insert했다.
 - **발견**: `NEXT_PUBLIC_` 접두사는 "브라우저 안전 공개값" 신호다. anon key로 만든 클라이언트는 RLS 정책의 제약을 받아 쓰기 권한이 없거나 service role이 필요한 행을 읽지 못한다. 배포 에러 없이 HTTP 200이 오지만 실제 DB 작업이 실패하거나 빈 결과를 반환하는 silent failure.
 - **교훈**: 서버 전용 route(API route, Server Action, cron)는 `SUPABASE_SERVICE_ROLE_KEY`로 `createClient()` 생성 필수. `NEXT_PUBLIC_` key는 클라이언트 브라우저 코드에서만 사용. lint rule로 서버 파일에 `NEXT_PUBLIC_SUPABASE_` 문자열을 금지하면 재발 방지.
 - **근거**: `app/api/cron/auto-register/route.ts` L30-33 — `process.env.SUPABASE_SERVICE_ROLE_KEY!` + 주석 "서버 전용 route — anon key 대신 service role key 사용 (RLS 우회)"
+- **addendum (2026-07-03)**: 같은 프로젝트(먹고공부하자) 내 서로 다른 파일에서 이 패턴이 두 번째로 재현됨. `app/api/bot-improve/route.ts`가 anon 클라이언트 + `void anonSupabase.update(...)`(fire-and-forget, unawaited)로 `improvement_status`를 쓰고 있었는데, API 응답은 "1개 오분류 감지" 성공을 보고했지만 DB 컬럼은 계속 null이었다 — RLS UPDATE 정책 부재로 조용히 거부됐기 때문. `getServerSupabase()`(service role) + `await`로 교체 후 `curl`로 실제 DB 반영 확인. **동시에 같은 코드베이스의 `app/api/bot-patterns/route.ts`도 동일한 anon+`void`+`.update()` 패턴을 그대로 갖고 있음을 발견 (아직 미수정)** — 이 항목이 이미 문서화돼 있었음에도 재발했다는 것 자체가 교훈: `void`로 감싼 Supabase write는 실패해도 아무 신호가 없으므로, "성공 응답 = 실제 반영"이라고 가정하지 말고 (1) write 성공이 중요한 모든 `.update()`/`.delete()`는 항상 `await`할 것, (2) 결과를 curl/DB 조회로 별도 검증할 것. lint rule 제안만으로는 재발을 막지 못했다 — 실제로 lint rule을 CI에 넣거나, 매 세션 종료 시 `grep -rn "void.*\.update(\|void.*\.delete("` 로 전체 API route를 스캔하는 게 더 신뢰할 수 있는 방어선이다.
+- **근거(addendum)**: `app/api/bot-improve/route.ts:245,310-314,321-324` (fixed: awaited service-role update) / `app/api/bot-patterns/route.ts:8-14,99` (`void markResolvedLogs(pattern_regex);` — 여전히 anon+fire-and-forget, 미수정)
 
 ### 78. 멀티-phase 서버리스 함수는 phase 경계마다 wall-clock 예산 점검을 삽입한다 (2026-06-14)
 <!-- tier: principle -->
@@ -62,3 +65,10 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: `${{ secrets.* }}`를 `run:` 문자열 내에 직접 보간하면 secret 값에 shell 메타문자가 포함될 경우 injection이 가능하다. `env:` 블록에서 환경변수로 바인딩하고 `${VAR_NAME}` 형태로 참조하면 서브프로세스에 값이 직접 전달되어 shell이 값을 파싱하지 않는다.
 - **교훈**: GitHub Actions에서 secrets를 shell command에 넘길 때는 항상 `env:` 블록 바인딩 패턴 사용. lint rule: `run:` 블록 내 `${{ secrets.` 패턴은 곧 injection 위험 신호.
 - **근거**: `.github/workflows/weekly-parking.yml` L15-17, L31-33 `env: CRON_SECRET: ${{ secrets.CRON_SECRET }}` + `run:` 내 `${CRON_SECRET}` 참조
+
+### 90. Next.js API route의 준-정적 데이터는 모듈-레벨 TTL 캐시로 요청당 반복 DB 조회를 제거한다 (2026-07-03)
+<!-- tier: principle -->
+- **상황**: 팀 점심/커피 주문 챗봇(`app/api/bot-chat/route.ts`, `app/api/voice-order/route.ts`)의 응답이 느리다는 신고. 원인 분석 결과 모델 크기·토큰 상한 문제([87]번과 별개 원인)뿐 아니라, 요청마다 거의 안 바뀌는 데이터(메뉴 목록, 팀원 목록, 사이트 컨텍스트)를 매번 새로 Supabase에서 조회하고 있었다 — `voice-order`는 요청당 최대 3-4개 쿼리, `bot-chat`은 미분류 쿼리마다 4개 쿼리.
+- **발견**: 서버리스 함수라도 warm instance 사이에는 모듈 스코프 변수가 유지된다. `let cache: {data, ts} | null` + `Date.now() - ts < TTL_MS` 체크만으로 별도 인프라(Redis 등) 없이 반복 조회를 제거할 수 있다. 데이터 성격에 맞춰 TTL을 다르게 줬다: 메뉴/팀원처럼 하루 중 거의 안 바뀌는 데이터는 5분, "오늘 팀 현황" 같은 좀 더 자주 바뀔 수 있는 요약 컨텍스트는 2분.
+- **교훈**: Next.js API route(또는 임의의 서버리스 함수)에서 "요청마다 거의 동일한 결과가 나오는 DB 조회"를 발견하면, 먼저 모듈-레벨 `{data, ts}` + TTL 체크 캐시를 시도한다. 캐시 무효화 정책 설계보다 "몇 분 stale 해도 무방한가"만 판단하면 되므로 구현 비용이 매우 낮다. userId처럼 요청별로 달라지는 파라미터가 있으면 그 경로는 캐시를 우회시킨다 (예: `if (!userId && cache && ...)`).
+- **근거**: `app/api/bot-chat/route.ts` — `siteContextCache`(2분 TTL) 추가 (git diff: `+let siteContextCache: { context: string; ts: number } | null = null;`); `app/api/voice-order/route.ts` — `teamCache`/`allMenusCache`(5분 TTL, `CACHE_TTL = 5 * 60 * 1000`) 추가해 `fetchCoffeeCandidates`/`fetchAllFoodMenus`/`fetchCandidates` 3개 함수를 단일 캐시 조회로 통합
