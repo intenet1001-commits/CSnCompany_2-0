@@ -113,3 +113,10 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: Tauri 내장 WebKit이 dynamic import()를 지원하는지 불확실. 코드 스플리팅 호환성 우려.
 - **발견**: `React.lazy(() => import('./SetupWizard'))` + `<Suspense fallback={null}>` 패턴이 Tauri WebKit에서 정상 동작. SetupWizard가 초기 번들에서 제외되고 필요 시 로드됨.
 - **교훈**: Tauri/WebKit이 최신 JS 기능과 비호환이라 가정하지 말 것. React.lazy + Suspense는 위저드 플로우, 설정 패널, 무거운 탭 등 큰 컴포넌트의 초기 번들 축소에 안전하게 사용 가능. Playwright로 lazy 청크가 초기 network 요청에 없는지 확인하면 됨.
+
+### 94. 공유 렌더 함수의 early-return 순서가 서브플로우 상태를 가릴 수 있다 (2026-07-05)
+<!-- tier: principle -->
+- **상황**: 음성 주문 봇에 "대신 주문" 기능을 새 진입 버튼으로 추가. 대상자 이름 확인 후 메뉴/커피까지 GPT 매칭은 정상 완료됐는데, 최종 확인 카드가 화면에 전혀 나타나지 않아 주문을 제출할 방법이 없는 소프트락 상태가 됨.
+- **발견**: 하나의 `renderChips()` 함수가 메인 플로우 상태(`step`)와 서브플로우 상태(`proxyStep`)를 순차적 `if (...) return (...)` 체인으로 함께 렌더링하고 있었다. 서브플로우의 "확인 카드" 분기(`proxyStep === "confirm"`)가 메인 플로우의 `step === "greeting"` 분기보다 코드상 아래에 있어, 새로 추가한 진입 버튼처럼 메인 `step`이 계속 "greeting"으로 남아있는 상태에서 서브플로우를 시작하면 그 확인 카드 분기에 도달하기도 전에 greeting 분기가 먼저 return 해버림. 기존에는 서브플로우가 항상 `step === "after-confirm"`(메인 주문 완료 후)에서만 시작돼서 이 순서 문제가 드러나지 않았을 뿐, 근본적으로 순서에 의존하는 취약한 구조였다.
+- **교훈**: 한 컴포넌트가 서로 독립적인 두 개 이상의 상태 머신(메인 플로우 + 서브플로우)을 하나의 렌더 함수에서 순차 early-return으로 처리하고 있다면, 서브플로우가 "활성 상태"일 때의 분기를 메인 플로우 분기보다 먼저 체크하도록 최상단에 둔다. 특히 서브플로우로의 새 진입 경로를 추가할 때는, 그 경로가 메인 플로우의 default/초기 상태("greeting" 등)와 동시에 존재할 수 있는지 반드시 확인 — 기존에 한 가지 트리거 경로만 있었다는 사실이 순서 안전성을 보장하지 않는다.
+- **근거**: `components/voice-order-bot.tsx` `renderChips()` — Playwright로 재현: 신규 "대신주문" 버튼 클릭 → 메뉴/커피 GPT 매칭 성공(API 200 응답 확인) → 확인 카드 미표시. `proxyStep === "confirm"` 분기를 `step === "greeting"` 분기보다 위로 이동 후 재현 안 됨 확인.

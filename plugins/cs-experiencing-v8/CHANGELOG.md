@@ -1,4 +1,11 @@
 
+## 8.1.2 — 2026-07-05
+- 학습 #92 추가: 이중 로그인 아키텍처에서 세션 게이트 API는 다수 유저에게 상시 401을 낼 수 있다 (principle, error-ref: ERR-2026-07-05-001)
+- 학습 #93 추가: 이름/식별자 퍼지 매칭은 substring 포함 대신 Levenshtein 거리만 사용 (principle)
+- 학습 #94 추가: 공유 렌더 함수의 early-return 순서가 서브플로우 상태를 가릴 수 있다 (principle)
+- 학습 #4 addendum: CS-plugin 자기개선 외에 클라이언트 프로젝트 코드 개선을 위한 외부 교육자료(.ipynb) 분석에도 동일 패턴 적용 확인
+- 출처: 먹고공부하자 대신주문(proxy-order) 기능 401 버그 + 오매칭 버그 + 렌더 소프트락 버그 수정 세션 (2026-07-05)
+
 ## 8.1.1 — 2026-07-03
 - 학습 #90 추가: Next.js API route 준-정적 데이터는 모듈-레벨 TTL 캐시로 반복 DB 조회 제거 (principle)
 - 학습 #91 추가: 대시보드 미해결처럼 보이는 값 — snapshot 필드 vs live-computed 필드 구분 (principle, skeptic CONFIRM)
