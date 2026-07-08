@@ -1,4 +1,9 @@
 
+## 8.1.3 — 2026-07-08
+- 학습 #95 추가: macOS 앱 샌드박스 컨테이너 파일은 Full Disk Access/Automation 권한 없는 터미널에서 접근 불가 (principle, skeptic CONFIRM)
+- 학습 #96 추가: React 클로저 stale state + Playwright ref 재사용은 querySelector 재조회 + 별도 evaluate 호출 + 클릭 간 지연으로 우회 (principle, skeptic CONFIRM)
+- 출처: Derivative1(쉬운 해외파생 프로토타입) 세션 — CS 플러그인 도메인 작업 없음, 도메인 무관 범용 운영 패턴 2건만 채집 (2026-07-08)
+
 ## 8.1.2 — 2026-07-05
 - 학습 #92 추가: 이중 로그인 아키텍처에서 세션 게이트 API는 다수 유저에게 상시 401을 낼 수 있다 (principle, error-ref: ERR-2026-07-05-001)
 - 학습 #93 추가: 이름/식별자 퍼지 매칭은 substring 포함 대신 Levenshtein 거리만 사용 (principle)

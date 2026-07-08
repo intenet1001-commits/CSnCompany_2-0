@@ -720,3 +720,19 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: 버그 원인: `rollingTraderTotal`(mau_transaction_rolling.total_cus_cnt = 전체 합계)을 cus_type 분기 없이 모든 케이스에 적용. `funnel_rolling.total_ose_trd_cus_cnt`는 cus_type별로 분리된 실제 값을 가짐. DB에 세그먼트별 컬럼과 전체 합계 컬럼이 공존할 때, 전체 합계를 기본값으로 쓰면 세그먼트 모드에서 전체값이 세그먼트값을 무음으로 대체한다.
 - **교훈**: 세그먼트(cus_type)별로 분리된 컬럼이 있을 때, 전체 합계 fallback은 세그먼트별 값이 NULL인 경우에만 적용한다. `segmentCol ?? aggregateFallback` 패턴이 정준(canonical) 형태. 어떤 스택에서도 "세그먼트 컬럼 우선, 전체 합계는 마지막 fallback" 원칙이 적용된다.
 - **근거**: Before: `val: (period === 'rolling' ? rollingTraderTotal : ...)` → 신규고객 D8=312,218 / After: `val: (d.d8_total_uv ?? (period === 'rolling' ? rollingTraderTotal : ...))` → 신규고객 D8=1,829 (app/mau/page.tsx line 3433, 2026-06-17)
+
+### 95. macOS 앱 샌드박스 컨테이너 파일은 Full Disk Access/Automation 권한 없는 터미널에서 접근 불가 (2026-07-08)
+<!-- tier: principle, error-ref: ERR-2026-07-08-001 -->
+
+- **상황**: Claude Code 세션에서 Shottr(샌드박스 배포 스크린샷 앱)가 저장한 스크린샷 파일(`~/Library/Containers/cc.ffitch.shottr/Data/tmp/.../*.png`)을 Read/Bash cp/osascript로 접근 시도.
+- **발견**: Read 도구 EPERM, `cp` EPERM("Operation not permitted"), `osascript ... tell application "Finder"` -1743("Not authorized to send Apple events to Finder") — 세 가지 방식 모두 실패. macOS TCC가 다른 앱의 `~/Library/Containers/<bundle-id>/...` 트리에 대한 접근을 Full Disk Access로, Finder 등 타 앱 자동화를 Automation 권한으로 별도 게이팅하기 때문. 이는 호출 프로세스(터미널)의 TCC 권한 부여 여부에 달린 조건부 차단이며 — Full Disk Access가 부여된 터미널이라면 접근 가능하므로 "무조건 불가"가 아니라 "권한 미부여 시 불가"로 이해해야 함(verifier 지적).
+- **교훈**: 경로가 `~/Library/Containers/<bundle-id>/...` 형태로 보이면 즉시 접근 실패를 예상하고, Read/cp/osascript 재시도로 시간 쓰지 말고 바로 사용자에게 파일을 비샌드박스 위치(Desktop, 프로젝트 디렉토리 등)로 옮겨달라고 요청하는 것으로 전환한다.
+- **근거**: Derivative1 프로젝트 세션 2026-07-08 — Read tool `EPERM: operation not permitted, open '/Users/gwanli/Library/Containers/cc.ffitch.shottr/...'`, `cp` → `Operation not permitted`, `osascript` → `29:202: execution error: Not authorized to send Apple events to Finder. (-1743)` (동일 파일에 3가지 방식 모두 실패, skeptic verifier CONFIRMED)
+
+### 96. React 클로저 stale state + Playwright ref 재사용은 querySelector 재조회 + 별도 evaluate 호출 + 클릭 간 지연으로 우회 (2026-07-08)
+<!-- tier: principle -->
+
+- **상황**: Playwright로 React 상태 기반 UI(수량 스테퍼, 빠른 화면 전환)를 자동 테스트하던 중 두 가지 문제 발생.
+- **발견**: (1) `onClick={() => setQty(qty+1)}` 형태 핸들러에 동기 루프로 `.click()`을 연속 호출하면, 각 호출이 마지막 렌더 시점의 동일한 stale `qty`를 클로저로 캡처하고 있어 리렌더 전에 여러 번 호출해도 1회분만 반영됨 — React 업데이트 배칭 + 클로저의 조합으로 발생하는 표준적 현상(함수형 업데이터 `setQty(q => q+1)`을 쓰지 않는 한 재현됨). (2) 빠른 네비게이션 후 이전 스냅샷에서 얻은 element ref가 stale해져 엉뚱한 DOM에 반응함 — Playwright ref는 캡처 시점 스냅샷에 종속되는 것이 정상 동작.
+- **교훈**: React 상태 UI를 Playwright `browser_evaluate`로 빠르게 조작할 때는 (1) 저장된 ref 재사용 대신 매번 `document.querySelector`로 재조회, (2) 클릭 직후 상태 확인은 같은 evaluate 호출이 아닌 별도의 후속 evaluate 호출로 분리(리렌더가 비동기이므로), (3) 연속 클릭 사이에 `await new Promise(r => setTimeout(r, 30))` 등 짧은 지연을 넣어 클로저 stale-state 언더카운트를 방지한다.
+- **근거**: Derivative1 프로젝트 세션 2026-07-08 — 수량 스테퍼 동기 클릭 루프가 1회분만 반영, `async` evaluate + 클릭 간 30ms 지연으로 해결 확인; 화면 전환 후 stale ref로 인한 의도치 않은 화면 점프를 `document.querySelector` 기반 클릭 + 별도 evaluate 결과 조회로 해결 확인 (skeptic verifier CONFIRMED, React 배칭/클로저 시맨틱스는 버전 무관 안정 지식으로 판정)
