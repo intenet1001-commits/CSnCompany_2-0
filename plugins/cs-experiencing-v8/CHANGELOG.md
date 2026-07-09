@@ -1,4 +1,11 @@
 
+## 8.1.4 — 2026-07-09
+- 학습 #97 추가: worktree가 main을 점유 중이면 `gh pr merge`가 로컬 브랜치 동기화 실패로 막힌다 — `gh api PUT merge`로 우회 (tactical, skeptic 검증 대상 아님)
+- 학습 #98 추가: 웹·앱이 같은 머신에서 동시 접근하는 상태는 localStorage 대신 공유 파일 + 이중 접근 경로로 관리한다 (tactical — skeptic이 principle에서 downgrade: 저장 형식은 project-specific)
+- 학습 #99 추가: "왜 반영이 안 됐지" 류 버그는 표시 계층의 데이터 소스 불일치가 원인인 경우가 많다 — 재시작/저장소 범위/이벤트 커버리지부터 점검 (tactical — skeptic이 principle에서 downgrade: 기존 디버깅 상식의 재확인)
+- PENDING (미저장, 2-3점): "클릭 로그만으론 실제 git 활동 미반영" 학습 후보 — 노벨티 있으나 impact/reusability 낮아 게이트 미통과
+- 출처: portmanagement(포트 관리 프로그램) 세션 — CS 플러그인 도메인 작업 없음, 도메인 무관 범용 운영 패턴 3건 채집 (2026-07-09)
+
 ## 8.1.3 — 2026-07-08
 - 학습 #95 추가: macOS 앱 샌드박스 컨테이너 파일은 Full Disk Access/Automation 권한 없는 터미널에서 접근 불가 (principle, skeptic CONFIRM)
 - 학습 #96 추가: React 클로저 stale state + Playwright ref 재사용은 querySelector 재조회 + 별도 evaluate 호출 + 클릭 간 지연으로 우회 (principle, skeptic CONFIRM)

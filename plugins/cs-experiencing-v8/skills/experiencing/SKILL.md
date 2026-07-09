@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.2
+version: 8.1.4
 allowed-tools:
   - Read
   - Write
@@ -736,3 +736,27 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: (1) `onClick={() => setQty(qty+1)}` 형태 핸들러에 동기 루프로 `.click()`을 연속 호출하면, 각 호출이 마지막 렌더 시점의 동일한 stale `qty`를 클로저로 캡처하고 있어 리렌더 전에 여러 번 호출해도 1회분만 반영됨 — React 업데이트 배칭 + 클로저의 조합으로 발생하는 표준적 현상(함수형 업데이터 `setQty(q => q+1)`을 쓰지 않는 한 재현됨). (2) 빠른 네비게이션 후 이전 스냅샷에서 얻은 element ref가 stale해져 엉뚱한 DOM에 반응함 — Playwright ref는 캡처 시점 스냅샷에 종속되는 것이 정상 동작.
 - **교훈**: React 상태 UI를 Playwright `browser_evaluate`로 빠르게 조작할 때는 (1) 저장된 ref 재사용 대신 매번 `document.querySelector`로 재조회, (2) 클릭 직후 상태 확인은 같은 evaluate 호출이 아닌 별도의 후속 evaluate 호출로 분리(리렌더가 비동기이므로), (3) 연속 클릭 사이에 `await new Promise(r => setTimeout(r, 30))` 등 짧은 지연을 넣어 클로저 stale-state 언더카운트를 방지한다.
 - **근거**: Derivative1 프로젝트 세션 2026-07-08 — 수량 스테퍼 동기 클릭 루프가 1회분만 반영, `async` evaluate + 클릭 간 30ms 지연으로 해결 확인; 화면 전환 후 stale ref로 인한 의도치 않은 화면 점프를 `document.querySelector` 기반 클릭 + 별도 evaluate 결과 조회로 해결 확인 (skeptic verifier CONFIRMED, React 배칭/클로저 시맨틱스는 버전 무관 안정 지식으로 판정)
+
+### 97. worktree가 main을 점유 중이면 `gh pr merge`가 로컬 브랜치 동기화 실패로 막힌다 — `gh api PUT merge`로 우회 (2026-07-09)
+<!-- tier: tactical, error-ref: ERR-2026-07-09-001 -->
+
+- **상황**: portmanagement 프로젝트에서 `.claude/worktrees/last-run-sort` 워크트리로 작업한 PR을 사용자가 "메인에 머지해"라고 지시해 병합 시도.
+- **발견**: 동일 레포의 다른 워크트리(원래 체크아웃 디렉토리)가 이미 `main`을 체크아웃하고 있으면, 일반 `gh pr merge`는 병합 후 로컬 main 브랜치를 갱신하려다 `fatal: 'main' is already used by worktree` 에러로 실패한다. `gh api repos/<owner>/<repo>/pulls/<N>/merge -X PUT -f merge_method=squash`로 GitHub API를 직접 호출하면 로컬 체크아웃 상태와 무관하게 원격에서 병합된다.
+- **교훈**: worktree를 상시 여러 개 운용하는 리포에서 `gh pr merge`가 이 에러로 실패하면 재시도하지 말고 즉시 `gh api .../merge -X PUT`으로 전환한다.
+- **근거**: `gh pr merge 3 --squash --delete-branch` → `failed to run git: fatal: 'main' is already used by worktree at '/Users/gwanli/product_2026/portmanagement'` / `gh api repos/intenet1001-commits/AgentsToZ_byCS/pulls/3/merge -X PUT -f merge_method=squash` → `{"merged":true}` (2026-07-09 세션)
+
+### 98. 웹·앱이 같은 머신에서 동시 접근하는 상태는 localStorage 대신 공유 파일 + 이중 접근 경로로 관리한다 (2026-07-09)
+<!-- tier: tactical -->
+
+- **상황**: Tauri 앱(포트 관리 프로그램)에 "마지막 방문 시각" 라벨을 추가했는데, 사용자가 웹 브라우저 탭과 데스크톱 앱을 같이 써도 값이 같이 관리돼야 한다고 지적.
+- **발견**: `localStorage`는 브라우저 오리진/Tauri webview별로 완전히 분리된 저장소라 웹에서 기록한 값이 앱에서 보이지 않고 그 반대도 마찬가지다. 이 프로젝트가 주 데이터(`ports.json`)에 이미 쓰던 패턴 — 앱 데이터 디렉토리의 공유 JSON 파일을 웹은 HTTP 엔드포인트(Bun api-server)로, 데스크톱 앱은 Tauri `invoke` 커맨드로 각각 읽고 쓰는 이중 접근 경로 — 를 그대로 적용해 해결했다. 동시 기록 충돌은 "더 최신 타임스탬프만 반영"으로 단순 해결 가능.
+- **교훈**: 웹+데스크톱을 동시 지원하는 앱에서 여러 실행 표면(브라우저 탭, 웹뷰)이 공유해야 하는 새 상태를 추가할 때는 `localStorage`를 기본값으로 쓰지 말고, 처음부터 "공유 파일 + (HTTP 엔드포인트, 네이티브 invoke 커맨드) 이중 접근" 패턴을 채택한다. 이는 이 앱만의 관례가 아니라 하나의 머신에서 여러 JS 런타임(브라우저 vs 웹뷰)이 상태를 공유해야 하는 모든 dual-surface 앱에 적용되는 일반 원칙이다 — 구체적 저장 형식(JSON 파일 vs sqlite vs IPC)은 프로젝트마다 다를 수 있다 (skeptic verifier: 저장 형식 자체는 project-specific이라 tactical로 판정, 다만 "동일 머신 내 분리된 JS 런타임은 localStorage를 공유하지 않는다"는 근본 사실 자체는 안정적).
+- **근거**: `last-visits.json`을 `~/Library/Application Support/com.portmanager.portmanager/`에 신설, `POST /api/last-visits`(웹) + `save_last_visit` Tauri invoke(앱) 양쪽 구현 → 브라우저에서 실행한 포트가 앱에서도 동일한 "마지막 실행" 시각으로 표시됨 확인 (2026-07-09 세션, PR #4)
+
+### 99. "왜 반영이 안 됐지" 류 버그는 로직보다 표시 계층이 참조하는 데이터 소스가 최신 상태와 다른 경우가 많다 — 재시작/저장소 범위/이벤트 커버리지부터 점검 (2026-07-09)
+<!-- tier: tactical -->
+
+- **상황**: 한 세션 안에서 "반영이 안 된 것 같다"는 취지의 사용자 지적이 연속 3회 발생 — ① PR 머지 후에도 동작이 그대로였음 ② 웹/앱 간 값 불일치 ③ 실제 작업일보다 오래된 "마지막 실행" 표시.
+- **발견**: 세 사례의 근본 원인이 각각 달랐다 — ① `--watch` 없이 떠 있던 Bun API 서버가 git pull 이후에도 프로세스 재시작 전까지 새 라우트를 인식하지 못함 ② `localStorage`가 웹/앱 실행 표면별로 분리된 저장소임 ③ UI 버튼 클릭 로그만으로는 터미널/에디터로 직접 한 작업을 감지하지 못함. 셋 다 "표시되는 값을 계산하는 로직"이 아니라 "그 값이 읽어오는 소스가 실제 최신 상태와 다른 곳"이 원인이었다.
+- **교훈**: 사용자가 "반영이 안 됐다/이상하다"고 지적하면 로직을 먼저 의심하기 전에 (1) 관련 프로세스가 최신 코드로 재시작됐는지 (2) 값을 읽는 위치가 여러 실행 표면(웹/앱, 여러 프로세스)에서 동일한 소스를 가리키는지 (3) 기록되는 이벤트가 실제 활동 전체를 커버하는지를 먼저 점검한다. (skeptic verifier: 이 세션 3건만으로 "대부분"을 통계적으로 입증하진 못하나, 세 원인이 모두 "read path가 최신 소스를 안 보고 있다"는 동일 카테고리로 수렴한다는 점에서 재사용 가능한 디버깅 체크리스트로 유효 — 다만 새로운 발견이 아니라 기존 캐시/stale-state 디버깅 상식의 재확인이라 principle이 아닌 tactical로 판정)
+- **근거**: "그대로인거같은데"(서버 미재시작, 재기동 후 해결) / "웹,앱을 동시에 적용한거같지는 않음"(localStorage 분리, last-visits.json 공유로 해결) / "11일전 이라고 뜬거자체가 이상함"(클릭 로그 vs git 커밋시각, git log 병합으로 해결) — 2026-07-09 portmanagement 세션, PR #3~#5
