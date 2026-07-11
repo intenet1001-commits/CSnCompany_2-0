@@ -1,4 +1,13 @@
 
+## 8.1.5 — 2026-07-11
+- 학습 #100 추가: git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (principle, skeptic CONFIRM, error-ref: ERR-2026-07-11-001)
+- 학습 #101 추가: git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (principle, skeptic CONFIRM)
+- 학습 #102 추가: 심볼릭 링크를 지나는 경로에서 문자열 prefix 필터가 조용히 실패할 수 있다 (principle, skeptic CONFIRM)
+- 학습 #99 addendum ×2: (1) 웹/네이티브 이중 백엔드는 한쪽만 고쳐선 안 되고 양쪽 다 별도 빌드/체크로 검증해야 한다 (2) "표시 계층 데이터 소스" 체크리스트에 "쓰기 경로가 실제로 존재하는가" 4번째 항목 추가 (둘 다 skeptic CONFIRM, #99와 상황 인접해 addendum 처리)
+- REJECTED (skeptic): "'머지 에러' 리포트 조사 시 먼저 미해결 merge 상태부터 확인" — 인과관계가 정황적 추정에 그쳐 원칙으로 확정 불가 판정
+- DROPPED (pre-score 1/6): "네이티브 파일 피커 버튼 추가(osascript/OpenFileDialog/tauri dialog)" — 범용 인사이트 없는 구현 요약
+- 출처: portmanagement(포트 관리 프로그램) 세션 — CS 플러그인 도메인 작업 없음. 워크트리 lock/prune 버그, Rust/TS 이중 백엔드 drift, UI 카운터 dead-write-path, git 계산값 라벨 모호성, symlink 경로 필터 버그를 disposable 테스트 repo로 직접 재현·검증 후 채집 (2026-07-11)
+
 ## 8.1.4 — 2026-07-09
 - 학습 #97 추가: worktree가 main을 점유 중이면 `gh pr merge`가 로컬 브랜치 동기화 실패로 막힌다 — `gh api PUT merge`로 우회 (tactical, skeptic 검증 대상 아님)
 - 학습 #98 추가: 웹·앱이 같은 머신에서 동시 접근하는 상태는 localStorage 대신 공유 파일 + 이중 접근 경로로 관리한다 (tactical — skeptic이 principle에서 downgrade: 저장 형식은 project-specific)

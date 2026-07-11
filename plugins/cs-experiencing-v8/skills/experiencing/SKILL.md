@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.4
+version: 8.1.5
 allowed-tools:
   - Read
   - Write
@@ -588,6 +588,9 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 92 | 이중 로그인 아키텍처에서 세션 게이트 API는 다수 유저에게 상시 401을 낼 수 있다 (2026-07-05) | principle | auth, nextauth, session, localstorage, dual-login, 401 | knowledge/debugging.md |
 | 93 | 이름/식별자 퍼지 매칭은 substring 포함 대신 Levenshtein 거리만 사용 (2026-07-05) | principle | fuzzy-match, levenshtein, substring, 오매칭, string-matching | knowledge/debugging.md |
 | 94 | 공유 렌더 함수의 early-return 순서가 서브플로우 상태를 가릴 수 있다 (2026-07-05) | principle | react, early-return, render-order, sub-flow, softlock | knowledge/react-frontend.md |
+| 100 | git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (2026-07-11) | principle | git-worktree, locked, prune, unlock | knowledge/git-worktree.md |
+| 101 | git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (2026-07-11) | principle | git, ui-label, ambiguity, rev-list | 인라인 |
+| 102 | 심볼릭 링크를 지나는 경로에서 문자열 prefix 필터가 조용히 실패할 수 있다 (2026-07-11) | principle | symlink, realpath, path-filter, macos | knowledge/git-worktree.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
@@ -760,3 +763,29 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: 세 사례의 근본 원인이 각각 달랐다 — ① `--watch` 없이 떠 있던 Bun API 서버가 git pull 이후에도 프로세스 재시작 전까지 새 라우트를 인식하지 못함 ② `localStorage`가 웹/앱 실행 표면별로 분리된 저장소임 ③ UI 버튼 클릭 로그만으로는 터미널/에디터로 직접 한 작업을 감지하지 못함. 셋 다 "표시되는 값을 계산하는 로직"이 아니라 "그 값이 읽어오는 소스가 실제 최신 상태와 다른 곳"이 원인이었다.
 - **교훈**: 사용자가 "반영이 안 됐다/이상하다"고 지적하면 로직을 먼저 의심하기 전에 (1) 관련 프로세스가 최신 코드로 재시작됐는지 (2) 값을 읽는 위치가 여러 실행 표면(웹/앱, 여러 프로세스)에서 동일한 소스를 가리키는지 (3) 기록되는 이벤트가 실제 활동 전체를 커버하는지를 먼저 점검한다. (skeptic verifier: 이 세션 3건만으로 "대부분"을 통계적으로 입증하진 못하나, 세 원인이 모두 "read path가 최신 소스를 안 보고 있다"는 동일 카테고리로 수렴한다는 점에서 재사용 가능한 디버깅 체크리스트로 유효 — 다만 새로운 발견이 아니라 기존 캐시/stale-state 디버깅 상식의 재확인이라 principle이 아닌 tactical로 판정)
 - **근거**: "그대로인거같은데"(서버 미재시작, 재기동 후 해결) / "웹,앱을 동시에 적용한거같지는 않음"(localStorage 분리, last-visits.json 공유로 해결) / "11일전 이라고 뜬거자체가 이상함"(클릭 로그 vs git 커밋시각, git log 병합으로 해결) — 2026-07-09 portmanagement 세션, PR #3~#5
+- **addendum (2026-07-11)**: 웹 dev-server(TS)와 패키징된 네이티브 앱(Rust)이 같은 기능을 독립적으로 중복 구현한 경우, "재시작"만으로는 안 끝난다 — 두 구현 모두에 동일 로직을 이식하고 각각 별도 빌드/체크(`bun run typecheck` / `cargo check`)로 검증해야 한다. api-server.ts의 locked-worktree 삭제 버그를 고쳤지만 패키징된 Tauri 앱은 별개의 Rust 구현(`src-tauri/src/lib.rs`)을 호출해 동일 버그가 그대로 남아있었고, Rust 쪽에 로직을 이식(`cargo check` 통과)한 뒤에야 실제로 해결됨 (skeptic verifier CONFIRMED).
+- **addendum (2026-07-11)**: "표시 계층 데이터 소스" 체크리스트에 4번째 항목 추가 — (4) 그 필드를 채우는 쓰기 경로가 현재 UI에 실제로 존재하는가. 사이드바 카운터가 `ports.filter(p => !!p.worktreePath)`를 읽었지만 워크트리 패널의 어떤 코드 경로도 `worktreePath`를 세팅하지 않아(레거시 폼에만 존재) 사용량과 무관하게 항상 0이었던 사례 — grep으로 직접 확인 (skeptic verifier CONFIRMED, "UI 카운터 신뢰 전 쓰기 경로 존재 확인" 원칙 자체는 안정적).
+
+### 100. git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (2026-07-11)
+<!-- tier: principle, error-ref: ERR-2026-07-11-001 -->
+
+- **상황**: 포트관리 앱의 워크트리 '삭제' 버튼 클릭 시 에러가 나는 버그를 조사.
+- **발견**: Claude Code 세션이 자신의 워크트리를 `.git/worktrees/<name>/locked` 파일로 잠그는데, `git worktree prune`은 locked 항목을 "일시적으로 접근 불가한 이동식 미디어"로 간주해 설계상 건너뛴다. 물리 폴더가 이미 삭제된 뒤에도 `remove --force` 단독으로는 등록이 영구히 남는다. 또한 `if (!existsSync(worktreePath)) return error`를 정리 로직보다 먼저 두면, 폴더가 사라진 순간부터 prune 폴백에 아예 도달하지 못하고 영구히 에러만 반환한다.
+- **교훈**: git worktree를 프로그래밍적으로 제거하는 코드는 remove 실패 시 곧바로 prune에 기대지 말고, remove 시도 전에 `git worktree unlock <path>`을 먼저 호출(실패 무시)하고, '물리 디렉토리 없음'을 즉시 에러로 처리하지 말고 기존 정리/prune 경로로 흘려보내야 한다.
+- **근거**: 디스포저블 테스트 repo에서 `git worktree lock <path>` → 폴더 rm -rf → `remove --force`만으로는 `git worktree list --porcelain`에 영구히 남는 것을 확인. `git worktree unlock <path>` 실행 후 동일 시퀀스를 실행하면 완전히 사라짐을 확인 (skeptic verifier CONFIRMED).
+
+### 101. git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (2026-07-11)
+<!-- tier: principle -->
+
+- **상황**: 워크트리 '머지' 버튼을 `aheadCount === 0`(main 대비 unmerged 커밋 0개)일 때 '머지됨'으로 라벨링하는 로직 검토.
+- **발견**: `git rev-list --count main..branch`가 0을 반환하는 경우는 "브랜치가 방금 생성돼 아직 diverge 안 함"과 "diverge했다가 다시 머지되어 합쳐짐" 둘 다 있으며, rev-list 카운트만으로는 이 둘을 구분할 수 없다 — 두 실제 히스토리가 동일한 신호로 뭉개진다. 그런데도 라벨은 검증 불가능한 특정 히스토리("이미 머지됨")를 단언하고 있었다.
+- **교훈**: git 계산값으로 UI 라벨을 만들 때는 그 계산이 라벨이 함의하는 상태들을 실제로 구분할 수 있는지 먼저 확인한다. 구분 불가능하면 라벨은 "측정한 값"만 설명해야지 "그 이유에 대한 이야기"를 단언해서는 안 된다.
+- **근거**: 직접 git 커맨드로 두 시나리오(신규 브랜치 vs 머지 후 브랜치) 모두 `aheadCount=0`을 반환함을 확인. 라벨을 "머지됨" → "변경 없음"으로 수정 (skeptic verifier CONFIRMED).
+
+### 102. 심볼릭 링크를 지나는 경로에서 문자열 prefix 필터가 조용히 실패할 수 있다 (2026-07-11)
+<!-- tier: principle -->
+
+- **상황**: disposable 테스트 repo(`mktemp -d`, macOS `/var/folders/...`)로 워크트리 API를 curl로 end-to-end 검증하던 중, 실제 존재하는 워크트리가 목록에서 누락됨을 발견.
+- **발견**: git은 워크트리 경로를 내부적으로 realpath로 정규화해 보고하지만(`/private/var/...`), 애플리케이션 코드는 입력받은 원본 경로(`/var/...`, symlink 미해석)를 기준으로 `startsWith()` prefix 비교를 하고 있어 두 경로 문자열이 일치하지 않아 필터링에서 조용히 탈락했다. 동일 로직을 symlink가 없는 `/Users/...` 경로에서 재실행하면 정상 동작함을 대조 확인.
+- **교훈**: git(또는 OS 파일시스템 API)이 내부적으로 realpath 정규화를 수행하는 값과, 애플리케이션이 별도로 받은 원본 입력 경로를 문자열로 직접 비교(특히 `startsWith`/`endsWith` prefix/suffix 매칭)하는 코드는 symlink가 섞인 환경(대표적으로 macOS `/var` → `/private/var`, `/tmp` → `/private/tmp`)에서 조용히 실패할 수 있다. 경로 비교 전 양쪽을 동일하게 정규화(realpath)하거나, 정규화 차이를 감안한 테스트를 거쳐야 한다.
+- **근거**: `/api/list-git-worktrees`가 `/var/folders/...` 경로에서는 등록된 워크트리를 누락시키고, 동일 로직이 `/Users/...` 경로에서는 정상 반환하는 것을 curl로 대조 확인 (skeptic verifier CONFIRMED — 이 사용자의 실제 프로젝트 경로는 symlink가 없어 직접 영향은 없으나, 패턴 자체는 플랫폼 안정 사실).
