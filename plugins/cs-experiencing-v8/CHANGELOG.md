@@ -1,4 +1,11 @@
 
+## 8.1.6 — 2026-07-11
+- 학습 #103 추가: git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (principle, skeptic CONFIRM)
+- 학습 #104 추가: OpenAI 추론형(reasoning-tier) 모델은 temperature 기본값(1) 외 다른 값을 거부한다 (tactical — skeptic이 principle에서 downgrade: 벤더 API/모델-버전 종속 사실)
+- PENDING (미저장, 2-3점): "다운스케일 스크린샷 텍스트는 크롭 확대·DOM 대조 전엔 버그로 단정 금지" / "browse 도구 자체 커서 오버레이를 앱 UI로 오인 주의" / "browse fill 실패 시 js 서브커맨드로 네이티브 setter 우회" / "CLAUDE.md 스킬 라우팅이 무관 스킬의 사전조건(클린 트리)을 강제할 수 있음" — 4건 모두 노벨티는 있으나 impact/reusability가 낮아 게이트 미통과
+- DROPPED (pre-score 1/6): "bun이 ~/.bun/bin에 있어도 기본 PATH에 없음" — 특정 로컬 환경 설정 이슈, 범용성 없음
+- 출처: meokgo-study(먹고공부하자, Next.js 팀 점심/커피 주문 앱) `/qa` 세션 — CS 플러그인 도메인 작업 없음(gstack 마켓플레이스의 `/qa` 스킬만 사용). PII 포함 DB export 파일 커밋 직전 발견·제외, AI 추천 502 버그(reasoning 모델 temperature 미지원) 발견·수정·검증 (2026-07-11)
+
 ## 8.1.5 — 2026-07-11
 - 학습 #100 추가: git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (principle, skeptic CONFIRM, error-ref: ERR-2026-07-11-001)
 - 학습 #101 추가: git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (principle, skeptic CONFIRM)
