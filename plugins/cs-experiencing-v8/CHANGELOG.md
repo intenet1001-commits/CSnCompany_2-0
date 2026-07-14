@@ -1,4 +1,11 @@
 
+## 8.1.8 — 2026-07-14
+- 학습 #106 추가: 실결제 앱은 adb 입력 인젝션을 보안 위협으로 감지해 자체 종료할 수 있다 (tactical — skeptic DOWNGRADE: 단일 기기·단일 앱 관찰)
+- 학습 #107 추가: 동일 화이트라벨 벤더의 패키지명 prefix가 adb 자동화 안정성을 예측하는 신호가 될 수 있다 (tactical — skeptic DOWNGRADE: 표본 1쌍)
+- 학습 #108 추가: OCR로 저신뢰도 탐지된 아이콘의 바운딩박스 중심이 실제 탭 타겟과 어긋날 수 있다 (tactical — skeptic DOWNGRADE: 단일 아이콘·앱 레이아웃 종속 수치)
+- 학습 #109 추가: 안드로이드 하이브리드 앱에서 뒤로가기 도달 화면은 진입 경로에 따라 비결정적일 수 있다 (tactical)
+- 출처: Ordering1(스타벅스/메가커피 주문 자동화 스킬) 세션 — 실기기(SM-G950N) adb+OCR 라이브 테스트로 Starbucks 앱의 입력 인젝션 탐지 발견(자동화 중단), Mega Coffee 앱 cart add/remove 자동화 실기기 검증 완료, OCR 아이콘 탭 좌표 버그 발견/수정 (2026-07-14)
+
 ## 8.1.7 — 2026-07-11
 - 학습 #105 추가: `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (tactical — skeptic이 principle에서 downgrade: 단일 코드베이스·단일 사례로만 확인된 기법)
 - PENDING (미저장, 2-3점): "read-write 불일치 필드는 grep으로 read-site 0건 확인해야 '죽은 기능' 확정 가능" / "resolved wrapper 명령 텍스트로 framework 추정하면 coordinator 스크립트를 오분류함" / "중첩 워크트리 + Vite/Node 표준 모듈 해석은 node_modules 없이도 동작 — Turbopack은 예외" — 3건 모두 기존 #99/#54 계열과 상당 부분 겹쳐 addendum 자격에도 못 미치는 점수

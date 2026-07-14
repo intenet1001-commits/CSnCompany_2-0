@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.7
+version: 8.1.8
 allowed-tools:
   - Read
   - Write
@@ -593,6 +593,11 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 102 | 심볼릭 링크를 지나는 경로에서 문자열 prefix 필터가 조용히 실패할 수 있다 (2026-07-11) | principle | symlink, realpath, path-filter, macos | knowledge/git-worktree.md |
 | 103 | git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (2026-07-11) | principle | git, pii, data-safety, staging, commit-review | 인라인 |
 | 104 | OpenAI 추론형(reasoning-tier) 모델은 temperature 기본값(1) 외 다른 값을 거부한다 (2026-07-11) | tactical | openai, temperature, reasoning-model, api-error, gpt-5 | 인라인 |
+| 105 | `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (2026-07-11) | tactical | react, jsx, dead-code, hard-disable, grep | 인라인 |
+| 106 | 실결제 앱은 adb 입력 인젝션을 보안 위협으로 감지해 자체 종료할 수 있다 (2026-07-14) | tactical | adb, android, security-sdk, mobile-automation, anti-tampering | 인라인 |
+| 107 | 동일 화이트라벨 벤더의 패키지명 prefix가 adb 자동화 안정성을 예측하는 신호가 될 수 있다 (2026-07-14) | tactical | adb, android, package-name, whitelabel, heuristic | 인라인 |
+| 108 | OCR로 저신뢰도 탐지된 아이콘의 바운딩박스 중심이 실제 탭 타겟과 어긋날 수 있다 (2026-07-14) | tactical | ocr, vision-framework, bounding-box, tap-coordinate, ui-automation | 인라인 |
+| 109 | 안드로이드 하이브리드 앱에서 뒤로가기 도달 화면은 진입 경로에 따라 비결정적일 수 있다 (2026-07-14) | tactical | android, back-navigation, hybrid-app, ui-automation | 인라인 |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
@@ -815,3 +820,35 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: 완전히 동작하는 UI+필터 로직(카테고리 칩, `sidebarSection.startsWith('tag:')` 필터, 클릭 핸들러)이 이미 구현되어 있었고 그 필터 로직 자체는 다른 살아있는 렌더 경로에서도 실제로 사용 중이었으나, 이 UI 블록 전체가 JSX 안에서 `{false && <div>...}`로 감싸져 있어 어떤 state 조합에서도 렌더링되지 않았다. state/props 기반 조건부 렌더링 추적으로는 이런 상수 리터럴 하드-비활성화를 놓치기 쉽다.
 - **교훈**: '분명 코드에 있는데 안 보인다'는 기능을 조사할 때는 state 기반 조건뿐 아니라 `{false && ...}`/`{true && ...}` 같은 상수 리터럴 조건도 별도로 `grep -n "{false &&"`로 확인한다. 발견되면 죽은 블록 전체를 복원하기보다, 필요한 부분만 골라 이미 살아있는 필터 로직에 연결하는 것이 최소 변경이다. (skeptic verifier DOWNGRADE — 단일 코드베이스·단일 사례로만 확인된 기법이라 principle이 아닌 tactical로 판정)
 - **근거**: `grep -n "{false &&"`로 사이드바 정의부에서 하드 비활성화 블록 위치 확인, 그 안의 `setSidebarSection('tag:'+category)` 핸들러와 필터 로직이 다른 활성 렌더 경로에서 이미 참조되고 있음을 코드 변경 전에 grep으로 확인.
+
+### 106. 실결제 앱은 adb 입력 인젝션을 보안 위협으로 감지해 자체 종료할 수 있다 (2026-07-14)
+<!-- tier: tactical -->
+
+- **상황**: Starbucks 앱(SM-G950N 실기기)에서 adb shell input tap으로 화면을 조작하며 주문 자동화 스킬을 만들던 중.
+- **발견**: 탭/화면전환 시 약 50% 확률로 "보안 위협이 탐지되었습니다. 중요 정보 보호를 위해 앱이 종료됩니다. (Code : 00000800)" 다이얼로그가 뜨고, 유일한 버튼 "확인"을 누르면 매번 프로세스가 즉시 종료됨(`adb shell pidof`로 확인). 동일한 adb 자동화 방식으로 이미 자동화해 둔 매머드커피 앱은 이런 방어가 전혀 없었다 — 실결제 앱일수록 입력 인젝션 탐지 SDK를 가질 가능성이 높다는 정황.
+- **교훈**: 실결제(금융/포인트 차감) 앱을 adb UI 자동화 대상으로 삼기 전에, 먼저 소액/비결제 화면에서 반복 탭 테스트로 보안 방어 존재 여부를 확인한다. 방어가 감지되면 그 장치를 반복 우회 시도하지 말고 즉시 중단해 사용자 승인을 받거나 대안 채널(예: 웹 자동화)로 전환한다. (skeptic verifier DOWNGRADE — 단일 기기·단일 앱·단일 세션 관찰이며 발생률이 불안정(~50%)해 플랫폼 수준 일반화로 보기엔 이름 → tactical로 판정)
+- **근거**: DESIGN.md 실기기 세션 로그 인용("...무작위(체감 ~50%)로... 다이얼로그가 뜨고... 매번 프로세스가 즉시 종료됨 (adb shell pidof com.starbucks.co → 빈 값)... 매머드커피 앱은... 이런 방어가 전혀 없었음") + git 커밋 67e430d.
+
+### 107. 동일 화이트라벨 벤더의 패키지명 prefix가 adb 자동화 안정성을 예측하는 신호가 될 수 있다 (2026-07-14)
+<!-- tier: tactical -->
+
+- **상황**: Mega Coffee 앱 자동화 착수 전 패키지명 확인 중.
+- **발견**: Mega Coffee 패키지명(`co.kr.waldlust.megacoffee`)이 이전에 자동화 완료한 매머드커피(`co.kr.waldlust.mmthcoffee`)와 동일한 퍼블리셔 prefix(`co.kr.waldlust`)를 공유함을 발견 — 같은 화이트라벨 벤더 앱일 가능성을 추정했고, 실기기에서 여러 차례 add/remove를 반복해도 전혀 죽지 않는 완전한 안정성을 확인해 그 추정이 실증됨.
+- **교훈**: 새 타깃 앱을 자동화하기 전, 패키지명 prefix로 기존에 검증된 앱과 같은 벤더/솔루션인지 확인하면 보안 방어 유무를 사전에 어느 정도 예측할 수 있다 — 다만 표본이 1쌍뿐인 예측일 뿐이므로 실기기 검증은 생략하지 않는다. (skeptic verifier DOWNGRADE — 정확히 1개 벤더 쌍에서만 검증된 추정이라 principle이 아닌 tactical로 판정)
+- **근거**: git 커밋 f4d4014("Confirmed package co.kr.waldlust.megacoffee... same publisher prefix as Mammoth Coffee -> no Starbucks-style anti-tampering, adb input taps are completely stable.")
+
+### 108. OCR로 저신뢰도 탐지된 아이콘의 바운딩박스 중심이 실제 탭 타겟과 어긋날 수 있다 (2026-07-14)
+<!-- tier: tactical -->
+
+- **상황**: Mega Coffee 장바구니 화면에서 'X' 삭제 아이콘 탭 자동화를 구현하던 중.
+- **발견**: Apple Vision OCR이 'x' 아이콘을 conf=0.3의 낮은 신뢰도로만 텍스트로 감지했고, 그 바운딩박스 중심(cx)을 그대로 탭하면 실제로는 옆의 카드 tap-through 영역이 눌려 상품 상세로 이동해버렸다. 실측(cx=920, 976 실패 / cx=1000 성공)으로 실제 탭 타겟이 OCR 바운딩박스 중심에서 +24px 오른쪽에 있음을 확인, 코드에 오프셋 보정을 반영했다.
+- **교훈**: OCR 기반 UI 자동화에서 저신뢰도로 감지된 작은 아이콘은 바운딩박스 중심을 그대로 신뢰하지 말고, 인접 tap-through 영역과의 충돌 가능성을 의심해 실기기 반복 실측으로 오프셋을 보정해야 한다. (skeptic verifier DOWNGRADE — 단일 아이콘·2개 측정치에 근거하고 +24px 수치 자체는 이 앱 레이아웃에 종속적이라 principle이 아닌 tactical로 판정. 개념은 "저신뢰도 아이콘은 실측 검증 필요" 수준으로 일반화 가능)
+- **근거**: `driver.py`의 `remove_from_cart()` 주석 및 `tap(target["cx"] + 24, target["cy"])` 코드, git 커밋 f4d4014.
+
+### 109. 안드로이드 하이브리드 앱에서 뒤로가기 도달 화면은 진입 경로에 따라 비결정적일 수 있다 (2026-07-14)
+<!-- tier: tactical -->
+
+- **상황**: Mega Coffee 앱의 장바구니 화면에서 뒤로가기 탭 후 카테고리 목록 화면으로 복귀하는 흐름을 자동화하던 중.
+- **발견**: 고정된 back-tap 횟수를 가정했을 때, 어떤 진입 경로(담기 직후 팝업의 "장바구니 가기" vs 하단 배지 탭)로 카트에 들어갔는지에 따라 뒤로가기 1회 후 도달하는 화면이 목록일 때도, 이전에 봤던 상품 상세일 때도 있어 비결정적이었다.
+- **교훈**: 하이브리드(웹뷰 기반으로 추정) 앱에서 고정 횟수의 뒤로가기를 가정하지 말고, 목표 화면의 특징적 UI 요소(예: 카테고리 탭)가 보이는지 매 스텝마다 재확인하며 최대 N회까지 반복 시도하는 방식으로 설계해야 안정적이다.
+- **근거**: `automation/megacoffee/order.py`의 `ensure_on_order_screen()` 주석("뒤로가기 스택 깊이는 진입 경로에 따라 달라지므로 고정 횟수 대신 최대 5회까지 시도") 및 해당 함수 구현.
