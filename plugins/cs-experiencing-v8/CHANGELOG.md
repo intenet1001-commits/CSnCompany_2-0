@@ -1,4 +1,10 @@
 
+## 8.1.7 — 2026-07-11
+- 학습 #105 추가: `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (tactical — skeptic이 principle에서 downgrade: 단일 코드베이스·단일 사례로만 확인된 기법)
+- PENDING (미저장, 2-3점): "read-write 불일치 필드는 grep으로 read-site 0건 확인해야 '죽은 기능' 확정 가능" / "resolved wrapper 명령 텍스트로 framework 추정하면 coordinator 스크립트를 오분류함" / "중첩 워크트리 + Vite/Node 표준 모듈 해석은 node_modules 없이도 동작 — Turbopack은 예외" — 3건 모두 기존 #99/#54 계열과 상당 부분 겹쳐 addendum 자격에도 못 미치는 점수
+- DROPPED (pre-score 0-1/6): "회귀 위험 있는 라이브 테스트는 실행하지 말고 명시적으로 리스크를 기록하고 건너뛴다" — 일반론 수준, 재사용성 낮음
+- 출처: portmanagement(포트 관리 프로그램) 세션 계속 — 프로젝트 메모 검색/표시, 빈 포트 추천 확대, 카테고리 브라우징 기능 복구(`{false &&`}` 죽은 코드 발견), 워크트리 실행 버튼이 프레임워크 무관하게 vite로 강제 덮어쓰던 버그 수정(Bun+Rust 양쪽) (2026-07-11)
+
 ## 8.1.6 — 2026-07-11
 - 학습 #103 추가: git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (principle, skeptic CONFIRM)
 - 학습 #104 추가: OpenAI 추론형(reasoning-tier) 모델은 temperature 기본값(1) 외 다른 값을 거부한다 (tactical — skeptic이 principle에서 downgrade: 벤더 API/모델-버전 종속 사실)

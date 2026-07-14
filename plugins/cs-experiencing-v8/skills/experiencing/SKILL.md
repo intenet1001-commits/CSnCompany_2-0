@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.6
+version: 8.1.7
 allowed-tools:
   - Read
   - Write
@@ -807,3 +807,11 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: `app/api/ai-recommend/route.ts`가 `model: "gpt-5.5"`(추론형 모델)와 `temperature: 0.8`을 함께 OpenAI Chat Completions 요청에 넣고 있었는데, 추론형 모델은 기본값(1) 이외의 temperature를 거부해 업스트림이 400을 반환하고 라우트가 이를 502로 사용자에게 그대로 노출했다. `temperature` 라인을 제거하자 정상 동작 확인.
 - **교훈**: OpenAI API 호출 시 사용 모델이 추론형(reasoning-tier)인지 먼저 확인하고, 추론형이면 temperature/top_p 등 샘플링 파라미터를 아예 보내지 않는다. 502/400 에러 발생 시 모델-파라미터 호환성부터 의심한다. (skeptic verifier DOWNGRADE — 벤더가 향후 이 제약을 바꿀 수 있는 API/모델-버전 종속 사실이라 principle이 아닌 tactical로 판정)
 - **근거**: `"Unsupported value: 'temperature' does not support 0.8 with this model. Only the default (1) value is supported."` 에러 확인 → `temperature: 0.8` 라인 제거 → 재현 테스트로 정상 추천 응답 생성 확인.
+
+### 105. `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (2026-07-11)
+<!-- tier: tactical -->
+
+- **상황**: 사용자가 카테고리(태그) 브라우징 UI가 안 보인다고 보고 — React/JSX 코드베이스를 조사.
+- **발견**: 완전히 동작하는 UI+필터 로직(카테고리 칩, `sidebarSection.startsWith('tag:')` 필터, 클릭 핸들러)이 이미 구현되어 있었고 그 필터 로직 자체는 다른 살아있는 렌더 경로에서도 실제로 사용 중이었으나, 이 UI 블록 전체가 JSX 안에서 `{false && <div>...}`로 감싸져 있어 어떤 state 조합에서도 렌더링되지 않았다. state/props 기반 조건부 렌더링 추적으로는 이런 상수 리터럴 하드-비활성화를 놓치기 쉽다.
+- **교훈**: '분명 코드에 있는데 안 보인다'는 기능을 조사할 때는 state 기반 조건뿐 아니라 `{false && ...}`/`{true && ...}` 같은 상수 리터럴 조건도 별도로 `grep -n "{false &&"`로 확인한다. 발견되면 죽은 블록 전체를 복원하기보다, 필요한 부분만 골라 이미 살아있는 필터 로직에 연결하는 것이 최소 변경이다. (skeptic verifier DOWNGRADE — 단일 코드베이스·단일 사례로만 확인된 기법이라 principle이 아닌 tactical로 판정)
+- **근거**: `grep -n "{false &&"`로 사이드바 정의부에서 하드 비활성화 블록 위치 확인, 그 안의 `setSidebarSection('tag:'+category)` 핸들러와 필터 로직이 다른 활성 렌더 경로에서 이미 참조되고 있음을 코드 변경 전에 grep으로 확인.
