@@ -24,7 +24,7 @@ END = "<!-- AUTO-PLUGIN-INVENTORY:END -->"
 # 라우팅 규칙에 등장하지만 이 마켓플레이스 소속이 아닌 외부 스킬 (drift 오탐 방지)
 EXTERNAL_TARGETS = {
     "cs-sync", "office-hours", "investigate", "ship", "review",
-    "plan-eng-review", "checkpoint", "smart-run",
+    "plan-eng-review", "checkpoint", "smart-run", "hookify",
 }
 
 

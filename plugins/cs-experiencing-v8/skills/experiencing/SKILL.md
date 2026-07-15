@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.8
+version: 8.1.9
 allowed-tools:
   - Read
   - Write
@@ -477,7 +477,7 @@ echo "📋 cs-smart-run: v$VER"
 
 ## experiencing 노하우
 
-### 학습 INDEX (전체 80건 — 1줄/항목, 단일 진실)
+### 학습 INDEX (전체 84건 — 1줄/항목, 단일 진실)
 
 **검색 프로토콜 (read-side, 디스패치 전 필수):** fan-out을 수행하는 모든 프로토콜(test/plan/review/design/pipeline)은
 에이전트 디스패치 전에 이 INDEX를 현재 태스크의 키워드(기술 스택·도메인 명사)로 grep하고,
@@ -598,6 +598,10 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 107 | 동일 화이트라벨 벤더의 패키지명 prefix가 adb 자동화 안정성을 예측하는 신호가 될 수 있다 (2026-07-14) | tactical | adb, android, package-name, whitelabel, heuristic | 인라인 |
 | 108 | OCR로 저신뢰도 탐지된 아이콘의 바운딩박스 중심이 실제 탭 타겟과 어긋날 수 있다 (2026-07-14) | tactical | ocr, vision-framework, bounding-box, tap-coordinate, ui-automation | 인라인 |
 | 109 | 안드로이드 하이브리드 앱에서 뒤로가기 도달 화면은 진입 경로에 따라 비결정적일 수 있다 (2026-07-14) | tactical | android, back-navigation, hybrid-app, ui-automation | 인라인 |
+| 110 | NDS 감사 결과의 '지적된 노드 리스트'만 믿으면 안 됨 — 전체 프레임 색상 스윕 필요 (2026-07-15) | principle | design-system, audit, figma, sweep, nds | 인라인 |
+| 111 | 재작성 시 토큰 값을 추측하지 말고 원본 컴포넌트에서 직접 샘플링 (2026-07-15) | principle | design-token, figma, sampling, code-generation, migration | 인라인 |
+| 112 | 회귀 수정 시 임의값이 아니라 파일 내 형제 요소의 기존 컨벤션을 따른다 (2026-07-15) | principle | regression, convention, layout, figma, sibling | 인라인 |
+| 113 | 디자인 파일이 시스템을 준수해도 코드 프로토타입은 완전히 별개 테마로 드리프트할 수 있다 (2026-07-15) | tactical | design-system, drift, figma, html, audit | 인라인 |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
@@ -772,6 +776,7 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **근거**: "그대로인거같은데"(서버 미재시작, 재기동 후 해결) / "웹,앱을 동시에 적용한거같지는 않음"(localStorage 분리, last-visits.json 공유로 해결) / "11일전 이라고 뜬거자체가 이상함"(클릭 로그 vs git 커밋시각, git log 병합으로 해결) — 2026-07-09 portmanagement 세션, PR #3~#5
 - **addendum (2026-07-11)**: 웹 dev-server(TS)와 패키징된 네이티브 앱(Rust)이 같은 기능을 독립적으로 중복 구현한 경우, "재시작"만으로는 안 끝난다 — 두 구현 모두에 동일 로직을 이식하고 각각 별도 빌드/체크(`bun run typecheck` / `cargo check`)로 검증해야 한다. api-server.ts의 locked-worktree 삭제 버그를 고쳤지만 패키징된 Tauri 앱은 별개의 Rust 구현(`src-tauri/src/lib.rs`)을 호출해 동일 버그가 그대로 남아있었고, Rust 쪽에 로직을 이식(`cargo check` 통과)한 뒤에야 실제로 해결됨 (skeptic verifier CONFIRMED).
 - **addendum (2026-07-11)**: "표시 계층 데이터 소스" 체크리스트에 4번째 항목 추가 — (4) 그 필드를 채우는 쓰기 경로가 현재 UI에 실제로 존재하는가. 사이드바 카운터가 `ports.filter(p => !!p.worktreePath)`를 읽었지만 워크트리 패널의 어떤 코드 경로도 `worktreePath`를 세팅하지 않아(레거시 폼에만 존재) 사용량과 무관하게 항상 0이었던 사례 — grep으로 직접 확인 (skeptic verifier CONFIRMED, "UI 카운터 신뢰 전 쓰기 경로 존재 확인" 원칙 자체는 안정적).
+- **addendum (2026-07-15)**: 5번째 항목 추가 — (5) 사용자가 보고 있는 "화면" 자체가 최신 소스를 가리키는지(브라우저 탭 캐시, 미재배포 상태) 확인한다. 두 서브에이전트가 Figma/HTML 파일을 모두 정상 편집·검증했는데도 사용자가 "그대로 보인다"고 재차 지적한 사례 — 실제로는 (a) 열려 있던 Figma 브라우저 탭이 stale 캐시였고(서버 쪽은 `get_screenshot`으로 재확인 시 이미 최신), (b) HTML 파일은 고쳐졌지만 Claude Artifact를 재배포하지 않아 공유 링크가 예전 버전을 가리키고 있었다 — 둘 다 파일 편집 실패가 아니라 "보고 있는 화면이 소스와 분리된" 케이스였다.
 
 ### 100. git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (2026-07-11)
 <!-- tier: principle, error-ref: ERR-2026-07-11-001 -->
@@ -852,3 +857,36 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: 고정된 back-tap 횟수를 가정했을 때, 어떤 진입 경로(담기 직후 팝업의 "장바구니 가기" vs 하단 배지 탭)로 카트에 들어갔는지에 따라 뒤로가기 1회 후 도달하는 화면이 목록일 때도, 이전에 봤던 상품 상세일 때도 있어 비결정적이었다.
 - **교훈**: 하이브리드(웹뷰 기반으로 추정) 앱에서 고정 횟수의 뒤로가기를 가정하지 말고, 목표 화면의 특징적 UI 요소(예: 카테고리 탭)가 보이는지 매 스텝마다 재확인하며 최대 N회까지 반복 시도하는 방식으로 설계해야 안정적이다.
 - **근거**: `automation/megacoffee/order.py`의 `ensure_on_order_screen()` 주석("뒤로가기 스택 깊이는 진입 경로에 따라 달라지므로 고정 횟수 대신 최대 5회까지 시도") 및 해당 함수 구현.
+
+### 110. NDS 감사 결과의 '지적된 노드 리스트'만 믿으면 안 됨 — 전체 프레임 색상 스윕 필요 (2026-07-15)
+<!-- tier: principle -->
+
+- **상황**: Figma 파일 + 페어링된 HTML 프로토타입을 NDS(디자인 시스템) 규칙에 맞춰 정합화하는 세션. 병렬 2-agent 감사(HTML용/Figma용)가 구체적인 위반 노드 리스트를 만들었고, 그 리스트만 고쳤다.
+- **발견**: 이후 사용자의 타겟 육안 스팟체크("퀵바가 Figma처럼 검정색이 아니다")로, 리디자인 이전부터 남아있던 잔여 hex 색상들(entry-hub 프레임의 행 라벨/섹션 헤더, 계좌 수량 텍스트 등)이 드러났다 — 원래 감사의 flagged-node 리스트에 없었다는 이유만으로 손대지 않은 채 방치되어 있었다. 프레임 전체에 대한 전수 `fills` 스윕을 돌려서야 잡혔다.
+- **교훈**: 감사→수정 워크플로우에서, 최초 감사가 찾아낸 위반 목록을 "전체 문제 목록"으로 오인하지 않는다. 감사는 특정 시점·특정 관점의 스냅샷일 뿐이므로, 색상/폰트/토큰처럼 전역적으로 적용돼야 하는 속성은 타겟 수정 완료 후에도 전체 프레임/파일에 대한 별도의 전수 스윕 검증 단계를 반드시 둔다.
+- **근거**: 사용자 지적 "아티팩트하단의 퀵바는 피그마처럼 검은색이 아닌데" → `figma.currentPage.query`/`findAllWithCriteria`로 5개 프레임 전체 `fills`를 스캔해서야 entry-hub 프레임의 `#17231d`(구버전 잉크색)/`#4a5952`(구버전 뮤트색), 목록화면의 `#666b70`(4번째 미통일 그레이) 등 원래 감사 리스트에 없던 색상들을 발견 (skeptic verifier CONFIRM — 특정 도구/버전에 종속되지 않는, 감사-then-수정 워크플로우 일반에 적용 가능한 원칙).
+
+### 111. 재작성 시 토큰 값을 추측하지 말고 원본 컴포넌트에서 직접 샘플링 (2026-07-15)
+<!-- tier: principle -->
+
+- **상황**: HTML 프로토타입을 Figma 소스의 NDS 토큰에 맞춰 재작성하는 서브에이전트 작업 (색상/폰트/캔버스 크기 이식).
+- **발견**: 서브에이전트가 Figma `quickmenu_basic` 컴포넌트의 배경색을 이식하면서, 실제 Figma 컴포넌트 인스턴스의 자식 rectangle fill을 조회하지 않고 짐작으로 `#457c12`(짙은 초록)를 새 CSS 토큰(`--nav-bg`)에 넣었다. 나중에 Plugin API로 해당 인스턴스(`I11:636;369:7407`)의 fill을 직접 샘플링해보니 실제 값은 `#222222`(검정에 가까움)였다.
+- **교훈**: 디자인 소스(Figma 등)에서 코드로 값을 이식할 때 색상/치수 같은 구체적 값은 절대 기억이나 추측에 의존하지 않는다. 항상 소스 컴포넌트에서 실제 속성(fill/size/font 등)을 직접 조회해 그대로 반영한다 — 추측값은 그럴듯해 보여서 육안 검수에서도 잘 걸러지지 않고, 사용자가 명시적으로 원본과 대조하기 전까지 드러나지 않는다.
+- **근거**: HTML 재작성 서브에이전트가 도입한 `--nav-bg: #457c12` (Figma 근거 없음) vs. `figma.getNodeByIdAsync('11:636')` 순회로 확인한 실제 배경 rectangle fill `{r:0.134,g:0.134,b:0.134}` = `#222222` (skeptic verifier CONFIRM — Figma 토큰에 국한되지 않는, 스펙 기반 코드 생성/이식 작업 전반에 적용 가능한 원칙).
+
+### 112. 회귀 수정 시 임의값이 아니라 파일 내 형제 요소의 기존 컨벤션을 따른다 (2026-07-15)
+<!-- tier: principle -->
+<!-- error-ref: ERR-2026-07-15-001 -->
+
+- **상황**: Figma 프레임의 아이콘/폰트 크기를 NDS 스펙에 맞춰 키우는 수정(터치 타겟 확대 등) 중, 목록 프레임의 콘텐츠가 자체 하단 경계를 넘어가면서 퀵메뉴 네비게이션 바가 잘리는 자체 회귀가 발생했고, 같은 서브에이전트가 이를 스크린샷으로 잡아냈다.
+- **발견**: 근본 원인은 해당 프레임(`layoutSizingVertical`)만 유일하게 `FIXED`였고, 형제 프레임 4개는 전부 `HUG`였다는 것 — 콘텐츠가 늘어나도 프레임이 따라 늘어나지 않아 하단이 잘렸다. 임의의 고정 높이값을 계산해 늘리는 대신, 형제 프레임들이 이미 쓰고 있는 컨벤션(`HUG`)으로 맞춰서 해결했다.
+- **교훈**: 레이아웃 회귀/버그를 고칠 때는 먼저 같은 계층의 형제 요소들이 어떤 설정(오토레이아웃 sizing mode, 컴포넌트 variant 등)을 쓰는지 확인한다. 그 파일/코드베이스가 이미 쓰고 있는 컨벤션에 맞추는 수정이, 임의 수치를 계산해 하드코딩하는 것보다 안전하고 일관성 있다.
+- **근거**: `2:2052`(목록 프레임)만 `layoutSizingVertical: FIXED`, 나머지 4개 형제 프레임(`32:229`/`2:2054`/`2:2055`/`2:2056`)은 모두 `HUG` — `HUG`로 전환해 598→638px로 자동 확장, 재스크린샷으로 클리핑 해소 확인 (skeptic verifier CONFIRM — Figma에 국한되지 않는, "회귀 수정 시 기존 컨벤션 우선" 원칙은 코드베이스 전반에 일반화 가능).
+
+### 113. 디자인 파일이 시스템을 준수해도 코드 프로토타입은 완전히 별개 테마로 드리프트할 수 있다 (2026-07-15)
+<!-- tier: tactical -->
+
+- **상황**: HTML 프로토타입과 페어링된 Figma 파일을 동시에 NDS 규칙으로 병렬 감사하는 단계.
+- **발견**: Figma 파일은 대체로 NDS를 따르되 구체적 버그들(디스클레이머 배경 위반, CTA 버튼 폰트/사이즈 불일치, 그린/그레이 hex 3종 혼용, 아이콘 오버플로우 등)만 있었던 반면, HTML 프로토타입은 NDS 토큰을 단 하나도 쓰지 않는 완전히 별개의 "cream/jade/rust" 독자 테마(시스템 폰트, 고정 375px 프레임)를 쓰고 있었다 — 두 산출물이 같은 기능을 나타냄에도 준수 수준이 완전히 갈렸다.
+- **교훈**: 디자인 소스와 그 코드 구현을 함께 감사할 때, 디자인 파일이 시스템을 잘 지킨다고 해서 코드 쪽도 그럴 것이라 가정하지 않는다. 둘은 서로 다른 시점에, 서로 다른 세션에서 만들어졌을 수 있으므로 항상 독립적으로 병렬 감사한다.
+- **근거**: HTML 감사 에이전트 보고 — "None of these hex values match the NDS reference palette at all... a bespoke 'paper/jade/rust' editorial theme... zero relationship to NDS Core tokens" vs. Figma 감사 에이전트 보고 — CTA 그린 컬러는 정확히 일치, 다만 소수의 구체적 버그만 존재 (skeptic verifier 대상 아님 — tactical 등급으로 사전 분류, 이 프로젝트/유사 페어드 워크플로우 계열에 재사용 가능).
