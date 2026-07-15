@@ -1,3 +1,11 @@
+## 8.1.10 — 2026-07-16
+- 학습 #114 추가: 지식 축적 스킬은 주제가 아니라 "읽기 경로(read path)"로 분할해야 학습이 쌓일수록 강해진다 (principle, skeptic CONFIRM — 함께 제출된 "토큰 캡 초과" 후보는 이 항목의 근거일 뿐이라는 이유로 REJECT되어 병합)
+- 학습 #115 추가: 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (principle, skeptic CONFIRM — 리허설 탐지 기법 후보를 이 항목에 병합)
+- 학습 #116 추가: Figma 커버리지는 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (tactical — skeptic DOWNGRADE: 특정 MCP 버전의 툴 동작이라 principle 아님)
+- 학습 #117 추가: 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 (tactical — skeptic DOWNGRADE: 관측된 실패가 아닌 서브에이전트 자기보고 반사실)
+- REJECT: "토큰 캡 초과 실측"(#114로 병합), "리허설이 고아 문서를 잡는다"(#115로 병합 — 단독으로는 "테스트가 버그를 잡는다"와 구별 불가)
+- Decay check: stale 3건(#7/#8/#9) 검토, deprecated 0건 — 이번 세션에 구식임을 입증할 증거 없음
+
 
 ## 8.1.9 — 2026-07-15
 - 학습 #110 추가: NDS 감사 결과의 '지적된 노드 리스트'만 믿으면 안 됨 — 전체 프레임 색상 스윕 필요 (principle, skeptic CONFIRM)

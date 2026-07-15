@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.9
+version: 8.1.10
 allowed-tools:
   - Read
   - Write
@@ -602,6 +602,10 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 111 | 재작성 시 토큰 값을 추측하지 말고 원본 컴포넌트에서 직접 샘플링 (2026-07-15) | principle | design-token, figma, sampling, code-generation, migration | 인라인 |
 | 112 | 회귀 수정 시 임의값이 아니라 파일 내 형제 요소의 기존 컨벤션을 따른다 (2026-07-15) | principle | regression, convention, layout, figma, sibling | 인라인 |
 | 113 | 디자인 파일이 시스템을 준수해도 코드 프로토타입은 완전히 별개 테마로 드리프트할 수 있다 (2026-07-15) | tactical | design-system, drift, figma, html, audit | 인라인 |
+| 114 | 지식 축적 스킬은 주제가 아니라 "읽기 경로(read path)"로 분할해야 학습이 쌓일수록 강해진다 (2026-07-16) | principle | skill-design, context, scaling, read-path, knowledge-base | 인라인 |
+| 115 | 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (2026-07-16) | principle | refactor, stale-docs, registry-sync, rehearsal, verifier | 인라인 |
+| 116 | Figma 커버리지는 파일의 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (2026-07-16) | tactical | figma, coverage, enumeration, get_libraries, mcp | 인라인 |
+| 117 | 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 — 정렬 순서와 인용 횟수는 그럴듯한 함정 (2026-07-16) | tactical | precedence, tie-breaker, instruction-design, rehearsal | 인라인 |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
@@ -890,3 +894,35 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: Figma 파일은 대체로 NDS를 따르되 구체적 버그들(디스클레이머 배경 위반, CTA 버튼 폰트/사이즈 불일치, 그린/그레이 hex 3종 혼용, 아이콘 오버플로우 등)만 있었던 반면, HTML 프로토타입은 NDS 토큰을 단 하나도 쓰지 않는 완전히 별개의 "cream/jade/rust" 독자 테마(시스템 폰트, 고정 375px 프레임)를 쓰고 있었다 — 두 산출물이 같은 기능을 나타냄에도 준수 수준이 완전히 갈렸다.
 - **교훈**: 디자인 소스와 그 코드 구현을 함께 감사할 때, 디자인 파일이 시스템을 잘 지킨다고 해서 코드 쪽도 그럴 것이라 가정하지 않는다. 둘은 서로 다른 시점에, 서로 다른 세션에서 만들어졌을 수 있으므로 항상 독립적으로 병렬 감사한다.
 - **근거**: HTML 감사 에이전트 보고 — "None of these hex values match the NDS reference palette at all... a bespoke 'paper/jade/rust' editorial theme... zero relationship to NDS Core tokens" vs. Figma 감사 에이전트 보고 — CTA 그린 컬러는 정확히 일치, 다만 소수의 구체적 버그만 존재 (skeptic verifier 대상 아님 — tactical 등급으로 사전 분류, 이 프로젝트/유사 페어드 워크플로우 계열에 재사용 가능).
+
+### 114. 지식 축적 스킬은 주제가 아니라 "읽기 경로(read path)"로 분할해야 학습이 쌓일수록 강해진다 (2026-07-16)
+<!-- tier: principle -->
+
+- **상황**: `csdesign/nds`(Figma 디자인시스템 가이드 학습 저장소)에 3개 파일(총 77페이지)을 학습시킨 뒤, BUILD 패스가 "가장 먼저 읽어라"고 지시받은 `LEADER.md` 자체를 물리적으로 읽지 못하는 상태에 도달했다.
+- **발견**: `LEADER.md`가 ~36–45k 토큰까지 커져 단일 Read가 컨텍스트 캡을 초과했다 — 학습 파일이 하나 늘 때마다 단조 악화되는 구조였다(= 학습할수록 못 쓰게 되는 anti-scaling). 이를 `LEADER.md`(모드 전용) + 상시 로드 베이스(`CORE.md`/`COMMON.md`) + `INDEX.md`(노트당 1줄) + `LEDGER.md`(쟁점, 해결되며 축소) + `sources/*.md`(빌드 시 비로드)로 **읽는 목적별로** 재분할하자, N번째 학습 파일이 새 행을 추가하기보다 기존 행을 corroborate만 하게 되어 읽기 비용은 유계로 유지되면서 신뢰도만 올라갔다.
+- **교훈**: 지식이 계속 쌓이는 스킬을 설계할 때 "이 항목을 **어떤 목적으로** 읽는가(빌드 vs 감사 vs 포렌식)"로 파일을 나눈다. 주제별 분류는 항목 수에 비례해 읽기 비용이 선형 증가하지만, 읽기 경로별 분류는 유계로 만든다. 단, 균일성을 위해 전 도메인에 일괄 적용하지 말고(작은 도메인 2개는 의도적으로 미분할 유지) **측정된 트리거**(~25k 토큰, 또는 레지스트리가 더 이상 스캔되지 않는 시점)를 문서에 남겨 조건 충족 시에만 적용한다.
+- **근거**: 실측 — nds BUILD 읽기 비용 36,201 → 12,098 토큰, asset 20,742 → 1,859. (skeptic verifier CONFIRM — "아키텍처 수준 주장이며 캐시 지역성/점진적 공개와 같은 논리, 특정 수치나 캡이 바뀌어도 원칙은 생존". 함께 제출된 "토큰 캡 초과" 후보는 이 항목의 근거일 뿐 독립 원칙이 아니라는 이유로 REJECT되어 여기 병합됨.)
+
+### 115. 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (2026-07-16)
+<!-- tier: principle -->
+
+- **상황**: 위 #114의 읽기 경로 분할로 레지스트리를 `LEADER.md`에서 `INDEX/LEDGER/CORE/COMMON`으로 옮긴 뒤, 사용자가 "이제 이 스킬로 학습할 준비된 건가?"라고 물었다.
+- **발견**: 분할을 참조하는 다른 파일들이 여전히 옛 구조를 가리키고 있었다. `figma-learn-all-pages/SKILL.md`는 "도메인의 `LEADER.md`에 등록하라"고 지시했는데 — 분할 전엔 참이었지만 지금은 거짓이다. **이를 따르는 에이전트는 존재하지 않는 섹션에 쓰려 하고, 아무것도 등록하지 못한 채 성공을 보고했을 것이다.** 처음엔 1건인 줄 알았으나, 스윕을 반복하자 총 **13건**이 나왔다(프로젝트 노트 8건, 라우팅 tiebreaker 1건, 승격 대상 3건, CORE 상호참조 1건).
+- **교훈**: 파일 분할/역할 이동 후에는 그 구조를 이름으로 참조하는 **모든** 문서를 grep으로 전수 스윕한다 — 1건을 고치고 끝났다고 가정하지 않는다(이번엔 1 → 5 → 13으로 늘었다). 근본 예방책은 지시문을 **폴더/파일 이름이 아니라 구조 유형**("분할 도메인 vs 단일 파일 도메인")으로 분기시키고, 권위 있는 단일 출처(각 도메인의 Mode 1)로 위임하는 것이다. 또한 **아무 지시문도 갱신을 명령하지 않는 표/매니페스트**(고아 문서)를 함께 찾아 소유자를 명시적으로 지정한다.
+- **근거**: `figma-learn-all-pages/SKILL.md` — "register into the domain's `LEADER.md`" (분할 후 거짓). 탐지에 가장 효과적이었던 것은 **읽기 전용 리허설/verifier 서브에이전트**였다: 저자가 놓친 고아 매니페스트(`nds/LEADER.md`의 `## Learned files` — 갱신 지시문이 어디에도 없음)를 찾아냈고, 이후 cold-read verifier가 남은 8건을 스스로 추가 발굴했다. (skeptic verifier CONFIRM — "프로즈 지시문이 여러 파일에 분산된 시스템의 불변 속성; 참조된 구조를 옮겨도 모든 포인터가 자동 갱신되지 않고, 낡은 포인터를 따르는 실행자는 대상이 사라졌다는 신호를 받지 못한다".)
+
+### 116. Figma 커버리지는 파일의 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (2026-07-16)
+<!-- tier: tactical -->
+
+- **상황**: NDS_UX Guide 등 다수 페이지 Figma 파일을 전수 학습하고 "N/N 완료"를 선언하는 중.
+- **발견**: 앞서 낸 "17/17 complete"가 실제로는 **17/18**이었다 — 커버리지를 파일 자체의 목차(TOC)로 인증했는데, 그 TOC가 다른 모든 페이지가 의존하는 `- Principles` 페이지를 조용히 누락하고 있었다(수작업 유지되는 문서라 드리프트함). 또한 nodeId 없는 `get_metadata`는 28페이지 파일에서 **1페이지**만 보고한다(데스크톱 세션에 로드된 페이지만 반환). 유사 함정: `p.children.length`는 현재 페이지가 아닌 곳에서 신뢰 불가(6페이지 중 5페이지가 거짓으로 0 보고), 레이어 이름은 파일이 아니라 **페이지 단위로** 신뢰도가 갈린다.
+- **교훈**: 커버리지/완전성 주장은 `use_figma` → `figma.root.children`이라는 단일 분모로만 인증한다. 더 일반적으로 — **"목록을 반환하는 편한 API"가 세션 상태에 의존해 조용히 부분 답을 주는지** 의심하고, 권위 있는 열거 경로를 하나 정해 문서화한다. 값 불일치를 "충돌"로 단정하기 전에 그 파일이 참조 라이브러리를 실제로 구독하는지(`get_libraries`) 먼저 확인한다 — 구독하지 않는 파일의 키는 충돌이 아니라 문서 사본이다(이 확인으로 Core 오염을 2회 방지).
+- **근거**: `get_metadata`(nodeId 없음) → 1페이지 vs `figma.root.children` → 28페이지. TOC 17개 vs 실제 콘텐츠 18페이지. 5개 에이전트가 "key가 Core와 다르다"고 보고했으나 `get_libraries`로 NDS_M.web이 NDS_Library를 구독하지 않음이 드러나 오탐으로 판명. (skeptic verifier DOWNGRADE — "특정 MCP 버전의 툴 현재 동작이므로 principle 아님; 향후 릴리스에서 `get_metadata`가 전체 목록을 반환하면 이 워크어라운드는 죽은 조언이 된다".)
+
+### 117. 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 — 정렬 순서와 인용 횟수는 그럴듯한 함정 (2026-07-16)
+<!-- tier: tactical -->
+
+- **상황**: 가이드 도메인과 프로젝트 도메인을 페어로 읽어 화면을 만드는 BUILD 경로를, 실제 실행 전에 읽기 전용 리허설 에이전트로 점검.
+- **발견**: 리허설 에이전트가 자기 추론을 그대로 노출했다 — 이름이 같은 두 컴포넌트 중 하나를 "목록에 먼저 나오고 6번 corroborate됐다"는 이유만으로 조용히 골랐을 것이라고. 문서들은 그런 기준을 지지한 적이 없다. 즉 **문서가 침묵하는 지점에서 모델은 그럴듯한 근거를 스스로 발명**하고, 그 발명은 눈에 띄지 않는다.
+- **교훈**: 우선순위/precedence 규칙을 쓸 때 적용 규칙만 쓰지 말고 **명시적 비적용(non-application) 케이스**를 함께 박는다. 이번엔 3개를 추가했다: (1) 가이드가 자기 자신과 충돌하면 우선순위로 고르지 말고 에스컬레이션 — 실재하는 두 컴포넌트가 같은 이름을 쓰는 것은 "주장의 충돌"이 아니다, (2) 신뢰성 주장(이 import가 실제로 되는가)과 디자인 주장(무엇처럼 보여야 하는가)은 다른 축이라 둘 다 참일 수 있다, (3) 양쪽 도메인이 모두 침묵하면 그 값을 **갖고 있지 않은 것**이므로 목업에서 추론하지 말고 에스컬레이션. 리허설 에이전트에게 판단 **근거를 말하게** 하는 것이 이 함정 탐지에 효과적이었다.
+- **근거**: 리허설 에이전트 원문 — "I would have silently picked Core's incumbent purely because it's listed first and 'corroborated 6×' — a plausible but ungrounded tie-breaker the files never actually endorse." (skeptic verifier DOWNGRADE — "관측된 실패가 아니라 서브에이전트의 자기보고 반사실(counterfactual)이며 한 파일의 모호성에 대한 단일 일화 → 지시문 설계 위생으로는 타당하나 principle 근거로는 부족".)
