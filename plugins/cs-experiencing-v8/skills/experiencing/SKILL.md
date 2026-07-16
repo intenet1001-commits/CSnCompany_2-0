@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.10
+version: 8.1.11
 allowed-tools:
   - Read
   - Write
@@ -606,6 +606,8 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 115 | 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (2026-07-16) | principle | refactor, stale-docs, registry-sync, rehearsal, verifier | 인라인 |
 | 116 | Figma 커버리지는 파일의 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (2026-07-16) | tactical | figma, coverage, enumeration, get_libraries, mcp | 인라인 |
 | 117 | 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 — 정렬 순서와 인용 횟수는 그럴듯한 함정 (2026-07-16) | tactical | precedence, tie-breaker, instruction-design, rehearsal | 인라인 |
+| 118 | N개 서브에이전트의 합의는 진실이 아니다 — 각자 참인 국소 관찰이 거짓 전역 주장으로 굳는다 (2026-07-16) | principle | multi-agent, consensus, 일반화, 부정주장, verification | 인라인 |
+| 119 | 리드가 주입한 잘못된 전제는 워커의 오류가 되어 돌아온다 — 브리핑은 지시가 아니라 검증 대상이다 (2026-07-16) | principle | multi-agent, briefing, 반박채널, fan-out, 계약 | 인라인 |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
@@ -918,6 +920,7 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: 앞서 낸 "17/17 complete"가 실제로는 **17/18**이었다 — 커버리지를 파일 자체의 목차(TOC)로 인증했는데, 그 TOC가 다른 모든 페이지가 의존하는 `- Principles` 페이지를 조용히 누락하고 있었다(수작업 유지되는 문서라 드리프트함). 또한 nodeId 없는 `get_metadata`는 28페이지 파일에서 **1페이지**만 보고한다(데스크톱 세션에 로드된 페이지만 반환). 유사 함정: `p.children.length`는 현재 페이지가 아닌 곳에서 신뢰 불가(6페이지 중 5페이지가 거짓으로 0 보고), 레이어 이름은 파일이 아니라 **페이지 단위로** 신뢰도가 갈린다.
 - **교훈**: 커버리지/완전성 주장은 `use_figma` → `figma.root.children`이라는 단일 분모로만 인증한다. 더 일반적으로 — **"목록을 반환하는 편한 API"가 세션 상태에 의존해 조용히 부분 답을 주는지** 의심하고, 권위 있는 열거 경로를 하나 정해 문서화한다. 값 불일치를 "충돌"로 단정하기 전에 그 파일이 참조 라이브러리를 실제로 구독하는지(`get_libraries`) 먼저 확인한다 — 구독하지 않는 파일의 키는 충돌이 아니라 문서 사본이다(이 확인으로 Core 오염을 2회 방지).
 - **근거**: `get_metadata`(nodeId 없음) → 1페이지 vs `figma.root.children` → 28페이지. TOC 17개 vs 실제 콘텐츠 18페이지. 5개 에이전트가 "key가 Core와 다르다"고 보고했으나 `get_libraries`로 NDS_M.web이 NDS_Library를 구독하지 않음이 드러나 오탐으로 판명. (skeptic verifier DOWNGRADE — "특정 MCP 버전의 툴 현재 동작이므로 principle 아님; 향후 릴리스에서 `get_metadata`가 전체 목록을 반환하면 이 워크어라운드는 죽은 조언이 된다".)
+- **추가 (2026-07-16)**: `get_metadata`의 부분-응답은 nodeId 없는 호출만의 문제가 아니다 — **nodeId를 주고 호출해도 자식이 `GROUP`이면 그 서브트리를 통째로 누락하고 부모를 self-closing으로 직렬화한다.** 한 페이지에서 **populated 프레임 241개 중 105개가 빈 것으로 보고**됐고, 그 페이지의 코드→기관 매핑 전체가 GROUP 자식에 살고 있어 metadata 읽기로는 100% 안 보였다. 카운트도 오염된다(자산 2,941 vs 실제 2,948, 최악의 이름 충돌 6건이 통째로 비가시). **⇒ `get_metadata`는 내비게이션/TEXT 전용. `.length`는 반드시 `findAllWithCriteria`로. "비어 있음"은 Plugin API(`setCurrentPageAsync` 후 `children.length`)로 재확인하기 전까지 증거가 아니다.** 이 세션에서 5개 페이지를 metadata-empty 근거로 스킵했고 전부 재확인 결과 실제로 비어 있었다 — **커버리지는 지켜졌지만 방법이 아니라 운 덕분이었다.**
 
 ### 117. 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 — 정렬 순서와 인용 횟수는 그럴듯한 함정 (2026-07-16)
 <!-- tier: tactical -->
@@ -926,3 +929,20 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: 리허설 에이전트가 자기 추론을 그대로 노출했다 — 이름이 같은 두 컴포넌트 중 하나를 "목록에 먼저 나오고 6번 corroborate됐다"는 이유만으로 조용히 골랐을 것이라고. 문서들은 그런 기준을 지지한 적이 없다. 즉 **문서가 침묵하는 지점에서 모델은 그럴듯한 근거를 스스로 발명**하고, 그 발명은 눈에 띄지 않는다.
 - **교훈**: 우선순위/precedence 규칙을 쓸 때 적용 규칙만 쓰지 말고 **명시적 비적용(non-application) 케이스**를 함께 박는다. 이번엔 3개를 추가했다: (1) 가이드가 자기 자신과 충돌하면 우선순위로 고르지 말고 에스컬레이션 — 실재하는 두 컴포넌트가 같은 이름을 쓰는 것은 "주장의 충돌"이 아니다, (2) 신뢰성 주장(이 import가 실제로 되는가)과 디자인 주장(무엇처럼 보여야 하는가)은 다른 축이라 둘 다 참일 수 있다, (3) 양쪽 도메인이 모두 침묵하면 그 값을 **갖고 있지 않은 것**이므로 목업에서 추론하지 말고 에스컬레이션. 리허설 에이전트에게 판단 **근거를 말하게** 하는 것이 이 함정 탐지에 효과적이었다.
 - **근거**: 리허설 에이전트 원문 — "I would have silently picked Core's incumbent purely because it's listed first and 'corroborated 6×' — a plausible but ungrounded tie-breaker the files never actually endorse." (skeptic verifier DOWNGRADE — "관측된 실패가 아니라 서브에이전트의 자기보고 반사실(counterfactual)이며 한 파일의 모호성에 대한 단일 일화 → 지시문 설계 위생으로는 타당하나 principle 근거로는 부족".)
+
+### 118. N개 서브에이전트의 합의는 진실이 아니다 — 각자 참인 국소 관찰이 거짓 전역 주장으로 굳는다 (2026-07-16)
+<!-- tier: principle -->
+
+- **상황**: Figma 파일 NDS_CI를 6개 배치로 나눠 13페이지를 병렬 학습하고, 배치별 리턴을 CORE에 병합하던 중.
+- **발견**: 5개 배치가 각자 독립적으로 "내 페이지에는 컴포넌트가 0개"라고 보고했고, 나는 이를 **"이 파일의 모든 인벤토리 페이지는 컴포넌트가 0개"** 로 일반화해 CORE에 기록했다. 6번째 배치가 자기 페이지를 직접 확인해 **24개의 실재하는 로컬 마스터 컴포넌트(full 40-hex 키)** 를 찾아 반박했다. **5개 배치는 거짓말하지 않았다 — 각자의 관찰은 전부 참이었고, 거짓은 그 합의를 전역으로 확장한 리드(나)의 추론에 있었다.** 합의는 오히려 위험을 키웠다: 5개가 일치하니 검증할 이유가 없어 보였다. 같은 현상이 이미 #116의 근거에 1회 기록돼 있었다(5개 에이전트가 "key가 Core와 다르다" 오탐) — **2번째 독립 목격이므로 자체 교훈으로 승격한다.**
+- **교훈**: **에이전트 N개의 일치는 표본 N의 증거이지 전칭명제의 증거가 아니다.** 워커의 보고는 "내 스코프에서 관찰됨"으로 읽고, 전역 주장으로 승격할 때는 **스코프 밖을 최소 1회 직접 확인**한다. 특히 **부정 주장(X가 없다)** 은 합의로 확정하지 않는다 — 없음의 증명은 각 워커의 시야 밖에 있기 때문이다. 리드가 병합 전 헤드라인 주장을 1회 재검증하는 비용은 잘못된 CORE 엔트리 하나보다 항상 싸다.
+- **근거**: 6번째 배치 리턴 — "⛔ REFUTATION 1 — '0 components on every inventory page' is FALSE. 간편인증기관 **18** COMPONENT / 공공기관 **6** COMPONENT (guarded `findAllWithCriteria`)". 이 시점에 CORE에는 이미 "COMPONENT/COMPONENT_SET = 0 on every inventory page"가 병합돼 있었다.
+
+### 119. 리드가 주입한 잘못된 전제는 워커의 오류가 되어 돌아온다 — 브리핑은 지시가 아니라 검증 대상이다 (2026-07-16)
+<!-- tier: principle -->
+
+- **상황**: 16개 서브에이전트에 Figma 학습을 팬아웃하며, 각 브리핑에 "이 파일이 X의 authoritative home이다" 같은 사전 전제를 넣어 보냄.
+- **발견**: 내 브리핑 중 **3건이 사실과 달랐고, 에이전트들은 지시대로 따랐다.** (1) "NDS_CI가 브랜드 규칙의 원본"이라 했으나 그 규칙은 그 파일에 **아예 없었다**(스코프 불일치 — 제3자 로고 파일이라 자사 브랜드 색 관할이 없음). (2) "`guide_parent`는 세트의 variant"라 했으나 **독립 COMPONENT**여서 import 함수 자체가 달랐다. (3) "카드에 `제작중`이 있으니 ⛔로 플래그하라"고 했으나 그 텍스트는 **흰 배경 위 흰 글자로 비가시**였고, 따랐다면 **실재하는 152개 에셋을 차단**할 뻔했다. 세 건 모두 에이전트가 "당신 브리핑에 대한 정정"으로 시작하는 리턴을 보내와서야 드러났다 — **명시적으로 "verify independently, do NOT adopt"라고 쓴 브리핑에서만 그랬다.**
+- **교훈**: 리드의 브리핑은 워커에게 **사전 확률이 아니라 사실로 읽힌다.** 따라서 (1) 브리핑의 모든 전제에 **출처를 붙이고**(어느 파일/노드에서 왔는지), (2) "이건 내 가설이니 **독립 검증하고 반박하라**"를 명시하며, (3) 리턴 계약에 **"브리핑 정정" 슬롯을 요구**한다. 워커가 리드를 반박할 수 있게 만드는 것이 팬아웃 품질의 상한을 정한다 — 반박 채널이 없으면 **리드의 오류율이 곧 시스템의 오류율**이다.
+- **근거**: 3개 배치 리턴이 각각 "🚨 CORRECTION TO YOUR BRIEFING — Nmoji is NOT incomplete… `제작중` reports `visible:true` but its fill is `{r:1,g:1,b:1}`", "⚠️ BRIEF WAS WRONG, PLEASE READ — They are two separate components", "**ABSENT ENTIRELY** — zero hits for `Deep Blue`… This inverts the brief's premise"로 시작.
+

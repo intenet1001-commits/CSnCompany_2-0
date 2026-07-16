@@ -1,3 +1,9 @@
+## 8.1.11 (2026-07-16)
+
+- 학습 2건 추가: #118 N개 서브에이전트의 합의는 진실이 아니다 (principle) / #119 리드가 주입한 잘못된 전제는 워커의 오류가 되어 돌아온다 (principle)
+- #116에 addendum: `get_metadata`는 nodeId를 줘도 GROUP 자식 서브트리를 통째로 누락한다 (241 프레임 중 105개가 빈 것으로 오보고) — 카운트는 `findAllWithCriteria`로만
+- marketplace.json의 cs-experiencing 버전이 8.1.9로 뒤처져 있던 drift 동반 수정 (v8.1.10 커밋이 marketplace.json을 갱신하지 않음)
+
 ## 8.1.10 — 2026-07-16
 - 학습 #114 추가: 지식 축적 스킬은 주제가 아니라 "읽기 경로(read path)"로 분할해야 학습이 쌓일수록 강해진다 (principle, skeptic CONFIRM — 함께 제출된 "토큰 캡 초과" 후보는 이 항목의 근거일 뿐이라는 이유로 REJECT되어 병합)
 - 학습 #115 추가: 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (principle, skeptic CONFIRM — 리허설 탐지 기법 후보를 이 항목에 병합)
