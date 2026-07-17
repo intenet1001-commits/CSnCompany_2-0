@@ -27,6 +27,7 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: 배경 세션에서 EnterWorktree가 `origin/main` 기준으로 worktree를 생성했고, 로컬 main에는 2개의 푸시 안 된 커밋이 존재했다. 결과적으로 worktree가 오래된 코드 상태로 시작되어 3번의 edit이 잘못된 파일에 적용됨.
 - **발견**: `git checkout main -- <file>`로 로컬 main 브랜치의 최신 파일을 worktree로 복사할 수 있다. 이후 worktree 브랜치를 main에 merge할 때 conflict가 발생하며, Python 스크립트로 conflict marker를 파싱해 선택적으로 해결 가능하다.
 - **교훈**: 배경 세션에서 worktree 생성 전 반드시 `git push`로 local/origin을 동기화해야 base mismatch 방지. 사후 복구: `git checkout main -- <file>`. 단일 파일 구조 프로젝트(index.html 1개)에서 worktree merge는 conflict 가능성이 높으므로 주의.
+- **addendum (2026-07-17)**: 같은 근본 원인이 "커밋조차 안 된" dirty working tree에도 적용된다 — EnterWorktree(기본 baseRef='fresh')는 git ref로부터 worktree를 만들기 때문에, 메인 체크아웃에 있던 unstaged/uncommitted 변경사항은 새 worktree에 전혀 반영되지 않는다. 이 경우 커밋이 없어 `git checkout main -- <file>`/merge 계열 복구가 불가능하므로, 대신 원본 체크아웃에서 `git diff > wip.patch` → worktree에서 `git apply --stat wip.patch`(검증) → `git apply wip.patch`로 패치 이식한다. (스켑틱 검증: DOWNGRADE — 독립 principle이 아니라 이 항목의 동일 메커니즘의 변형이므로 addendum으로 병합)
 
 ### 36. Python으로 merge conflict marker를 즉석 파싱·해결 (2026-05-22)
 <!-- tier: tactical -->
