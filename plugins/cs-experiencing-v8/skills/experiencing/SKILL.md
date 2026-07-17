@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.2.3
+version: 8.2.4
 allowed-tools:
   - Read
   - Write
@@ -650,6 +650,8 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 137 | 상태 정리/마이그레이션 수정은 실제 프로덕션 데이터에 합성 케이스를 주입해 전후 id-set diff로 검증하면 더 강한 확신을 준다 — 단, 격리 포트 + 왕복 클린업이 전제 (2026-07-17) | tactical | verification, production-data, isolated-testing, cleanup-protocol | knowledge/misc-tooling.md |
 | 138 | EnterWorktree가 "Already in a worktree session"으로 막히면 디렉터리 존재를 의심하기 전에 ExitWorktree(remove)부터 시도한다 (2026-07-17) | principle | claude-code, enterworktree, exitworktree, session-recovery | knowledge/claude-code-platform.md |
 | 139 | Workflow 스크립트의 agent 프롬프트 안에 리터럴 ${...}를 쓰면 sandbox가 즉시 평가해 "process is not defined"로 전체 런을 크래시시킨다 (2026-07-17) | principle | workflow-tool, template-literal, sandbox, scripting-pitfall | knowledge/claude-code-platform.md |
+| 140 | 표시 이름과 권한 플래그가 분리된 인증 구조에서는 이름 충돌이 사일런트 권한 오판을 만든다 (2026-07-17) | principle | auth, display-name, permission, reserved-name, react | knowledge/react-frontend.md |
+| 141 | 서브에이전트가 idle_notification만 반복하고 도구 호출이 전혀 없으면 데드락 신호로 보고 직접 실행으로 전환한다 (2026-07-17) | tactical | multi-agent, idle-loop, deadlock, delegation, escalation | knowledge/multi-agent-orchestration.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.

@@ -1,3 +1,12 @@
+## 8.2.4 (2026-07-17)
+
+- 학습 2건 신규 추가: #140 표시 이름과 권한 플래그가 분리된 인증 구조에서는 이름 충돌이 사일런트 권한 오판을 만든다 (principle, react-frontend.md, skeptic CONFIRM) / #141 서브에이전트가 idle_notification만 반복하고 도구 호출이 전혀 없으면 데드락 신호로 보고 직접 실행으로 전환한다 (tactical, multi-agent-orchestration.md)
+- REJECT 2건 (skeptic 반박): "pseudo-account 문자열 ID가 UUID 컬럼 쿼리를 400으로 깨뜨려도 .data ?? [] 패턴이 조용히 은폐한다" — 근거가 400 에러 로그 한 줄뿐이고 은폐 메커니즘(.data ?? [] 코드 인용, 화면이 실제로 조용히 빈 목록을 보였다는 증거) 자체는 미입증으로 판정 / "관리자/특권 토글이 함께 렌더링된 화면에서 텍스트 매칭 클릭은 프로덕션 설정을 실수로 변경할 수 있다" — 발견 서술이 "클릭했을 가능성이 있었고"로 헤징돼 있고 인과관계를 뒷받침할 트레이스가 없어 REJECT
+- PENDING 2건 (3점, 저장 안 함): "새 플로팅 UI 도입 후 좌표충돌 QA는 position:fixed/sticky 필터링 없이 하면 오탐 폭주" (실용적이나 특별히 새롭지 않은 상식적 기법으로 판정) / "MCP playwright 스크린샷이 샌드박스 폰트로딩으로 타임아웃되면 DOM assertion 또는 로컬 스크린샷 실행기로 전환" (환경 특정적이라 재사용성 제한)
+- Prompt Patch 시도 1건 → REVERT: idle-notification 루프 감지를 cs-end.md Phase 1에 즉시 반영 시도했으나, Phase 2.7 verifier가 "판정 라벨은 CONFIRMED이나 실제 사유는 명백한 반박"(존재하지 않는 도구명 "shutdown_request" 사용, 자기 인용 근거와 수치 불일치, 발송수단/판별기준 미지정, 파일 실행시점과 선언된 스코프 불일치)임을 지적 — 라벨보다 실제 사유 내용을 우선해 REFUTED로 재해석, 패치를 revert하고 `.experiencing-btw.json`에 pending-patch로 강등
+- 프로세스 노트: marketplace.json의 cs-experiencing version 필드가 실제 VERSION 파일(8.2.3)보다 뒤처진 "8.2.1"로 드리프트돼 있던 것을 이번 버전업 중 함께 발견해 동기화함
+- 출처: 먹고공부하자(Next.js 팀 점심주문 앱) 리디자인 + QA 회귀테스트 세션 — cs-ceo:ceo 서브에이전트가 idle_notification만 반복하며 무진행 상태에 빠져 직접 실행으로 전환한 뒤 Playwright로 다수의 실제 버그를 발견/수정
+
 ## 8.2.3 (2026-07-17)
 
 - 학습 6건 신규 추가: #133 dev 오케스트레이터 스크립트의 하드코딩 포트 + 무조건 kill이 "자기 자신의 워크트리 실행" 시 메인 앱을 죽인다 (tactical, tauri-windows.md) / #134 Workflow parallel adversarial review가 "cleanup 완전 비활성화" 스코프 오류를 잡아낸 사례 (principle, multi-agent-orchestration.md, skeptic CONFIRMED) / #135 느슨한 ancestor-path 매칭이 오탐을 유발 — 코드리뷰가 놓치고 Playwright 라이브 검증이 잡아낸 사례 (tactical, debugging.md, skeptic DOWNGRADE) / #136 git worktree remove는 그 디렉터리를 cwd로 쓰는 실행 중 프로세스를 멈추지 않는다 (tactical, tauri-windows.md) / #137 상태 정리 수정은 실제 프로덕션 데이터에 합성 케이스를 주입해 전후 id-set diff로 검증 — 격리 포트 + 왕복 클린업 전제 (tactical, misc-tooling.md, skeptic DOWNGRADE) / #138 EnterWorktree "Already in a worktree session" 오류 시 ExitWorktree(remove)부터 시도 (principle, claude-code-platform.md, skeptic CONFIRM) / #139 Workflow 스크립트 프롬프트 안 리터럴 `${...}`가 sandbox에서 즉시 평가돼 크래시 (principle, claude-code-platform.md, skeptic CONFIRM)
