@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.2.1
+version: 8.2.2
 allowed-tools:
   - Read
   - Write
@@ -641,6 +641,8 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 128 | CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5) 의존성 조기 차단 (2026-06-17, 구 인라인 #16) | tactical | preflight, official-plugins, dependency-gate, pre_pass | 인라인 |
 | 129 | AI 서브에이전트의 성능/원인 진단은 가설이다 — 코드 반영 전 실측 재검증 (2026-07-17) | principle | agent-diagnosis, empirical-verification, time-measurement | knowledge/multi-agent-orchestration.md |
 | 130 | 검증 중 실측된 신규 데이터가 유효한 결과물이면 테스트 데이터처럼 되돌리지 않는다 (2026-07-17) | tactical | verification, production-data, test-cleanup | knowledge/misc-tooling.md |
+| 131 | 라이브 참조 없는 화면/유형은 발명하지 않고 스코프 제외 또는 reference-weak로 명시 플래그한다 (2026-07-17) | principle | figma, reference-gap, scope, anti-invention | knowledge/figma-design-system.md |
+| 132 | Figma 빌드 완료 선언 전 라이브 사이트/템플릿 스크린샷 대조 게이트는 육안 검수로 못 잡는 버그를 반복적으로 잡아낸다 (2026-07-17) | tactical | figma, screenshot-gate, quality-gate, verification | knowledge/figma-design-system.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.

@@ -34,6 +34,7 @@ cs-experiencing 학습 INDEX가 참조하는 본문 모음. 신규 학습은 끝
 - **발견**: Figma 파일은 대체로 NDS를 따르되 구체적 버그들(디스클레이머 배경 위반, CTA 버튼 폰트/사이즈 불일치, 그린/그레이 hex 3종 혼용, 아이콘 오버플로우 등)만 있었던 반면, HTML 프로토타입은 NDS 토큰을 단 하나도 쓰지 않는 완전히 별개의 "cream/jade/rust" 독자 테마(시스템 폰트, 고정 375px 프레임)를 쓰고 있었다 — 두 산출물이 같은 기능을 나타냄에도 준수 수준이 완전히 갈렸다.
 - **교훈**: 디자인 소스와 그 코드 구현을 함께 감사할 때, 디자인 파일이 시스템을 잘 지킨다고 해서 코드 쪽도 그럴 것이라 가정하지 않는다. 둘은 서로 다른 시점에, 서로 다른 세션에서 만들어졌을 수 있으므로 항상 독립적으로 병렬 감사한다.
 - **근거**: HTML 감사 에이전트 보고 — "None of these hex values match the NDS reference palette at all... a bespoke 'paper/jade/rust' editorial theme... zero relationship to NDS Core tokens" vs. Figma 감사 에이전트 보고 — CTA 그린 컬러는 정확히 일치, 다만 소수의 구체적 버그만 존재 (skeptic verifier 대상 아님 — tactical 등급으로 사전 분류, 이 프로젝트/유사 페어드 워크플로우 계열에 재사용 가능).
+- **추가 (2026-07-17)**: 같은 패턴이 신뢰 방향을 반대로 뒤집어 재확인됐다 — NDS "본인정보 사실조회" 빌드에서 소스 HTML 프로토타입은 임시 블루(#1171D2)를 쓰고 있었지만, 에이전트는 이를 구조/콘텐츠의 소스 오브 트루스로만 삼고 색상은 NDS 브랜드 그린을 따르도록 명시적으로 분리했다("treating HTML as structural/content source of truth, not color source of truth"). 즉 "코드 프로토타입은 디자인 시스템과 별개 테마로 드리프트할 수 있다"는 원 교훈에서 한 걸음 더 나아가, **속성별로(구조 vs 색상) 어느 쪽이 진실인지 사전에 각각 결정**해야 한다는 것이 이번 사례의 추가 교훈이다.
 
 ### 116. Figma 커버리지는 파일의 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (2026-07-16)
 <!-- tier: tactical -->
@@ -51,3 +52,19 @@ cs-experiencing 학습 INDEX가 참조하는 본문 모음. 신규 학습은 끝
 - **발견**: `get_metadata`는 depth/limit 파라미터가 아예 없고 노드의 서브트리 전체를 재귀 직렬화한다 — 서브트리가 대략 500K~1M자를 넘으면 툴 출력 토큰 한도를 넘겨 **무조건 하드 에러**로 실패한다. 이 실패는 여러 개의 서로 다른 Figma 파일에서 반복 재현됐고, 툴 스키마 자체에도 depth 파라미터가 없어 구조적으로 우회 불가함이 확인됐다. 메타데이터만으로는 큰 페이지의 직계 자식 ID를 저비용으로 알아낼 방법이 없다 — 유일한 경로는 `use_figma`로 `page.children`/`figma.root.children`을 얕게 열거한 뒤, 필요한 서브트리에만 `get_metadata`를 거는 것.
 - **교훈**: 큰 Figma 페이지를 다룰 때는 `get_metadata`를 최상위 노드에 바로 쓰지 말고, 먼저 `use_figma`로 자식만 얕게 열거해 크기를 가늠한 다음 필요한 서브트리만 `get_metadata`/`get_screenshot`으로 조회한다.
 - **근거**: 여러 파일에서 "exceeds tool output token cap" 하드 에러 재현(500K~1M자 초과 서브트리), `use_figma`의 `page.children`/`figma.root.children`만이 실제로 동작한 우회 경로였음. (skeptic verifier CONFIRMED — 재현된 패턴 + 툴 스키마의 구조적 결함이 근거로 확인됨.)
+
+### 131. 라이브 참조 없는 화면/유형은 발명하지 않고 스코프 제외 또는 reference-weak로 명시 플래그한다 (2026-07-17)
+<!-- tier: principle -->
+
+- **상황**: 같은 세션에서 진행된 두 독립 Figma 제안서 빌드(NDS 모바일 앱 버전 / web-proposal 데스크톱 웹 버전) 모두, 대상 기능(통신사기 본인정보 공유여부 사실조회)의 일부 화면 유형에 대해 매칭되는 기존 참조 라이브러리·라이브 캡처가 없었다.
+- **발견**: 두 빌드 에이전트 모두 참조 공백을 감추지 않고 서로 다른 방식으로 명시했다 — NDS 빌드는 신원확인/고객홈페이지 흐름과 매칭되는 project-kind 소스가 없다는 사실을 빌드 완료 후 "reference-weak build"로 자체 플래그했고, web-proposal 빌드는 소스 아티팩트에 포함돼 있던 내부 백오피스 관리자 화면 2개를 "라이브 참조가 전혀 없는 채로 만들면 없는 디자인 언어를 발명하는 것"이라며 처음부터 빌드 대상에서 제외했다.
+- **교훈**: 참조 라이브러리/라이브 캡처가 없는 화면 유형을 만나면, (a) 빌드에 꼭 필요하지 않다면 스코프에서 명시적으로 제외하고 사유를 보고서에 남기거나, (b) 꼭 필요해 빌드를 진행한다면 결과물에 "reference-weak/저신뢰"로 명시 플래그해 후속 리뷰가 검증 강도를 높이도록 유도한다. 조용히 그럴듯하게 채워 넣는 것(silent invention)이 가장 나쁜 선택지다.
+- **근거**: NDS 빌드 보고 — "Reference-weak build (no project-kind source matches an identity-verification customer-homepage flow) — fell back to NDS_Templates/Library conventions." / web-proposal 빌드 보고 — "building them would have meant inventing an entire back-office design language with zero live reference... correctly flagged as out-of-scope rather than silently built anyway." (skeptic verifier CONFIRMED — 같은 세션 내 두 독립 에이전트가 서로 다른 화면 세트에서 같은 행동으로 수렴한 것은 특정 도구/버전에 종속되지 않는 디자인-빌드 방법론 일반에 적용 가능한 근거로 인정됨.)
+
+### 132. Figma 빌드 완료 선언 전 라이브 사이트/템플릿 스크린샷 대조 게이트는 육안 검수로 못 잡는 버그를 반복적으로 잡아낸다 (2026-07-17)
+<!-- tier: tactical -->
+
+- **상황**: 같은 세션의 두 Figma 제안서 빌드(NDS/web-proposal) 각각이, 빌드 완료 선언 전 필수 품질 게이트로 완성 화면을 라이브 사이트 스크린샷 및 Figma 템플릿 파일과 대조하는 단계를 실행했다.
+- **발견**: 두 빌드 모두 이 게이트에서 실제 버그를 잡아 수정했다 — NDS 빌드는 탭행 텍스트 오버플로우·테이블 컬럼 오버플로우·브랜치 화살표 스크립트의 잘못된 노드 참조 3건, web-proposal 빌드는 NEW뱃지-탭라벨 겹침·여러 화면에서 누락된 LNB 서브아이템·우측 레일과 스티키 티커바 누락(실측 좌표로 수정)·Closing 슬라이드의 템플릿 대비 잘못된 배경색 4건을 각각 찾아 고쳤다. 두 경우 모두 스크린샷 대조 이전에는 발견되지 않았던 버그였다.
+- **교훈**: Figma 빌드(제안서/화면 흐름 등)를 완료로 선언하기 전에는 항상 (1) 완성 화면 vs 라이브 사이트/원본 스크린샷, (2) 완성 산출물 vs 참조 템플릿 파일이라는 두 축의 스크린샷 대조 게이트를 실행한다. 오버플로우, 컴포넌트 누락, 잘못된 노드 참조, 색상 불일치 같은 결함은 빌드 로그나 코드 리뷰가 아니라 육안 스크린샷 비교에서만 드러나는 경우가 많다.
+- **근거**: NDS 빌드 보고 — "screenshotted every screen... fixed two real bugs found this way — a tab-row text overflow and a table-column overflow, plus a wrong-node reference." / web-proposal 빌드 보고 — "This caught real bugs I fixed: NEW badge overlapping the 5th tab label, LNB sub-items stripped from screens 2–4, and missing right rail + ticker... my Closing was white, template's is #12233D navy."

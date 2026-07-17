@@ -1,3 +1,10 @@
+## 8.2.2 (2026-07-17)
+
+- 학습 2건 신규 추가: #131 라이브 참조 없는 화면/유형은 발명 대신 스코프 제외 또는 reference-weak 명시 플래그 (principle, figma-design-system.md, skeptic CONFIRMED) / #132 Figma 빌드 완료 선언 전 라이브/템플릿 스크린샷 대조 게이트가 육안 검수로 못 잡는 버그를 반복 확인 (tactical, figma-design-system.md)
+- REJECT 1건: "브라우저 자동화 다중 탭 evals — list_tabs 재확인 없인 탭 인덱스 드리프트로 엉뚱한 도메인에 착지" 후보는 skeptic이 "탭 인덱스 드리프트가 실제로 일어났다는 직접 증거(전/후 list_tabs 비교) 없이, 모순된 관측을 설명하려는 사후 추정에 불과하다"고 판정 → 저장하지 않고 드롭
+- addendum 1건: #113(figma-design-system.md)에 반대 방향 재확인 사례 추가 — HTML 프로토타입의 임시 색상을 신뢰하지 않고 구조/콘텐츠만 소스로 삼은 사례, "속성별로 진실 축을 사전에 분리 결정" 교훈 보강
+- 출처: 통신사기 본인정보 공유여부 사실조회 기능의 NDS(모바일)·web-proposal(데스크톱 웹 N2) 두 Figma 제안서 병렬 빌드 세션 — nhsec.com/mynamuh.com 브랜드 공존 재발견(원장 `mynamuh-nhsec-rebrand-flap-2026-07` 4차 정정)이 트리거. 브랜드 공존 재발견 자체는 검증 가능한 관측(같은 세션·같은 분에 두 도메인 동시 로드)이므로 nhdesign3 ledger에는 그대로 기록되지만, 그 원인으로 지목된 "탭 드리프트" 메커니즘은 미검증 추정이라 cs-experiencing 학습으로는 승격하지 않음
+
 ## 8.2.1 (2026-07-17)
 
 - 학습 2건 신규 추가 (모두 skeptic 검증 완료): #129 AI 서브에이전트의 성능/원인 진단은 실측 재검증 없이 신뢰하지 않는다 (principle, multi-agent-orchestration.md) / #130 검증 중 실측된 신규 데이터가 유효한 결과물이면 테스트 데이터처럼 되돌리지 않는다 (tactical, misc-tooling.md)
