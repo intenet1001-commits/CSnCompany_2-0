@@ -1,8 +1,0 @@
-{
-  "name": "cs-core-memory",
-  "version": "1.0.0",
-  "description": "장기 핵심 메모리 시스템 — 세션 간 전략적 지혜를 축적하고 '30년 근속' 맥락을 제공한다",
-  "skills": ["cs-core-memory"],
-  "agents": ["memory-keeper"],
-  "commands": []
-}
