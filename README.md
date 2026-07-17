@@ -217,6 +217,34 @@ Each plugin folder contains its own `.claude-plugin/plugin.json`, plus `agents/`
 
 ---
 
+## 🧠 How the Learning System Works (Easy Guide)
+
+The team gets smarter every session. Here's the full loop in plain words:
+
+```
+ work session ──▶ 1. CAPTURE ──▶ 2. STORE ──▶ 3. RECALL ──▶ smarter next session
+                      ▲                                          │
+                      └────────── 4. GUARD (machine gate) ◀──────┘
+```
+
+1. **Capture** — when a session wraps up (`/cs-end`) or a version-up runs, the AI extracts what it learned this session (a bug pattern, a workaround, a design rule) and saves it as a numbered learning (#1 … #128 and counting). Each candidate passes a skeptic/refutation check first.
+2. **Store** — every learning is plain markdown: one 1-line row in the **learning INDEX** (in `cs-experiencing`'s SKILL.md) + a body in a topic file under `knowledge/` (`react-frontend.md`, `git-worktree.md`, `deployment.md`, `figma-design-system.md`, …). Orchestrator-domain lessons stay inline; everything else is routed to topic files.
+3. **Recall** — before any team fan-out (`/CS-test`, `/CS-plan`, `/cs-design`, …), the orchestrator greps the INDEX with your task's keywords and injects the top 2-3 matching learnings straight into the agents' prompts. Agents start with past experience instead of from zero.
+4. **Guard** — a deterministic gate (`bash plugins/shared/run_prepass.sh index-check`) machine-verifies INDEX↔body integrity on every save and version-up: no missing INDEX rows, no broken location pointers, globally unique & contiguous numbering, inline-body cap enforced. LLM checklists drift; this gate doesn't.
+
+**Why files instead of a database?**
+
+| | Markdown-in-git (current) | Hosted DB (e.g. Supabase) |
+|---|---|---|
+| Who gets the knowledge | **Every user who installs the plugin** — learnings ship inside the repo; `git pull` = full sync | Only whoever holds the DB credentials |
+| Runtime dependencies | None — works offline, no keys | Network + auth on every recall |
+| Review & rollback | `git diff` / `git revert` | Custom tooling |
+| Recall speed | grep over ~120KB = milliseconds | Network round-trip |
+
+A 10-agent analysis (2026-07) confirmed a relational DB would make recall *slower* and sharing *harder*, not better. Because the knowledge base rides along with the plugin itself, **anyone who installs this marketplace automatically gets all accumulated learnings**, and future ones arrive with a simple update — no account, no keys, nothing to configure.
+
+---
+
 ## ❓ FAQ
 
 **Q: Do I need to install all 11 plugins?**
@@ -237,8 +265,8 @@ A: Install [uv](https://docs.astral.sh/uv/) — the Python environment manager. 
 **Q: Can I use `/cs-end`?**
 A: `/cs-end` is designed for the plugin author. If you run it, Phase 4 (git push to the marketplace repo) is automatically skipped — your local session learnings are still saved normally. Use `--project /path/to/your/repo` to include your project's push status in the report.
 
-**Q: Something is broken / I want to contribute.**
-A: Open an issue or PR at [github.com/intenet1001-commits/CSnCompany_2-0](https://github.com/intenet1001-commits/CSnCompany_2-0).
+**Q: Do I get the accumulated learnings too, or only the author?**
+A: You get them all. The learning base (~128 numbered learnings) is plain markdown inside the plugin repo — installing the marketplace ships it to you, and updating pulls new ones. See "How the Learning System Works" above.
 
 **Q: Something is broken / I want to contribute.**
 A: Open an issue or PR at [github.com/intenet1001-commits/CSnCompany_2-0](https://github.com/intenet1001-commits/CSnCompany_2-0).
