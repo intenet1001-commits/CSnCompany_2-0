@@ -64,3 +64,52 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: `git pull --rebase`는 uncommitted working tree changes가 있으면 `error: cannot pull with rebase: You have unstaged changes`로 중단한다. 빌드 스크립트가 생성한 파일이 자동으로 커밋되지 않으면 다음 pull에서 conflict가 발생한다.
 - **교훈**: Windows 빌드 후 빌드 아티팩트(build-number.json, tauri.conf.json) 변경이 있으면 즉시 커밋하거나, pull 전 `git stash` → pull → `git stash pop` 절차를 따른다. 가장 안전한 순서: pull → build → commit artifacts → push.
 - **근거**: `git stash` 후 `git pull --rebase` 성공. 이후 `git stash pop`에서 remote v102 vs local v98 conflict → `git checkout --ours` + `git stash drop`으로 해결.
+
+### 97. worktree가 main을 점유 중이면 `gh pr merge`가 로컬 브랜치 동기화 실패로 막힌다 — `gh api PUT merge`로 우회 (2026-07-09)
+<!-- tier: tactical, error-ref: ERR-2026-07-09-001 -->
+
+- **상황**: portmanagement 프로젝트에서 `.claude/worktrees/last-run-sort` 워크트리로 작업한 PR을 사용자가 "메인에 머지해"라고 지시해 병합 시도.
+- **발견**: 동일 레포의 다른 워크트리(원래 체크아웃 디렉토리)가 이미 `main`을 체크아웃하고 있으면, 일반 `gh pr merge`는 병합 후 로컬 main 브랜치를 갱신하려다 `fatal: 'main' is already used by worktree` 에러로 실패한다. `gh api repos/<owner>/<repo>/pulls/<N>/merge -X PUT -f merge_method=squash`로 GitHub API를 직접 호출하면 로컬 체크아웃 상태와 무관하게 원격에서 병합된다.
+- **교훈**: worktree를 상시 여러 개 운용하는 리포에서 `gh pr merge`가 이 에러로 실패하면 재시도하지 말고 즉시 `gh api .../merge -X PUT`으로 전환한다.
+- **근거**: `gh pr merge 3 --squash --delete-branch` → `failed to run git: fatal: 'main' is already used by worktree at '/Users/gwanli/product_2026/portmanagement'` / `gh api repos/intenet1001-commits/AgentsToZ_byCS/pulls/3/merge -X PUT -f merge_method=squash` → `{"merged":true}` (2026-07-09 세션)
+
+### 100. git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (2026-07-11)
+<!-- tier: principle, error-ref: ERR-2026-07-11-001 -->
+
+- **상황**: 포트관리 앱의 워크트리 '삭제' 버튼 클릭 시 에러가 나는 버그를 조사.
+- **발견**: Claude Code 세션이 자신의 워크트리를 `.git/worktrees/<name>/locked` 파일로 잠그는데, `git worktree prune`은 locked 항목을 "일시적으로 접근 불가한 이동식 미디어"로 간주해 설계상 건너뛴다. 물리 폴더가 이미 삭제된 뒤에도 `remove --force` 단독으로는 등록이 영구히 남는다. 또한 `if (!existsSync(worktreePath)) return error`를 정리 로직보다 먼저 두면, 폴더가 사라진 순간부터 prune 폴백에 아예 도달하지 못하고 영구히 에러만 반환한다.
+- **교훈**: git worktree를 프로그래밍적으로 제거하는 코드는 remove 실패 시 곧바로 prune에 기대지 말고, remove 시도 전에 `git worktree unlock <path>`을 먼저 호출(실패 무시)하고, '물리 디렉토리 없음'을 즉시 에러로 처리하지 말고 기존 정리/prune 경로로 흘려보내야 한다.
+- **근거**: 디스포저블 테스트 repo에서 `git worktree lock <path>` → 폴더 rm -rf → `remove --force`만으로는 `git worktree list --porcelain`에 영구히 남는 것을 확인. `git worktree unlock <path>` 실행 후 동일 시퀀스를 실행하면 완전히 사라짐을 확인 (skeptic verifier CONFIRMED).
+
+### 101. git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (2026-07-11)
+<!-- tier: principle -->
+
+- **상황**: 워크트리 '머지' 버튼을 `aheadCount === 0`(main 대비 unmerged 커밋 0개)일 때 '머지됨'으로 라벨링하는 로직 검토.
+- **발견**: `git rev-list --count main..branch`가 0을 반환하는 경우는 "브랜치가 방금 생성돼 아직 diverge 안 함"과 "diverge했다가 다시 머지되어 합쳐짐" 둘 다 있으며, rev-list 카운트만으로는 이 둘을 구분할 수 없다 — 두 실제 히스토리가 동일한 신호로 뭉개진다. 그런데도 라벨은 검증 불가능한 특정 히스토리("이미 머지됨")를 단언하고 있었다.
+- **교훈**: git 계산값으로 UI 라벨을 만들 때는 그 계산이 라벨이 함의하는 상태들을 실제로 구분할 수 있는지 먼저 확인한다. 구분 불가능하면 라벨은 "측정한 값"만 설명해야지 "그 이유에 대한 이야기"를 단언해서는 안 된다.
+- **근거**: 직접 git 커맨드로 두 시나리오(신규 브랜치 vs 머지 후 브랜치) 모두 `aheadCount=0`을 반환함을 확인. 라벨을 "머지됨" → "변경 없음"으로 수정 (skeptic verifier CONFIRMED).
+
+### 102. 심볼릭 링크를 지나는 경로에서 문자열 prefix 필터가 조용히 실패할 수 있다 (2026-07-11)
+<!-- tier: principle -->
+
+- **상황**: disposable 테스트 repo(`mktemp -d`, macOS `/var/folders/...`)로 워크트리 API를 curl로 end-to-end 검증하던 중, 실제 존재하는 워크트리가 목록에서 누락됨을 발견.
+- **발견**: git은 워크트리 경로를 내부적으로 realpath로 정규화해 보고하지만(`/private/var/...`), 애플리케이션 코드는 입력받은 원본 경로(`/var/...`, symlink 미해석)를 기준으로 `startsWith()` prefix 비교를 하고 있어 두 경로 문자열이 일치하지 않아 필터링에서 조용히 탈락했다. 동일 로직을 symlink가 없는 `/Users/...` 경로에서 재실행하면 정상 동작함을 대조 확인.
+- **교훈**: git(또는 OS 파일시스템 API)이 내부적으로 realpath 정규화를 수행하는 값과, 애플리케이션이 별도로 받은 원본 입력 경로를 문자열로 직접 비교(특히 `startsWith`/`endsWith` prefix/suffix 매칭)하는 코드는 symlink가 섞인 환경(대표적으로 macOS `/var` → `/private/var`, `/tmp` → `/private/tmp`)에서 조용히 실패할 수 있다. 경로 비교 전 양쪽을 동일하게 정규화(realpath)하거나, 정규화 차이를 감안한 테스트를 거쳐야 한다.
+- **근거**: `/api/list-git-worktrees`가 `/var/folders/...` 경로에서는 등록된 워크트리를 누락시키고, 동일 로직이 `/Users/...` 경로에서는 정상 반환하는 것을 curl로 대조 확인 (skeptic verifier CONFIRMED — 이 사용자의 실제 프로젝트 경로는 symlink가 없어 직접 영향은 없으나, 패턴 자체는 플랫폼 안정 사실).
+
+### 103. git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (2026-07-11)
+<!-- tier: principle -->
+
+- **상황**: meokgo-study(먹고공부하자) 프로젝트에서 `/qa` 스킬의 클린 워킹트리 요구사항 때문에, 세션 시작 전부터 미커밋 상태였던 파일들(`app/api/voice-learn/`, `class/`, migration sql)을 커밋하려고 스테이징하던 중.
+- **발견**: `class/data/*.json`이 단순 학습용 데이터가 아니라 실제 Supabase DB export(`meokgo_users`, `meokgo_chat_messages`)였고, 실제 팀원 실명(예: "박건우", "심주현")과 실제 채팅 내용이 그대로 담긴 PII였다. 커밋 직전 내용을 직접 열어보지 않았다면 공개 가능성이 있는 GitHub 저장소에 실사용자 개인정보가 그대로 올라갈 뻔했다.
+- **교훈**: git add로 스테이징한 파일이라도, 특히 `data/` 디렉토리나 확장자가 `.json`/`.csv`/`.sql`인 파일은 커밋 실행 전 반드시 내용을 직접 열어 실데이터·PII 여부를 확인한다. 의심되면 즉시 unstage하고 사용자에게 포함 여부를 물은 뒤 `.gitignore`에 등재한다.
+- **근거**: `class/data/*.json`이 실제 Supabase 테이블 raw export였고 실명·실채팅이 포함되어 있음을 커밋 전 검사에서 발견 → unstage 후 사용자 확인 → `class/data/` 및 `__pycache__/`를 `.gitignore`에 추가하고 안전한 파일만 커밋 (skeptic verifier CONFIRMED — "커밋 전 스테이징 콘텐츠 검토" 원칙은 스택/버전과 무관하게 적용 가능).
+
+### 127. git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17)
+<!-- tier: tactical -->
+<!-- renumbered 2026-07-17: 구 인라인 #15 — knowledge/ 이관 항목 #15과 번호 충돌로 재부여 -->
+
+- **상황**: 사용자가 특정 커밋 해시(defd9c1...)를 로컬에 pull 요청 시, 해당 커밋이 어느 원격 브랜치에 속하는지 먼저 확인해야 했음.
+- **발견**: `git fetch origin` → `git cat-file -t <hash>`로 객체 존재 확인 → `git branch -r --contains <hash>`로 포함 브랜치 특정 → `git merge --ff-only <remote-branch>` 순으로 안전하게 적용. fetch 없이는 `unknown revision` 오류 발생.
+- **교훈**: 알 수 없는 커밋 해시 merge 요청: (1) fetch → (2) cat-file -t 존재 확인 → (3) branch -r --contains 브랜치 특정 → (4) ff-only merge. 이 순서를 생략하면 중단됨.
+- **근거**: `git merge --ff-only origin/claude/csncompany-plugin-auto-install-am7h2x` → "Fast-forward / 6 files changed, 175 insertions(+)" (2026-06-17 세션)

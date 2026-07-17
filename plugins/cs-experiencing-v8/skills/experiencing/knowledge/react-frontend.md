@@ -120,3 +120,35 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 하나의 `renderChips()` 함수가 메인 플로우 상태(`step`)와 서브플로우 상태(`proxyStep`)를 순차적 `if (...) return (...)` 체인으로 함께 렌더링하고 있었다. 서브플로우의 "확인 카드" 분기(`proxyStep === "confirm"`)가 메인 플로우의 `step === "greeting"` 분기보다 코드상 아래에 있어, 새로 추가한 진입 버튼처럼 메인 `step`이 계속 "greeting"으로 남아있는 상태에서 서브플로우를 시작하면 그 확인 카드 분기에 도달하기도 전에 greeting 분기가 먼저 return 해버림. 기존에는 서브플로우가 항상 `step === "after-confirm"`(메인 주문 완료 후)에서만 시작돼서 이 순서 문제가 드러나지 않았을 뿐, 근본적으로 순서에 의존하는 취약한 구조였다.
 - **교훈**: 한 컴포넌트가 서로 독립적인 두 개 이상의 상태 머신(메인 플로우 + 서브플로우)을 하나의 렌더 함수에서 순차 early-return으로 처리하고 있다면, 서브플로우가 "활성 상태"일 때의 분기를 메인 플로우 분기보다 먼저 체크하도록 최상단에 둔다. 특히 서브플로우로의 새 진입 경로를 추가할 때는, 그 경로가 메인 플로우의 default/초기 상태("greeting" 등)와 동시에 존재할 수 있는지 반드시 확인 — 기존에 한 가지 트리거 경로만 있었다는 사실이 순서 안전성을 보장하지 않는다.
 - **근거**: `components/voice-order-bot.tsx` `renderChips()` — Playwright로 재현: 신규 "대신주문" 버튼 클릭 → 메뉴/커피 GPT 매칭 성공(API 200 응답 확인) → 확인 카드 미표시. `proxyStep === "confirm"` 분기를 `step === "greeting"` 분기보다 위로 이동 후 재현 안 됨 확인.
+
+### 96. React 클로저 stale state + Playwright ref 재사용은 querySelector 재조회 + 별도 evaluate 호출 + 클릭 간 지연으로 우회 (2026-07-08)
+<!-- tier: principle -->
+
+- **상황**: Playwright로 React 상태 기반 UI(수량 스테퍼, 빠른 화면 전환)를 자동 테스트하던 중 두 가지 문제 발생.
+- **발견**: (1) `onClick={() => setQty(qty+1)}` 형태 핸들러에 동기 루프로 `.click()`을 연속 호출하면, 각 호출이 마지막 렌더 시점의 동일한 stale `qty`를 클로저로 캡처하고 있어 리렌더 전에 여러 번 호출해도 1회분만 반영됨 — React 업데이트 배칭 + 클로저의 조합으로 발생하는 표준적 현상(함수형 업데이터 `setQty(q => q+1)`을 쓰지 않는 한 재현됨). (2) 빠른 네비게이션 후 이전 스냅샷에서 얻은 element ref가 stale해져 엉뚱한 DOM에 반응함 — Playwright ref는 캡처 시점 스냅샷에 종속되는 것이 정상 동작.
+- **교훈**: React 상태 UI를 Playwright `browser_evaluate`로 빠르게 조작할 때는 (1) 저장된 ref 재사용 대신 매번 `document.querySelector`로 재조회, (2) 클릭 직후 상태 확인은 같은 evaluate 호출이 아닌 별도의 후속 evaluate 호출로 분리(리렌더가 비동기이므로), (3) 연속 클릭 사이에 `await new Promise(r => setTimeout(r, 30))` 등 짧은 지연을 넣어 클로저 stale-state 언더카운트를 방지한다.
+- **근거**: Derivative1 프로젝트 세션 2026-07-08 — 수량 스테퍼 동기 클릭 루프가 1회분만 반영, `async` evaluate + 클릭 간 30ms 지연으로 해결 확인; 화면 전환 후 stale ref로 인한 의도치 않은 화면 점프를 `document.querySelector` 기반 클릭 + 별도 evaluate 결과 조회로 해결 확인 (skeptic verifier CONFIRMED, React 배칭/클로저 시맨틱스는 버전 무관 안정 지식으로 판정)
+
+### 105. `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (2026-07-11)
+<!-- tier: tactical -->
+
+- **상황**: 사용자가 카테고리(태그) 브라우징 UI가 안 보인다고 보고 — React/JSX 코드베이스를 조사.
+- **발견**: 완전히 동작하는 UI+필터 로직(카테고리 칩, `sidebarSection.startsWith('tag:')` 필터, 클릭 핸들러)이 이미 구현되어 있었고 그 필터 로직 자체는 다른 살아있는 렌더 경로에서도 실제로 사용 중이었으나, 이 UI 블록 전체가 JSX 안에서 `{false && <div>...}`로 감싸져 있어 어떤 state 조합에서도 렌더링되지 않았다. state/props 기반 조건부 렌더링 추적으로는 이런 상수 리터럴 하드-비활성화를 놓치기 쉽다.
+- **교훈**: '분명 코드에 있는데 안 보인다'는 기능을 조사할 때는 state 기반 조건뿐 아니라 `{false && ...}`/`{true && ...}` 같은 상수 리터럴 조건도 별도로 `grep -n "{false &&"`로 확인한다. 발견되면 죽은 블록 전체를 복원하기보다, 필요한 부분만 골라 이미 살아있는 필터 로직에 연결하는 것이 최소 변경이다. (skeptic verifier DOWNGRADE — 단일 코드베이스·단일 사례로만 확인된 기법이라 principle이 아닌 tactical로 판정)
+- **근거**: `grep -n "{false &&"`로 사이드바 정의부에서 하드 비활성화 블록 위치 확인, 그 안의 `setSidebarSection('tag:'+category)` 핸들러와 필터 로직이 다른 활성 렌더 경로에서 이미 참조되고 있음을 코드 변경 전에 grep으로 확인.
+
+### 125. Derived slice 재사용으로 다수 sparkline 데이터 생성 (2026-06-12)
+<!-- tier: principle -->
+<!-- renumbered 2026-07-17: 구 인라인 #13 — knowledge/ 이관 항목 #13과 번호 충돌로 재부여 -->
+
+- **상황**: MAU 히어로 카드에 세그먼트별(신규방문자, Returning, Resurrecting, 기존→해외첫거래) 스파크라인을 추가해야 했으나, 각 세그먼트마다 별도 DB 쿼리나 state를 만들 뻔했음.
+- **발견**: 이미 계산된 `heroSnapSlice = snapshots.slice(0, selectedMonthIdx + 1)`를 재사용하고, 각 세그먼트가 `.map(s => ({ name: s.label, value: s.traders.returning }))` 처럼 다른 필드만 매핑하면 N개 스파크라인 데이터를 1개 slice에서 도출 가능.
+- **교훈**: 새 데이터 파이프라인 전에 기존 derived slice/computed 데이터를 다른 필드 매핑으로 재활용할 수 있는지 먼저 확인하라. 대시보드에서 하나의 base slice → 여러 시리즈 파생 패턴은 state 폭발 없이 확장 가능.
+
+### 126. HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (2026-06-12)
+<!-- tier: tactical -->
+<!-- renumbered 2026-07-17: 구 인라인 #14 — knowledge/ 이관 항목 #14과 번호 충돌로 재부여 -->
+
+- **상황**: 히어로 카드 전체(36px)와 세그먼트 셀 인라인(24px) 두 크기로 동일 HeroSparkline 컴포넌트를 써야 했음.
+- **발견**: `height?: number = 36` optional prop 추가로 새 컴포넌트 없이 해결. `<HeroSparkline data={...} color={...} height={24} />`.
+- **교훈**: 기존 컴포넌트 복제보다 optional prop으로 변형을 흡수하는 것이 먼저. 렌더 조건: `spark.length > 1` 가드 필수.

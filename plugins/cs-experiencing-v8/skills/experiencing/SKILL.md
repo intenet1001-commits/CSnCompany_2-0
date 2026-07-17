@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.12
+version: 8.2.0
 allowed-tools:
   - Read
   - Write
@@ -219,6 +219,7 @@ AskUserQuestion 호출하지 않음. 그냥 "📝 학습 스킵 (이번 세션 �
    - 해당 도메인 고유 학습 → 그 도메인 SKILL.md 노하우 섹션 끝
    - 프로젝트-특화 학습 → 매칭되는 `skills/experiencing/knowledge/<topic>.md` 끝에 append (주제 파일 없으면 새로 생성)
    - 어느 경우든 **cs-experiencing 학습 INDEX 테이블에 1줄 추가** (번호, 제목, tier, 태그, 위치)
+   - 인라인 본문은 오케스트레이터 자체 도메인 학습에만 허용 — index-check 게이트가 인라인 개수 상한(15)을 강제하므로 프로젝트-특화 본문은 반드시 knowledge/로 라우팅한다
 7. Edit 도구로 아래 포맷으로 추가:
 
 ```markdown
@@ -234,6 +235,14 @@ AskUserQuestion 호출하지 않음. 그냥 "📝 학습 스킵 (이번 세션 �
 - `tactical` 예시: "osascript choose folder 특정 파라미터 금지", "bun --watch 파일변경 미감지"
 
 **Knowledge Decay 정책:** `tactical` 항목은 cs-end의 Forget Gate가 30일 경과 시 자동으로 재검토를 권장한다. `principle` 항목은 decay 검토 대상에서 제외된다.
+
+8. **무결성 게이트 (결정론적, 저장 직후 필수)**:
+   ```bash
+   bash "$BASE_PATH/shared/run_prepass.sh" index-check
+   ```
+   INDEX↔본문 정합성(C1 INDEX 누락 / C2 위치 포인터 / C3·C4 번호 유일성 / C5 연속성 / C6 인라인 상한 15)을
+   기계 검증한다. `"ok": false`면 위반 항목을 수정한 뒤 재실행 — ok가 될 때까지 STEP 3으로 진행하지 않는다.
+   (LLM 반박 패스 (a)~(d)는 내용 품질용이고, 구조 불변식은 이 게이트가 단일 진실.)
 
 #### STEP 3: 버전 디렉토리 생성
 
@@ -269,6 +278,14 @@ bash "$BASE_PATH/shared/run_prepass.sh" version-check "$NEW_DIR"
 VERSION 파일 값으로 맞춘 뒤 재실행한다. ok가 될 때까지 commit/push 단계로 진행하지 않는다 —
 자가 업그레이드가 낡은 자기 서술을 배포하는 것을 막는 게이트.
 (숫자 정규화 비교: `1` == `1.0.0`)
+
+cs-experiencing 학습 INDEX 무결성도 같은 게이트에서 검증한다:
+
+```bash
+bash "$BASE_PATH/shared/run_prepass.sh" index-check
+```
+
+`"ok": false`면 commit/push로 진행하지 않는다.
 
 #### STEP 5: 오래된 버전 정리
 
@@ -477,7 +494,7 @@ echo "📋 cs-smart-run: v$VER"
 
 ## experiencing 노하우
 
-### 학습 INDEX (전체 84건 — 1줄/항목, 단일 진실)
+### 학습 INDEX (1줄/항목, 단일 진실)
 
 **검색 프로토콜 (read-side, 디스패치 전 필수):** fan-out을 수행하는 모든 프로토콜(test/plan/review/design/pipeline)은
 에이전트 디스패치 전에 이 INDEX를 현재 태스크의 키워드(기술 스택·도메인 명사)로 grep하고,
@@ -578,41 +595,56 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 82 | spawn_wt_cmd — Windows Terminal(wt.exe) 없을 때 cmd.exe 폴백 패턴 (2026-06-14) | tactical | tauri, windows, terminal, spawn, wt.exe | knowledge/tauri-windows.md |
 | 83 | 빌드 아티팩트 unstaged → git pull --rebase 실패 (2026-06-14) | tactical | git, pull, rebase, unstaged, build-artifact | knowledge/git-worktree.md |
 | 84 | 멀티기기 build-number 역행 방지 — 빌드 전 pull 필수 (2026-06-14) | tactical | tauri, build-number, multi-device, pull | knowledge/tauri-windows.md |
-| 85 | minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17) | tactical | vercel, minify, bundle, 배포검증, property-name | 인라인 |
-| 86 | 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17) | principle | cus_type, fallback, 집계, segment, data-modeling | 인라인 |
-| 87 | 구조화 JSON 추출 태스크에는 소형 LLM + 출력 토큰 상한 축소가 충분하다 (2026-06-30) | tactical | llm, gpt-4o-mini, token, latency, structured-output | 인라인 |
-| 88 | 단일 LLM 호출에서 다중 엔티티를 동시 추출하여 복합 발화를 처리한다 (2026-06-30) | principle | llm, schema, multi-entity, voice-order, response-design | 인라인 |
+| 85 | minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17) | tactical | vercel, minify, bundle, 배포검증, property-name | knowledge/deployment.md |
+| 86 | 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17) | principle | cus_type, fallback, 집계, segment, data-modeling | knowledge/data-sync-db.md |
+| 87 | 구조화 JSON 추출 태스크에는 소형 LLM + 출력 토큰 상한 축소가 충분하다 (2026-06-30) | tactical | llm, gpt-4o-mini, token, latency, structured-output | knowledge/llm-patterns.md |
+| 88 | 단일 LLM 호출에서 다중 엔티티를 동시 추출하여 복합 발화를 처리한다 (2026-06-30) | principle | llm, schema, multi-entity, voice-order, response-design | knowledge/llm-patterns.md |
 | 89 | 멀티에이전트 오케스트레이션 벤치마크 — CrewAI/AutoGen/ChatDev → P1~P5 이식 (2026-07-02) | principle | orchestration, crewai, autogen, chatdev, speaker-selection, termination, chain-manifest, role-play, persona | knowledge/multi-agent-orchestration.md |
 | 90 | Next.js API route의 준-정적 데이터는 모듈-레벨 TTL 캐시로 요청당 반복 DB 조회를 제거한다 (2026-07-03) | principle | nextjs, cache, ttl, serverless, supabase, latency | knowledge/deployment.md |
 | 91 | 대시보드 미해결처럼 보이는 값 — snapshot 필드 vs live-computed 필드 구분 (2026-07-03) | principle | dashboard, snapshot-field, netting, ux, debugging | knowledge/debugging.md |
 | 92 | 이중 로그인 아키텍처에서 세션 게이트 API는 다수 유저에게 상시 401을 낼 수 있다 (2026-07-05) | principle | auth, nextauth, session, localstorage, dual-login, 401 | knowledge/debugging.md |
 | 93 | 이름/식별자 퍼지 매칭은 substring 포함 대신 Levenshtein 거리만 사용 (2026-07-05) | principle | fuzzy-match, levenshtein, substring, 오매칭, string-matching | knowledge/debugging.md |
 | 94 | 공유 렌더 함수의 early-return 순서가 서브플로우 상태를 가릴 수 있다 (2026-07-05) | principle | react, early-return, render-order, sub-flow, softlock | knowledge/react-frontend.md |
+| 95 | macOS 앱 샌드박스 컨테이너 파일은 Full Disk Access/Automation 권한 없는 터미널에서 접근 불가 (2026-07-08) | principle | macos, tcc, sandbox, containers, full-disk-access | knowledge/misc-tooling.md |
+| 96 | React 클로저 stale state + Playwright ref 재사용 — querySelector 재조회 + 별도 evaluate + 클릭 간 지연으로 우회 (2026-07-08) | principle | react, playwright, stale-state, closure, evaluate | knowledge/react-frontend.md |
+| 97 | worktree가 main을 점유 중이면 gh pr merge 실패 — gh api PUT merge로 우회 (2026-07-09) | tactical | git-worktree, gh, pr-merge, api | knowledge/git-worktree.md |
+| 98 | 웹·앱 동시 접근 상태는 localStorage 대신 공유 파일 + 이중 접근 경로로 관리 (2026-07-09) | tactical | localstorage, dual-surface, tauri, shared-file | knowledge/data-sync-db.md |
+| 99 | "왜 반영이 안 됐지" 버그는 표시 계층이 참조하는 데이터 소스부터 점검 (2026-07-09) | tactical | stale-state, read-path, restart, debugging | knowledge/debugging.md |
 | 100 | git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (2026-07-11) | principle | git-worktree, locked, prune, unlock | knowledge/git-worktree.md |
-| 101 | git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (2026-07-11) | principle | git, ui-label, ambiguity, rev-list | 인라인 |
+| 101 | git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (2026-07-11) | principle | git, ui-label, ambiguity, rev-list | knowledge/git-worktree.md |
 | 102 | 심볼릭 링크를 지나는 경로에서 문자열 prefix 필터가 조용히 실패할 수 있다 (2026-07-11) | principle | symlink, realpath, path-filter, macos | knowledge/git-worktree.md |
-| 103 | git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (2026-07-11) | principle | git, pii, data-safety, staging, commit-review | 인라인 |
-| 104 | OpenAI 추론형(reasoning-tier) 모델은 temperature 기본값(1) 외 다른 값을 거부한다 (2026-07-11) | tactical | openai, temperature, reasoning-model, api-error, gpt-5 | 인라인 |
-| 105 | `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (2026-07-11) | tactical | react, jsx, dead-code, hard-disable, grep | 인라인 |
-| 106 | 실결제 앱은 adb 입력 인젝션을 보안 위협으로 감지해 자체 종료할 수 있다 (2026-07-14) | tactical | adb, android, security-sdk, mobile-automation, anti-tampering | 인라인 |
-| 107 | 동일 화이트라벨 벤더의 패키지명 prefix가 adb 자동화 안정성을 예측하는 신호가 될 수 있다 (2026-07-14) | tactical | adb, android, package-name, whitelabel, heuristic | 인라인 |
-| 108 | OCR로 저신뢰도 탐지된 아이콘의 바운딩박스 중심이 실제 탭 타겟과 어긋날 수 있다 (2026-07-14) | tactical | ocr, vision-framework, bounding-box, tap-coordinate, ui-automation | 인라인 |
-| 109 | 안드로이드 하이브리드 앱에서 뒤로가기 도달 화면은 진입 경로에 따라 비결정적일 수 있다 (2026-07-14) | tactical | android, back-navigation, hybrid-app, ui-automation | 인라인 |
-| 110 | NDS 감사 결과의 '지적된 노드 리스트'만 믿으면 안 됨 — 전체 프레임 색상 스윕 필요 (2026-07-15) | principle | design-system, audit, figma, sweep, nds | 인라인 |
-| 111 | 재작성 시 토큰 값을 추측하지 말고 원본 컴포넌트에서 직접 샘플링 (2026-07-15) | principle | design-token, figma, sampling, code-generation, migration | 인라인 |
-| 112 | 회귀 수정 시 임의값이 아니라 파일 내 형제 요소의 기존 컨벤션을 따른다 (2026-07-15) | principle | regression, convention, layout, figma, sibling | 인라인 |
-| 113 | 디자인 파일이 시스템을 준수해도 코드 프로토타입은 완전히 별개 테마로 드리프트할 수 있다 (2026-07-15) | tactical | design-system, drift, figma, html, audit | 인라인 |
+| 103 | git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (2026-07-11) | principle | git, pii, data-safety, staging, commit-review | knowledge/git-worktree.md |
+| 104 | OpenAI 추론형(reasoning-tier) 모델은 temperature 기본값(1) 외 다른 값을 거부한다 (2026-07-11) | tactical | openai, temperature, reasoning-model, api-error, gpt-5 | knowledge/llm-patterns.md |
+| 105 | `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (2026-07-11) | tactical | react, jsx, dead-code, hard-disable, grep | knowledge/react-frontend.md |
+| 106 | 실결제 앱은 adb 입력 인젝션을 보안 위협으로 감지해 자체 종료할 수 있다 (2026-07-14) | tactical | adb, android, security-sdk, mobile-automation, anti-tampering | knowledge/mobile-automation.md |
+| 107 | 동일 화이트라벨 벤더의 패키지명 prefix가 adb 자동화 안정성을 예측하는 신호가 될 수 있다 (2026-07-14) | tactical | adb, android, package-name, whitelabel, heuristic | knowledge/mobile-automation.md |
+| 108 | OCR로 저신뢰도 탐지된 아이콘의 바운딩박스 중심이 실제 탭 타겟과 어긋날 수 있다 (2026-07-14) | tactical | ocr, vision-framework, bounding-box, tap-coordinate, ui-automation | knowledge/mobile-automation.md |
+| 109 | 안드로이드 하이브리드 앱에서 뒤로가기 도달 화면은 진입 경로에 따라 비결정적일 수 있다 (2026-07-14) | tactical | android, back-navigation, hybrid-app, ui-automation | knowledge/mobile-automation.md |
+| 110 | NDS 감사 결과의 '지적된 노드 리스트'만 믿으면 안 됨 — 전체 프레임 색상 스윕 필요 (2026-07-15) | principle | design-system, audit, figma, sweep, nds | knowledge/figma-design-system.md |
+| 111 | 재작성 시 토큰 값을 추측하지 말고 원본 컴포넌트에서 직접 샘플링 (2026-07-15) | principle | design-token, figma, sampling, code-generation, migration | knowledge/figma-design-system.md |
+| 112 | 회귀 수정 시 임의값이 아니라 파일 내 형제 요소의 기존 컨벤션을 따른다 (2026-07-15) | principle | regression, convention, layout, figma, sibling | knowledge/figma-design-system.md |
+| 113 | 디자인 파일이 시스템을 준수해도 코드 프로토타입은 완전히 별개 테마로 드리프트할 수 있다 (2026-07-15) | tactical | design-system, drift, figma, html, audit | knowledge/figma-design-system.md |
 | 114 | 지식 축적 스킬은 주제가 아니라 "읽기 경로(read path)"로 분할해야 학습이 쌓일수록 강해진다 (2026-07-16) | principle | skill-design, context, scaling, read-path, knowledge-base | 인라인 |
-| 115 | 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (2026-07-16) | principle | refactor, stale-docs, registry-sync, rehearsal, verifier | 인라인 |
-| 116 | Figma 커버리지는 파일의 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (2026-07-16) | tactical | figma, coverage, enumeration, get_libraries, mcp | 인라인 |
-| 117 | 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 — 정렬 순서와 인용 횟수는 그럴듯한 함정 (2026-07-16) | tactical | precedence, tie-breaker, instruction-design, rehearsal | 인라인 |
-| 118 | N개 서브에이전트의 합의는 진실이 아니다 — 각자 참인 국소 관찰이 거짓 전역 주장으로 굳는다 (2026-07-16) | principle | multi-agent, consensus, 일반화, 부정주장, verification | 인라인 |
-| 119 | 리드가 주입한 잘못된 전제는 워커의 오류가 되어 돌아온다 — 브리핑은 지시가 아니라 검증 대상이다 (2026-07-16) | principle | multi-agent, briefing, 반박채널, fan-out, 계약 | 인라인 |
+| 115 | 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (2026-07-16) | principle | refactor, stale-docs, registry-sync, rehearsal, verifier | knowledge/claude-code-platform.md |
+| 116 | Figma 커버리지는 파일의 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (2026-07-16) | tactical | figma, coverage, enumeration, get_libraries, mcp | knowledge/figma-design-system.md |
+| 117 | 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 — 정렬 순서와 인용 횟수는 그럴듯한 함정 (2026-07-16) | tactical | precedence, tie-breaker, instruction-design, rehearsal | knowledge/claude-code-platform.md |
+| 118 | N개 서브에이전트의 합의는 진실이 아니다 — 각자 참인 국소 관찰이 거짓 전역 주장으로 굳는다 (2026-07-16) | principle | multi-agent, consensus, 일반화, 부정주장, verification | knowledge/multi-agent-orchestration.md |
+| 119 | 리드가 주입한 잘못된 전제는 워커의 오류가 되어 돌아온다 — 브리핑은 지시가 아니라 검증 대상이다 (2026-07-16) | principle | multi-agent, briefing, 반박채널, fan-out, 계약 | knowledge/multi-agent-orchestration.md |
+| 120 | Figma get_metadata는 depth 제한이 없다 — 얕은 열거는 use_figma로만 (2026-07-17) | principle | figma, get_metadata, token-cap, use_figma | knowledge/figma-design-system.md |
+| 121 | CSS 블록 주석 속 리터럴 `*/`는 뒤따르는 규칙 전체를 조용히 삭제한다 (2026-07-17) | principle | css, comment, custom-property, silent-failure | knowledge/css-design.md |
+| 122 | 병렬 에이전트 공유 tmp 고정 파일명 충돌 — job 스코프 mktemp 필수 (2026-07-17) | principle | multi-agent, tmp, mktemp, concurrency | knowledge/multi-agent-orchestration.md |
+| 123 | 지식베이스 감사에서 row-presence는 콘텐츠 깊이를 은폐한다 (2026-07-17) | principle | knowledge-base, audit, coverage, content-depth | 인라인 |
+| 124 | Korean 파일에서 Edit 툴 실패 — Python writelines 패턴 (2026-06-12, 구 인라인 #12) | principle | claude-code, edit-tool, korean, python-writelines | knowledge/claude-code-platform.md |
+| 125 | Derived slice 재사용으로 다수 sparkline 데이터 생성 (2026-06-12, 구 인라인 #13) | principle | react, derived-slice, sparkline, dashboard | knowledge/react-frontend.md |
+| 126 | HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (2026-06-12, 구 인라인 #14) | tactical | react, optional-prop, variant | knowledge/react-frontend.md |
+| 127 | git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17, 구 인라인 #15) | tactical | git, cat-file, branch-contains, ff-only | knowledge/git-worktree.md |
+| 128 | CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5) 의존성 조기 차단 (2026-06-17, 구 인라인 #16) | tactical | preflight, official-plugins, dependency-gate, pre_pass | 인라인 |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
+> 2026-07-17 무결성 복구: INDEX 누락분 #95-99·#120-123 백필, 인라인 #12-16(2026-06 작성분)은 knowledge/ 이관 항목과의 번호 충돌로 #124-128 재부여, 프로젝트-특화 인라인 본문을 knowledge/로 오프로드. 이후 정합성은 `bash plugins/shared/run_prepass.sh index-check`가 커밋 게이트에서 기계 검증한다 (C1 INDEX 누락 / C2 위치 포인터 / C3·C4 번호 유일성 / C5 연속성 / C6 인라인 상한 15).
 
-### 오케스트레이터 도메인 학습 (인라인: #1-6, #10-11)
+### 오케스트레이터 도메인 학습 (인라인: #1-6, #10-11, #114, #123, #128)
 
 ### 1. version-up은 학습 캡처 + 디렉토리 복사 두 단계여야 한다 (2026-04-11)
 <!-- tier: principle -->
@@ -672,231 +704,6 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: `notification-hook.sh`, `stop-hook.sh` 모두 `.env` 없을 시 `exit 1` 반환 → Claude Code는 훅 비정상 종료를 UI 블로킹으로 처리. 훅이 "해당 없음"인 경우에도 `exit 1`이면 입력창이 그레이아웃됨
 - **교훈**: 훅의 전제조건(`.env`, 토큰 등)이 충족되지 않을 때는 반드시 `exit 0`으로 종료. `exit 1`은 의도적으로 사용자를 멈춰야 할 진짜 오류에만 사용. "이 훅은 여기에 해당 없음" = `exit 0`
 
-### 12. Korean 파일에서 Edit 툴 실패 — Python writelines 패턴 (2026-06-12)
-<!-- tier: principle -->
-
-- **상황**: Next.js 대시보드(`app/mau/page.tsx`)에서 한국어 문자열이 포함된 라인을 Edit 툴로 수정하려 하자 old_string 매칭이 반복 실패함.
-- **발견**: Edit 툴은 멀티바이트(한국어) 문자 포함 문자열 매칭에 신뢰할 수 없음. Python `readlines()` + 0-index 행 번호 직접 지정 후 `writelines()`가 안정적 대안.
-- **교훈**: 한국어가 포함된 파일 수정 시 Edit 툴 먼저 시도하지 말고 즉시 Python `readlines/writelines` + 행 번호 패턴으로 처리하라.
-
-### 13. Derived slice 재사용으로 다수 sparkline 데이터 생성 (2026-06-12)
-<!-- tier: principle -->
-
-- **상황**: MAU 히어로 카드에 세그먼트별(신규방문자, Returning, Resurrecting, 기존→해외첫거래) 스파크라인을 추가해야 했으나, 각 세그먼트마다 별도 DB 쿼리나 state를 만들 뻔했음.
-- **발견**: 이미 계산된 `heroSnapSlice = snapshots.slice(0, selectedMonthIdx + 1)`를 재사용하고, 각 세그먼트가 `.map(s => ({ name: s.label, value: s.traders.returning }))` 처럼 다른 필드만 매핑하면 N개 스파크라인 데이터를 1개 slice에서 도출 가능.
-- **교훈**: 새 데이터 파이프라인 전에 기존 derived slice/computed 데이터를 다른 필드 매핑으로 재활용할 수 있는지 먼저 확인하라. 대시보드에서 하나의 base slice → 여러 시리즈 파생 패턴은 state 폭발 없이 확장 가능.
-
-### 14. HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (2026-06-12)
-<!-- tier: tactical -->
-
-- **상황**: 히어로 카드 전체(36px)와 세그먼트 셀 인라인(24px) 두 크기로 동일 HeroSparkline 컴포넌트를 써야 했음.
-- **발견**: `height?: number = 36` optional prop 추가로 새 컴포넌트 없이 해결. `<HeroSparkline data={...} color={...} height={24} />`.
-- **교훈**: 기존 컴포넌트 복제보다 optional prop으로 변형을 흡수하는 것이 먼저. 렌더 조건: `spark.length > 1` 가드 필수.
-
-### 15. git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17)
-<!-- tier: tactical -->
-
-- **상황**: 사용자가 특정 커밋 해시(defd9c1...)를 로컬에 pull 요청 시, 해당 커밋이 어느 원격 브랜치에 속하는지 먼저 확인해야 했음.
-- **발견**: `git fetch origin` → `git cat-file -t <hash>`로 객체 존재 확인 → `git branch -r --contains <hash>`로 포함 브랜치 특정 → `git merge --ff-only <remote-branch>` 순으로 안전하게 적용. fetch 없이는 `unknown revision` 오류 발생.
-- **교훈**: 알 수 없는 커밋 해시 merge 요청: (1) fetch → (2) cat-file -t 존재 확인 → (3) branch -r --contains 브랜치 특정 → (4) ff-only merge. 이 순서를 생략하면 중단됨.
-- **근거**: `git merge --ff-only origin/claude/csncompany-plugin-auto-install-am7h2x` → "Fast-forward / 6 files changed, 175 insertions(+)" (2026-06-17 세션)
-
-### 16. CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5)에서 의존성 조기 차단 (2026-06-17)
-<!-- tier: tactical -->
-
-- **상황**: cs-ceo, CS-test, CS-codebase-review가 serena/playwright/hookify 등 공식 플러그인에 의존하지만 런타임 진입 후에야 누락을 감지해 비용이 낭비되었음.
-- **발견**: pre_pass.py에 `_find_official_plugin()` + `_find_mcp_server()` 헬퍼를 추가하고 ceo.md Phase -3.5에서 preflight 단계에 감지·차단. CS-test는 playwright 미설치 시 Install/Skip/Abort AskUserQuestion 제공. OFFICIAL-PLUGINS.md가 설치 명령어 단일 진실.
-- **교훈**: 공식 플러그인 의존성은 멀티에이전트 워크플로우 진입 전 preflight 단계(-3.5)에서 차단하는 것이 비용 효율적. context7 패턴(누락 감지 → AskUserQuestion 설치 유도)을 공식 플러그인에 동일 적용.
-- **근거**: `defd9c1 feat: serena 통합 + 공식 플러그인 자동설치 유도 시스템 추가` — ceo.md +56줄, pre_pass.py +64줄, OFFICIAL-PLUGINS.md 신규 (2026-06-17)
-
-### 85. minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17)
-<!-- tier: tactical -->
-
-- **상황**: Vercel에 코드 픽스가 반영됐는지 확인하기 위해 minified JS 번들에서 변경 흔적을 탐색해야 했음.
-- **발견**: minified JS는 지역 변수명(rollingTraderTotal 등)을 단축 식별자로 치환하므로 원본 변수명으로 grep해도 검색 불가. 반면 객체 property name(`d8_total_uv`), 문자열 리터럴, 특징적인 연산자 패턴(`??` + 삼항 조합)은 minify 후에도 보존되어 배포 여부 판별 지표로 사용 가능.
-- **교훈**: 배포 검증 시 변수명 대신 property name, 문자열 리터럴, 로직 패턴(??/삼항 조합)을 grep 대상으로 사용한다.
-- **근거**: `rollingTraderTotal` grep → 검색 불가, `d8_total_uv` property name + `??` 패턴으로 Before/After 구분 성공 (page-7236727e66aef288.js, dash1-v2 세션 2026-06-17)
-
-### 87. 구조화 JSON 추출 태스크에는 소형 LLM + 출력 토큰 상한 축소가 충분하다 (2026-06-30)
-<!-- tier: tactical -->
-
-- **상황**: voice-order API의 응답 지연 문제 해결 중 (gpt-5.5, max_completion_tokens=1000 사용)
-- **발견**: 음식/커피 이름 매칭처럼 '후보 목록에서 선택 → 고정 포맷 JSON 반환'만 하는 태스크에서 대형 모델은 과도하다. gpt-4o-mini + 출력 토큰 200으로 교체했을 때 속도 3-5배 개선, 품질 동일.
-- **교훈**: LLM 호출 설계 시 "패턴 매칭 → 고정 포맷 JSON 출력" 태스크라면 사용 가능한 최소 모델 + 예상 최대 출력 길이로 토큰 상한을 설정한다. 대형 모델은 자유 생성·다단계 추론이 필요한 경우에만 사용한다.
-- **근거**: `route.ts line 84-89: model "gpt-5.5" → "gpt-4o-mini", max_completion_tokens 1000 → 200` (2026-06-30 세션, 속도 3-5배 개선 확인)
-
-### 88. 단일 LLM 호출에서 다중 엔티티를 동시 추출하여 복합 발화를 처리한다 (2026-06-30)
-<!-- tier: principle -->
-
-- **상황**: "알탕에 카페라테아이스" 같은 rice+coffee 복합 발화가 rice만 추출되고 coffee는 버려지는 UX 문제 발견
-- **발견**: rice/restaurant step의 system prompt에 coffeeMatched·coffeeTemp 보조 필드를 추가하자, 기존 GPT 호출 1회로 두 엔티티를 동시 추출할 수 있었다. 별도 coffee step 호출 없이 confirm으로 즉시 이동 가능.
-- **교훈**: 사용자 발화에 여러 엔티티가 섞일 가능성이 있는 step은 system prompt JSON 스키마에 보조 엔티티 필드를 미리 정의한다. LLM 추가 호출 없이 응답 스키마 확장만으로 복합 입력을 처리할 수 있다 — per-invocation overhead >> per-token cost이므로 스키마 확장이 항상 추가 호출보다 싸다.
-- **근거**: `buildSystemPrompt() rice step: coffeeMatched/coffeeTemp 필드 추가 → voice-order-bot.tsx coffeeResult로 즉시 confirm 이동` (app/api/voice-order/route.ts + components/voice-order-bot.tsx, 2026-06-30)
-
-### 86. 세그먼트별 컬럼 있을 때 전체 합계 fallback은 세그먼트값 NULL 조건에만 (2026-06-17)
-<!-- tier: principle -->
-
-- **상황**: 퍼널 D8 체결완료 카드가 신규고객(M0) 선택 시 전체 거래고객수(312,218)를 표시. D5(22,851)보다 큰 비정상 값으로 발현.
-- **발견**: 버그 원인: `rollingTraderTotal`(mau_transaction_rolling.total_cus_cnt = 전체 합계)을 cus_type 분기 없이 모든 케이스에 적용. `funnel_rolling.total_ose_trd_cus_cnt`는 cus_type별로 분리된 실제 값을 가짐. DB에 세그먼트별 컬럼과 전체 합계 컬럼이 공존할 때, 전체 합계를 기본값으로 쓰면 세그먼트 모드에서 전체값이 세그먼트값을 무음으로 대체한다.
-- **교훈**: 세그먼트(cus_type)별로 분리된 컬럼이 있을 때, 전체 합계 fallback은 세그먼트별 값이 NULL인 경우에만 적용한다. `segmentCol ?? aggregateFallback` 패턴이 정준(canonical) 형태. 어떤 스택에서도 "세그먼트 컬럼 우선, 전체 합계는 마지막 fallback" 원칙이 적용된다.
-- **근거**: Before: `val: (period === 'rolling' ? rollingTraderTotal : ...)` → 신규고객 D8=312,218 / After: `val: (d.d8_total_uv ?? (period === 'rolling' ? rollingTraderTotal : ...))` → 신규고객 D8=1,829 (app/mau/page.tsx line 3433, 2026-06-17)
-
-### 95. macOS 앱 샌드박스 컨테이너 파일은 Full Disk Access/Automation 권한 없는 터미널에서 접근 불가 (2026-07-08)
-<!-- tier: principle, error-ref: ERR-2026-07-08-001 -->
-
-- **상황**: Claude Code 세션에서 Shottr(샌드박스 배포 스크린샷 앱)가 저장한 스크린샷 파일(`~/Library/Containers/cc.ffitch.shottr/Data/tmp/.../*.png`)을 Read/Bash cp/osascript로 접근 시도.
-- **발견**: Read 도구 EPERM, `cp` EPERM("Operation not permitted"), `osascript ... tell application "Finder"` -1743("Not authorized to send Apple events to Finder") — 세 가지 방식 모두 실패. macOS TCC가 다른 앱의 `~/Library/Containers/<bundle-id>/...` 트리에 대한 접근을 Full Disk Access로, Finder 등 타 앱 자동화를 Automation 권한으로 별도 게이팅하기 때문. 이는 호출 프로세스(터미널)의 TCC 권한 부여 여부에 달린 조건부 차단이며 — Full Disk Access가 부여된 터미널이라면 접근 가능하므로 "무조건 불가"가 아니라 "권한 미부여 시 불가"로 이해해야 함(verifier 지적).
-- **교훈**: 경로가 `~/Library/Containers/<bundle-id>/...` 형태로 보이면 즉시 접근 실패를 예상하고, Read/cp/osascript 재시도로 시간 쓰지 말고 바로 사용자에게 파일을 비샌드박스 위치(Desktop, 프로젝트 디렉토리 등)로 옮겨달라고 요청하는 것으로 전환한다.
-- **근거**: Derivative1 프로젝트 세션 2026-07-08 — Read tool `EPERM: operation not permitted, open '/Users/gwanli/Library/Containers/cc.ffitch.shottr/...'`, `cp` → `Operation not permitted`, `osascript` → `29:202: execution error: Not authorized to send Apple events to Finder. (-1743)` (동일 파일에 3가지 방식 모두 실패, skeptic verifier CONFIRMED)
-
-### 96. React 클로저 stale state + Playwright ref 재사용은 querySelector 재조회 + 별도 evaluate 호출 + 클릭 간 지연으로 우회 (2026-07-08)
-<!-- tier: principle -->
-
-- **상황**: Playwright로 React 상태 기반 UI(수량 스테퍼, 빠른 화면 전환)를 자동 테스트하던 중 두 가지 문제 발생.
-- **발견**: (1) `onClick={() => setQty(qty+1)}` 형태 핸들러에 동기 루프로 `.click()`을 연속 호출하면, 각 호출이 마지막 렌더 시점의 동일한 stale `qty`를 클로저로 캡처하고 있어 리렌더 전에 여러 번 호출해도 1회분만 반영됨 — React 업데이트 배칭 + 클로저의 조합으로 발생하는 표준적 현상(함수형 업데이터 `setQty(q => q+1)`을 쓰지 않는 한 재현됨). (2) 빠른 네비게이션 후 이전 스냅샷에서 얻은 element ref가 stale해져 엉뚱한 DOM에 반응함 — Playwright ref는 캡처 시점 스냅샷에 종속되는 것이 정상 동작.
-- **교훈**: React 상태 UI를 Playwright `browser_evaluate`로 빠르게 조작할 때는 (1) 저장된 ref 재사용 대신 매번 `document.querySelector`로 재조회, (2) 클릭 직후 상태 확인은 같은 evaluate 호출이 아닌 별도의 후속 evaluate 호출로 분리(리렌더가 비동기이므로), (3) 연속 클릭 사이에 `await new Promise(r => setTimeout(r, 30))` 등 짧은 지연을 넣어 클로저 stale-state 언더카운트를 방지한다.
-- **근거**: Derivative1 프로젝트 세션 2026-07-08 — 수량 스테퍼 동기 클릭 루프가 1회분만 반영, `async` evaluate + 클릭 간 30ms 지연으로 해결 확인; 화면 전환 후 stale ref로 인한 의도치 않은 화면 점프를 `document.querySelector` 기반 클릭 + 별도 evaluate 결과 조회로 해결 확인 (skeptic verifier CONFIRMED, React 배칭/클로저 시맨틱스는 버전 무관 안정 지식으로 판정)
-
-### 97. worktree가 main을 점유 중이면 `gh pr merge`가 로컬 브랜치 동기화 실패로 막힌다 — `gh api PUT merge`로 우회 (2026-07-09)
-<!-- tier: tactical, error-ref: ERR-2026-07-09-001 -->
-
-- **상황**: portmanagement 프로젝트에서 `.claude/worktrees/last-run-sort` 워크트리로 작업한 PR을 사용자가 "메인에 머지해"라고 지시해 병합 시도.
-- **발견**: 동일 레포의 다른 워크트리(원래 체크아웃 디렉토리)가 이미 `main`을 체크아웃하고 있으면, 일반 `gh pr merge`는 병합 후 로컬 main 브랜치를 갱신하려다 `fatal: 'main' is already used by worktree` 에러로 실패한다. `gh api repos/<owner>/<repo>/pulls/<N>/merge -X PUT -f merge_method=squash`로 GitHub API를 직접 호출하면 로컬 체크아웃 상태와 무관하게 원격에서 병합된다.
-- **교훈**: worktree를 상시 여러 개 운용하는 리포에서 `gh pr merge`가 이 에러로 실패하면 재시도하지 말고 즉시 `gh api .../merge -X PUT`으로 전환한다.
-- **근거**: `gh pr merge 3 --squash --delete-branch` → `failed to run git: fatal: 'main' is already used by worktree at '/Users/gwanli/product_2026/portmanagement'` / `gh api repos/intenet1001-commits/AgentsToZ_byCS/pulls/3/merge -X PUT -f merge_method=squash` → `{"merged":true}` (2026-07-09 세션)
-
-### 98. 웹·앱이 같은 머신에서 동시 접근하는 상태는 localStorage 대신 공유 파일 + 이중 접근 경로로 관리한다 (2026-07-09)
-<!-- tier: tactical -->
-
-- **상황**: Tauri 앱(포트 관리 프로그램)에 "마지막 방문 시각" 라벨을 추가했는데, 사용자가 웹 브라우저 탭과 데스크톱 앱을 같이 써도 값이 같이 관리돼야 한다고 지적.
-- **발견**: `localStorage`는 브라우저 오리진/Tauri webview별로 완전히 분리된 저장소라 웹에서 기록한 값이 앱에서 보이지 않고 그 반대도 마찬가지다. 이 프로젝트가 주 데이터(`ports.json`)에 이미 쓰던 패턴 — 앱 데이터 디렉토리의 공유 JSON 파일을 웹은 HTTP 엔드포인트(Bun api-server)로, 데스크톱 앱은 Tauri `invoke` 커맨드로 각각 읽고 쓰는 이중 접근 경로 — 를 그대로 적용해 해결했다. 동시 기록 충돌은 "더 최신 타임스탬프만 반영"으로 단순 해결 가능.
-- **교훈**: 웹+데스크톱을 동시 지원하는 앱에서 여러 실행 표면(브라우저 탭, 웹뷰)이 공유해야 하는 새 상태를 추가할 때는 `localStorage`를 기본값으로 쓰지 말고, 처음부터 "공유 파일 + (HTTP 엔드포인트, 네이티브 invoke 커맨드) 이중 접근" 패턴을 채택한다. 이는 이 앱만의 관례가 아니라 하나의 머신에서 여러 JS 런타임(브라우저 vs 웹뷰)이 상태를 공유해야 하는 모든 dual-surface 앱에 적용되는 일반 원칙이다 — 구체적 저장 형식(JSON 파일 vs sqlite vs IPC)은 프로젝트마다 다를 수 있다 (skeptic verifier: 저장 형식 자체는 project-specific이라 tactical로 판정, 다만 "동일 머신 내 분리된 JS 런타임은 localStorage를 공유하지 않는다"는 근본 사실 자체는 안정적).
-- **근거**: `last-visits.json`을 `~/Library/Application Support/com.portmanager.portmanager/`에 신설, `POST /api/last-visits`(웹) + `save_last_visit` Tauri invoke(앱) 양쪽 구현 → 브라우저에서 실행한 포트가 앱에서도 동일한 "마지막 실행" 시각으로 표시됨 확인 (2026-07-09 세션, PR #4)
-
-### 99. "왜 반영이 안 됐지" 류 버그는 로직보다 표시 계층이 참조하는 데이터 소스가 최신 상태와 다른 경우가 많다 — 재시작/저장소 범위/이벤트 커버리지부터 점검 (2026-07-09)
-<!-- tier: tactical -->
-
-- **상황**: 한 세션 안에서 "반영이 안 된 것 같다"는 취지의 사용자 지적이 연속 3회 발생 — ① PR 머지 후에도 동작이 그대로였음 ② 웹/앱 간 값 불일치 ③ 실제 작업일보다 오래된 "마지막 실행" 표시.
-- **발견**: 세 사례의 근본 원인이 각각 달랐다 — ① `--watch` 없이 떠 있던 Bun API 서버가 git pull 이후에도 프로세스 재시작 전까지 새 라우트를 인식하지 못함 ② `localStorage`가 웹/앱 실행 표면별로 분리된 저장소임 ③ UI 버튼 클릭 로그만으로는 터미널/에디터로 직접 한 작업을 감지하지 못함. 셋 다 "표시되는 값을 계산하는 로직"이 아니라 "그 값이 읽어오는 소스가 실제 최신 상태와 다른 곳"이 원인이었다.
-- **교훈**: 사용자가 "반영이 안 됐다/이상하다"고 지적하면 로직을 먼저 의심하기 전에 (1) 관련 프로세스가 최신 코드로 재시작됐는지 (2) 값을 읽는 위치가 여러 실행 표면(웹/앱, 여러 프로세스)에서 동일한 소스를 가리키는지 (3) 기록되는 이벤트가 실제 활동 전체를 커버하는지를 먼저 점검한다. (skeptic verifier: 이 세션 3건만으로 "대부분"을 통계적으로 입증하진 못하나, 세 원인이 모두 "read path가 최신 소스를 안 보고 있다"는 동일 카테고리로 수렴한다는 점에서 재사용 가능한 디버깅 체크리스트로 유효 — 다만 새로운 발견이 아니라 기존 캐시/stale-state 디버깅 상식의 재확인이라 principle이 아닌 tactical로 판정)
-- **근거**: "그대로인거같은데"(서버 미재시작, 재기동 후 해결) / "웹,앱을 동시에 적용한거같지는 않음"(localStorage 분리, last-visits.json 공유로 해결) / "11일전 이라고 뜬거자체가 이상함"(클릭 로그 vs git 커밋시각, git log 병합으로 해결) — 2026-07-09 portmanagement 세션, PR #3~#5
-- **addendum (2026-07-11)**: 웹 dev-server(TS)와 패키징된 네이티브 앱(Rust)이 같은 기능을 독립적으로 중복 구현한 경우, "재시작"만으로는 안 끝난다 — 두 구현 모두에 동일 로직을 이식하고 각각 별도 빌드/체크(`bun run typecheck` / `cargo check`)로 검증해야 한다. api-server.ts의 locked-worktree 삭제 버그를 고쳤지만 패키징된 Tauri 앱은 별개의 Rust 구현(`src-tauri/src/lib.rs`)을 호출해 동일 버그가 그대로 남아있었고, Rust 쪽에 로직을 이식(`cargo check` 통과)한 뒤에야 실제로 해결됨 (skeptic verifier CONFIRMED).
-- **addendum (2026-07-11)**: "표시 계층 데이터 소스" 체크리스트에 4번째 항목 추가 — (4) 그 필드를 채우는 쓰기 경로가 현재 UI에 실제로 존재하는가. 사이드바 카운터가 `ports.filter(p => !!p.worktreePath)`를 읽었지만 워크트리 패널의 어떤 코드 경로도 `worktreePath`를 세팅하지 않아(레거시 폼에만 존재) 사용량과 무관하게 항상 0이었던 사례 — grep으로 직접 확인 (skeptic verifier CONFIRMED, "UI 카운터 신뢰 전 쓰기 경로 존재 확인" 원칙 자체는 안정적).
-- **addendum (2026-07-15)**: 5번째 항목 추가 — (5) 사용자가 보고 있는 "화면" 자체가 최신 소스를 가리키는지(브라우저 탭 캐시, 미재배포 상태) 확인한다. 두 서브에이전트가 Figma/HTML 파일을 모두 정상 편집·검증했는데도 사용자가 "그대로 보인다"고 재차 지적한 사례 — 실제로는 (a) 열려 있던 Figma 브라우저 탭이 stale 캐시였고(서버 쪽은 `get_screenshot`으로 재확인 시 이미 최신), (b) HTML 파일은 고쳐졌지만 Claude Artifact를 재배포하지 않아 공유 링크가 예전 버전을 가리키고 있었다 — 둘 다 파일 편집 실패가 아니라 "보고 있는 화면이 소스와 분리된" 케이스였다.
-
-### 100. git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (2026-07-11)
-<!-- tier: principle, error-ref: ERR-2026-07-11-001 -->
-
-- **상황**: 포트관리 앱의 워크트리 '삭제' 버튼 클릭 시 에러가 나는 버그를 조사.
-- **발견**: Claude Code 세션이 자신의 워크트리를 `.git/worktrees/<name>/locked` 파일로 잠그는데, `git worktree prune`은 locked 항목을 "일시적으로 접근 불가한 이동식 미디어"로 간주해 설계상 건너뛴다. 물리 폴더가 이미 삭제된 뒤에도 `remove --force` 단독으로는 등록이 영구히 남는다. 또한 `if (!existsSync(worktreePath)) return error`를 정리 로직보다 먼저 두면, 폴더가 사라진 순간부터 prune 폴백에 아예 도달하지 못하고 영구히 에러만 반환한다.
-- **교훈**: git worktree를 프로그래밍적으로 제거하는 코드는 remove 실패 시 곧바로 prune에 기대지 말고, remove 시도 전에 `git worktree unlock <path>`을 먼저 호출(실패 무시)하고, '물리 디렉토리 없음'을 즉시 에러로 처리하지 말고 기존 정리/prune 경로로 흘려보내야 한다.
-- **근거**: 디스포저블 테스트 repo에서 `git worktree lock <path>` → 폴더 rm -rf → `remove --force`만으로는 `git worktree list --porcelain`에 영구히 남는 것을 확인. `git worktree unlock <path>` 실행 후 동일 시퀀스를 실행하면 완전히 사라짐을 확인 (skeptic verifier CONFIRMED).
-
-### 101. git 계산값 0은 여러 실제 히스토리를 뭉갤 수 있다 — UI 라벨은 측정값을 설명해야지 이유를 단언하면 안 된다 (2026-07-11)
-<!-- tier: principle -->
-
-- **상황**: 워크트리 '머지' 버튼을 `aheadCount === 0`(main 대비 unmerged 커밋 0개)일 때 '머지됨'으로 라벨링하는 로직 검토.
-- **발견**: `git rev-list --count main..branch`가 0을 반환하는 경우는 "브랜치가 방금 생성돼 아직 diverge 안 함"과 "diverge했다가 다시 머지되어 합쳐짐" 둘 다 있으며, rev-list 카운트만으로는 이 둘을 구분할 수 없다 — 두 실제 히스토리가 동일한 신호로 뭉개진다. 그런데도 라벨은 검증 불가능한 특정 히스토리("이미 머지됨")를 단언하고 있었다.
-- **교훈**: git 계산값으로 UI 라벨을 만들 때는 그 계산이 라벨이 함의하는 상태들을 실제로 구분할 수 있는지 먼저 확인한다. 구분 불가능하면 라벨은 "측정한 값"만 설명해야지 "그 이유에 대한 이야기"를 단언해서는 안 된다.
-- **근거**: 직접 git 커맨드로 두 시나리오(신규 브랜치 vs 머지 후 브랜치) 모두 `aheadCount=0`을 반환함을 확인. 라벨을 "머지됨" → "변경 없음"으로 수정 (skeptic verifier CONFIRMED).
-
-### 102. 심볼릭 링크를 지나는 경로에서 문자열 prefix 필터가 조용히 실패할 수 있다 (2026-07-11)
-<!-- tier: principle -->
-
-- **상황**: disposable 테스트 repo(`mktemp -d`, macOS `/var/folders/...`)로 워크트리 API를 curl로 end-to-end 검증하던 중, 실제 존재하는 워크트리가 목록에서 누락됨을 발견.
-- **발견**: git은 워크트리 경로를 내부적으로 realpath로 정규화해 보고하지만(`/private/var/...`), 애플리케이션 코드는 입력받은 원본 경로(`/var/...`, symlink 미해석)를 기준으로 `startsWith()` prefix 비교를 하고 있어 두 경로 문자열이 일치하지 않아 필터링에서 조용히 탈락했다. 동일 로직을 symlink가 없는 `/Users/...` 경로에서 재실행하면 정상 동작함을 대조 확인.
-- **교훈**: git(또는 OS 파일시스템 API)이 내부적으로 realpath 정규화를 수행하는 값과, 애플리케이션이 별도로 받은 원본 입력 경로를 문자열로 직접 비교(특히 `startsWith`/`endsWith` prefix/suffix 매칭)하는 코드는 symlink가 섞인 환경(대표적으로 macOS `/var` → `/private/var`, `/tmp` → `/private/tmp`)에서 조용히 실패할 수 있다. 경로 비교 전 양쪽을 동일하게 정규화(realpath)하거나, 정규화 차이를 감안한 테스트를 거쳐야 한다.
-- **근거**: `/api/list-git-worktrees`가 `/var/folders/...` 경로에서는 등록된 워크트리를 누락시키고, 동일 로직이 `/Users/...` 경로에서는 정상 반환하는 것을 curl로 대조 확인 (skeptic verifier CONFIRMED — 이 사용자의 실제 프로젝트 경로는 symlink가 없어 직접 영향은 없으나, 패턴 자체는 플랫폼 안정 사실).
-
-### 103. git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (2026-07-11)
-<!-- tier: principle -->
-
-- **상황**: meokgo-study(먹고공부하자) 프로젝트에서 `/qa` 스킬의 클린 워킹트리 요구사항 때문에, 세션 시작 전부터 미커밋 상태였던 파일들(`app/api/voice-learn/`, `class/`, migration sql)을 커밋하려고 스테이징하던 중.
-- **발견**: `class/data/*.json`이 단순 학습용 데이터가 아니라 실제 Supabase DB export(`meokgo_users`, `meokgo_chat_messages`)였고, 실제 팀원 실명(예: "박건우", "심주현")과 실제 채팅 내용이 그대로 담긴 PII였다. 커밋 직전 내용을 직접 열어보지 않았다면 공개 가능성이 있는 GitHub 저장소에 실사용자 개인정보가 그대로 올라갈 뻔했다.
-- **교훈**: git add로 스테이징한 파일이라도, 특히 `data/` 디렉토리나 확장자가 `.json`/`.csv`/`.sql`인 파일은 커밋 실행 전 반드시 내용을 직접 열어 실데이터·PII 여부를 확인한다. 의심되면 즉시 unstage하고 사용자에게 포함 여부를 물은 뒤 `.gitignore`에 등재한다.
-- **근거**: `class/data/*.json`이 실제 Supabase 테이블 raw export였고 실명·실채팅이 포함되어 있음을 커밋 전 검사에서 발견 → unstage 후 사용자 확인 → `class/data/` 및 `__pycache__/`를 `.gitignore`에 추가하고 안전한 파일만 커밋 (skeptic verifier CONFIRMED — "커밋 전 스테이징 콘텐츠 검토" 원칙은 스택/버전과 무관하게 적용 가능).
-
-### 104. OpenAI 추론형(reasoning-tier) 모델은 temperature 기본값(1) 외 다른 값을 거부한다 (2026-07-11)
-<!-- tier: tactical, error-ref: ERR-2026-07-11-002 -->
-
-- **상황**: meokgo-study `/my` 페이지의 "AI 추천받기" 버튼이 항상 실패 배너를 띄우는 버그를 QA 중 발견하고 원인 조사.
-- **발견**: `app/api/ai-recommend/route.ts`가 `model: "gpt-5.5"`(추론형 모델)와 `temperature: 0.8`을 함께 OpenAI Chat Completions 요청에 넣고 있었는데, 추론형 모델은 기본값(1) 이외의 temperature를 거부해 업스트림이 400을 반환하고 라우트가 이를 502로 사용자에게 그대로 노출했다. `temperature` 라인을 제거하자 정상 동작 확인.
-- **교훈**: OpenAI API 호출 시 사용 모델이 추론형(reasoning-tier)인지 먼저 확인하고, 추론형이면 temperature/top_p 등 샘플링 파라미터를 아예 보내지 않는다. 502/400 에러 발생 시 모델-파라미터 호환성부터 의심한다. (skeptic verifier DOWNGRADE — 벤더가 향후 이 제약을 바꿀 수 있는 API/모델-버전 종속 사실이라 principle이 아닌 tactical로 판정)
-- **근거**: `"Unsupported value: 'temperature' does not support 0.8 with this model. Only the default (1) value is supported."` 에러 확인 → `temperature: 0.8` 라인 제거 → 재현 테스트로 정상 추천 응답 생성 확인.
-
-### 105. `{false && <JSX>}` 같은 리터럴 하드 비활성화 블록은 grep `"{false &&"`로만 발견됨 (2026-07-11)
-<!-- tier: tactical -->
-
-- **상황**: 사용자가 카테고리(태그) 브라우징 UI가 안 보인다고 보고 — React/JSX 코드베이스를 조사.
-- **발견**: 완전히 동작하는 UI+필터 로직(카테고리 칩, `sidebarSection.startsWith('tag:')` 필터, 클릭 핸들러)이 이미 구현되어 있었고 그 필터 로직 자체는 다른 살아있는 렌더 경로에서도 실제로 사용 중이었으나, 이 UI 블록 전체가 JSX 안에서 `{false && <div>...}`로 감싸져 있어 어떤 state 조합에서도 렌더링되지 않았다. state/props 기반 조건부 렌더링 추적으로는 이런 상수 리터럴 하드-비활성화를 놓치기 쉽다.
-- **교훈**: '분명 코드에 있는데 안 보인다'는 기능을 조사할 때는 state 기반 조건뿐 아니라 `{false && ...}`/`{true && ...}` 같은 상수 리터럴 조건도 별도로 `grep -n "{false &&"`로 확인한다. 발견되면 죽은 블록 전체를 복원하기보다, 필요한 부분만 골라 이미 살아있는 필터 로직에 연결하는 것이 최소 변경이다. (skeptic verifier DOWNGRADE — 단일 코드베이스·단일 사례로만 확인된 기법이라 principle이 아닌 tactical로 판정)
-- **근거**: `grep -n "{false &&"`로 사이드바 정의부에서 하드 비활성화 블록 위치 확인, 그 안의 `setSidebarSection('tag:'+category)` 핸들러와 필터 로직이 다른 활성 렌더 경로에서 이미 참조되고 있음을 코드 변경 전에 grep으로 확인.
-
-### 106. 실결제 앱은 adb 입력 인젝션을 보안 위협으로 감지해 자체 종료할 수 있다 (2026-07-14)
-<!-- tier: tactical -->
-
-- **상황**: Starbucks 앱(SM-G950N 실기기)에서 adb shell input tap으로 화면을 조작하며 주문 자동화 스킬을 만들던 중.
-- **발견**: 탭/화면전환 시 약 50% 확률로 "보안 위협이 탐지되었습니다. 중요 정보 보호를 위해 앱이 종료됩니다. (Code : 00000800)" 다이얼로그가 뜨고, 유일한 버튼 "확인"을 누르면 매번 프로세스가 즉시 종료됨(`adb shell pidof`로 확인). 동일한 adb 자동화 방식으로 이미 자동화해 둔 매머드커피 앱은 이런 방어가 전혀 없었다 — 실결제 앱일수록 입력 인젝션 탐지 SDK를 가질 가능성이 높다는 정황.
-- **교훈**: 실결제(금융/포인트 차감) 앱을 adb UI 자동화 대상으로 삼기 전에, 먼저 소액/비결제 화면에서 반복 탭 테스트로 보안 방어 존재 여부를 확인한다. 방어가 감지되면 그 장치를 반복 우회 시도하지 말고 즉시 중단해 사용자 승인을 받거나 대안 채널(예: 웹 자동화)로 전환한다. (skeptic verifier DOWNGRADE — 단일 기기·단일 앱·단일 세션 관찰이며 발생률이 불안정(~50%)해 플랫폼 수준 일반화로 보기엔 이름 → tactical로 판정)
-- **근거**: DESIGN.md 실기기 세션 로그 인용("...무작위(체감 ~50%)로... 다이얼로그가 뜨고... 매번 프로세스가 즉시 종료됨 (adb shell pidof com.starbucks.co → 빈 값)... 매머드커피 앱은... 이런 방어가 전혀 없었음") + git 커밋 67e430d.
-
-### 107. 동일 화이트라벨 벤더의 패키지명 prefix가 adb 자동화 안정성을 예측하는 신호가 될 수 있다 (2026-07-14)
-<!-- tier: tactical -->
-
-- **상황**: Mega Coffee 앱 자동화 착수 전 패키지명 확인 중.
-- **발견**: Mega Coffee 패키지명(`co.kr.waldlust.megacoffee`)이 이전에 자동화 완료한 매머드커피(`co.kr.waldlust.mmthcoffee`)와 동일한 퍼블리셔 prefix(`co.kr.waldlust`)를 공유함을 발견 — 같은 화이트라벨 벤더 앱일 가능성을 추정했고, 실기기에서 여러 차례 add/remove를 반복해도 전혀 죽지 않는 완전한 안정성을 확인해 그 추정이 실증됨.
-- **교훈**: 새 타깃 앱을 자동화하기 전, 패키지명 prefix로 기존에 검증된 앱과 같은 벤더/솔루션인지 확인하면 보안 방어 유무를 사전에 어느 정도 예측할 수 있다 — 다만 표본이 1쌍뿐인 예측일 뿐이므로 실기기 검증은 생략하지 않는다. (skeptic verifier DOWNGRADE — 정확히 1개 벤더 쌍에서만 검증된 추정이라 principle이 아닌 tactical로 판정)
-- **근거**: git 커밋 f4d4014("Confirmed package co.kr.waldlust.megacoffee... same publisher prefix as Mammoth Coffee -> no Starbucks-style anti-tampering, adb input taps are completely stable.")
-
-### 108. OCR로 저신뢰도 탐지된 아이콘의 바운딩박스 중심이 실제 탭 타겟과 어긋날 수 있다 (2026-07-14)
-<!-- tier: tactical -->
-
-- **상황**: Mega Coffee 장바구니 화면에서 'X' 삭제 아이콘 탭 자동화를 구현하던 중.
-- **발견**: Apple Vision OCR이 'x' 아이콘을 conf=0.3의 낮은 신뢰도로만 텍스트로 감지했고, 그 바운딩박스 중심(cx)을 그대로 탭하면 실제로는 옆의 카드 tap-through 영역이 눌려 상품 상세로 이동해버렸다. 실측(cx=920, 976 실패 / cx=1000 성공)으로 실제 탭 타겟이 OCR 바운딩박스 중심에서 +24px 오른쪽에 있음을 확인, 코드에 오프셋 보정을 반영했다.
-- **교훈**: OCR 기반 UI 자동화에서 저신뢰도로 감지된 작은 아이콘은 바운딩박스 중심을 그대로 신뢰하지 말고, 인접 tap-through 영역과의 충돌 가능성을 의심해 실기기 반복 실측으로 오프셋을 보정해야 한다. (skeptic verifier DOWNGRADE — 단일 아이콘·2개 측정치에 근거하고 +24px 수치 자체는 이 앱 레이아웃에 종속적이라 principle이 아닌 tactical로 판정. 개념은 "저신뢰도 아이콘은 실측 검증 필요" 수준으로 일반화 가능)
-- **근거**: `driver.py`의 `remove_from_cart()` 주석 및 `tap(target["cx"] + 24, target["cy"])` 코드, git 커밋 f4d4014.
-
-### 109. 안드로이드 하이브리드 앱에서 뒤로가기 도달 화면은 진입 경로에 따라 비결정적일 수 있다 (2026-07-14)
-<!-- tier: tactical -->
-
-- **상황**: Mega Coffee 앱의 장바구니 화면에서 뒤로가기 탭 후 카테고리 목록 화면으로 복귀하는 흐름을 자동화하던 중.
-- **발견**: 고정된 back-tap 횟수를 가정했을 때, 어떤 진입 경로(담기 직후 팝업의 "장바구니 가기" vs 하단 배지 탭)로 카트에 들어갔는지에 따라 뒤로가기 1회 후 도달하는 화면이 목록일 때도, 이전에 봤던 상품 상세일 때도 있어 비결정적이었다.
-- **교훈**: 하이브리드(웹뷰 기반으로 추정) 앱에서 고정 횟수의 뒤로가기를 가정하지 말고, 목표 화면의 특징적 UI 요소(예: 카테고리 탭)가 보이는지 매 스텝마다 재확인하며 최대 N회까지 반복 시도하는 방식으로 설계해야 안정적이다.
-- **근거**: `automation/megacoffee/order.py`의 `ensure_on_order_screen()` 주석("뒤로가기 스택 깊이는 진입 경로에 따라 달라지므로 고정 횟수 대신 최대 5회까지 시도") 및 해당 함수 구현.
-
-### 110. NDS 감사 결과의 '지적된 노드 리스트'만 믿으면 안 됨 — 전체 프레임 색상 스윕 필요 (2026-07-15)
-<!-- tier: principle -->
-
-- **상황**: Figma 파일 + 페어링된 HTML 프로토타입을 NDS(디자인 시스템) 규칙에 맞춰 정합화하는 세션. 병렬 2-agent 감사(HTML용/Figma용)가 구체적인 위반 노드 리스트를 만들었고, 그 리스트만 고쳤다.
-- **발견**: 이후 사용자의 타겟 육안 스팟체크("퀵바가 Figma처럼 검정색이 아니다")로, 리디자인 이전부터 남아있던 잔여 hex 색상들(entry-hub 프레임의 행 라벨/섹션 헤더, 계좌 수량 텍스트 등)이 드러났다 — 원래 감사의 flagged-node 리스트에 없었다는 이유만으로 손대지 않은 채 방치되어 있었다. 프레임 전체에 대한 전수 `fills` 스윕을 돌려서야 잡혔다.
-- **교훈**: 감사→수정 워크플로우에서, 최초 감사가 찾아낸 위반 목록을 "전체 문제 목록"으로 오인하지 않는다. 감사는 특정 시점·특정 관점의 스냅샷일 뿐이므로, 색상/폰트/토큰처럼 전역적으로 적용돼야 하는 속성은 타겟 수정 완료 후에도 전체 프레임/파일에 대한 별도의 전수 스윕 검증 단계를 반드시 둔다.
-- **근거**: 사용자 지적 "아티팩트하단의 퀵바는 피그마처럼 검은색이 아닌데" → `figma.currentPage.query`/`findAllWithCriteria`로 5개 프레임 전체 `fills`를 스캔해서야 entry-hub 프레임의 `#17231d`(구버전 잉크색)/`#4a5952`(구버전 뮤트색), 목록화면의 `#666b70`(4번째 미통일 그레이) 등 원래 감사 리스트에 없던 색상들을 발견 (skeptic verifier CONFIRM — 특정 도구/버전에 종속되지 않는, 감사-then-수정 워크플로우 일반에 적용 가능한 원칙).
-
-### 111. 재작성 시 토큰 값을 추측하지 말고 원본 컴포넌트에서 직접 샘플링 (2026-07-15)
-<!-- tier: principle -->
-
-- **상황**: HTML 프로토타입을 Figma 소스의 NDS 토큰에 맞춰 재작성하는 서브에이전트 작업 (색상/폰트/캔버스 크기 이식).
-- **발견**: 서브에이전트가 Figma `quickmenu_basic` 컴포넌트의 배경색을 이식하면서, 실제 Figma 컴포넌트 인스턴스의 자식 rectangle fill을 조회하지 않고 짐작으로 `#457c12`(짙은 초록)를 새 CSS 토큰(`--nav-bg`)에 넣었다. 나중에 Plugin API로 해당 인스턴스(`I11:636;369:7407`)의 fill을 직접 샘플링해보니 실제 값은 `#222222`(검정에 가까움)였다.
-- **교훈**: 디자인 소스(Figma 등)에서 코드로 값을 이식할 때 색상/치수 같은 구체적 값은 절대 기억이나 추측에 의존하지 않는다. 항상 소스 컴포넌트에서 실제 속성(fill/size/font 등)을 직접 조회해 그대로 반영한다 — 추측값은 그럴듯해 보여서 육안 검수에서도 잘 걸러지지 않고, 사용자가 명시적으로 원본과 대조하기 전까지 드러나지 않는다.
-- **근거**: HTML 재작성 서브에이전트가 도입한 `--nav-bg: #457c12` (Figma 근거 없음) vs. `figma.getNodeByIdAsync('11:636')` 순회로 확인한 실제 배경 rectangle fill `{r:0.134,g:0.134,b:0.134}` = `#222222` (skeptic verifier CONFIRM — Figma 토큰에 국한되지 않는, 스펙 기반 코드 생성/이식 작업 전반에 적용 가능한 원칙).
-
-### 112. 회귀 수정 시 임의값이 아니라 파일 내 형제 요소의 기존 컨벤션을 따른다 (2026-07-15)
-<!-- tier: principle -->
-<!-- error-ref: ERR-2026-07-15-001 -->
-
-- **상황**: Figma 프레임의 아이콘/폰트 크기를 NDS 스펙에 맞춰 키우는 수정(터치 타겟 확대 등) 중, 목록 프레임의 콘텐츠가 자체 하단 경계를 넘어가면서 퀵메뉴 네비게이션 바가 잘리는 자체 회귀가 발생했고, 같은 서브에이전트가 이를 스크린샷으로 잡아냈다.
-- **발견**: 근본 원인은 해당 프레임(`layoutSizingVertical`)만 유일하게 `FIXED`였고, 형제 프레임 4개는 전부 `HUG`였다는 것 — 콘텐츠가 늘어나도 프레임이 따라 늘어나지 않아 하단이 잘렸다. 임의의 고정 높이값을 계산해 늘리는 대신, 형제 프레임들이 이미 쓰고 있는 컨벤션(`HUG`)으로 맞춰서 해결했다.
-- **교훈**: 레이아웃 회귀/버그를 고칠 때는 먼저 같은 계층의 형제 요소들이 어떤 설정(오토레이아웃 sizing mode, 컴포넌트 variant 등)을 쓰는지 확인한다. 그 파일/코드베이스가 이미 쓰고 있는 컨벤션에 맞추는 수정이, 임의 수치를 계산해 하드코딩하는 것보다 안전하고 일관성 있다.
-- **근거**: `2:2052`(목록 프레임)만 `layoutSizingVertical: FIXED`, 나머지 4개 형제 프레임(`32:229`/`2:2054`/`2:2055`/`2:2056`)은 모두 `HUG` — `HUG`로 전환해 598→638px로 자동 확장, 재스크린샷으로 클리핑 해소 확인 (skeptic verifier CONFIRM — Figma에 국한되지 않는, "회귀 수정 시 기존 컨벤션 우선" 원칙은 코드베이스 전반에 일반화 가능).
-
-### 113. 디자인 파일이 시스템을 준수해도 코드 프로토타입은 완전히 별개 테마로 드리프트할 수 있다 (2026-07-15)
-<!-- tier: tactical -->
-
-- **상황**: HTML 프로토타입과 페어링된 Figma 파일을 동시에 NDS 규칙으로 병렬 감사하는 단계.
-- **발견**: Figma 파일은 대체로 NDS를 따르되 구체적 버그들(디스클레이머 배경 위반, CTA 버튼 폰트/사이즈 불일치, 그린/그레이 hex 3종 혼용, 아이콘 오버플로우 등)만 있었던 반면, HTML 프로토타입은 NDS 토큰을 단 하나도 쓰지 않는 완전히 별개의 "cream/jade/rust" 독자 테마(시스템 폰트, 고정 375px 프레임)를 쓰고 있었다 — 두 산출물이 같은 기능을 나타냄에도 준수 수준이 완전히 갈렸다.
-- **교훈**: 디자인 소스와 그 코드 구현을 함께 감사할 때, 디자인 파일이 시스템을 잘 지킨다고 해서 코드 쪽도 그럴 것이라 가정하지 않는다. 둘은 서로 다른 시점에, 서로 다른 세션에서 만들어졌을 수 있으므로 항상 독립적으로 병렬 감사한다.
-- **근거**: HTML 감사 에이전트 보고 — "None of these hex values match the NDS reference palette at all... a bespoke 'paper/jade/rust' editorial theme... zero relationship to NDS Core tokens" vs. Figma 감사 에이전트 보고 — CTA 그린 컬러는 정확히 일치, 다만 소수의 구체적 버그만 존재 (skeptic verifier 대상 아님 — tactical 등급으로 사전 분류, 이 프로젝트/유사 페어드 워크플로우 계열에 재사용 가능).
-
 ### 114. 지식 축적 스킬은 주제가 아니라 "읽기 경로(read path)"로 분할해야 학습이 쌓일수록 강해진다 (2026-07-16)
 <!-- tier: principle -->
 
@@ -904,72 +711,6 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: `LEADER.md`가 ~36–45k 토큰까지 커져 단일 Read가 컨텍스트 캡을 초과했다 — 학습 파일이 하나 늘 때마다 단조 악화되는 구조였다(= 학습할수록 못 쓰게 되는 anti-scaling). 이를 `LEADER.md`(모드 전용) + 상시 로드 베이스(`CORE.md`/`COMMON.md`) + `INDEX.md`(노트당 1줄) + `LEDGER.md`(쟁점, 해결되며 축소) + `sources/*.md`(빌드 시 비로드)로 **읽는 목적별로** 재분할하자, N번째 학습 파일이 새 행을 추가하기보다 기존 행을 corroborate만 하게 되어 읽기 비용은 유계로 유지되면서 신뢰도만 올라갔다.
 - **교훈**: 지식이 계속 쌓이는 스킬을 설계할 때 "이 항목을 **어떤 목적으로** 읽는가(빌드 vs 감사 vs 포렌식)"로 파일을 나눈다. 주제별 분류는 항목 수에 비례해 읽기 비용이 선형 증가하지만, 읽기 경로별 분류는 유계로 만든다. 단, 균일성을 위해 전 도메인에 일괄 적용하지 말고(작은 도메인 2개는 의도적으로 미분할 유지) **측정된 트리거**(~25k 토큰, 또는 레지스트리가 더 이상 스캔되지 않는 시점)를 문서에 남겨 조건 충족 시에만 적용한다.
 - **근거**: 실측 — nds BUILD 읽기 비용 36,201 → 12,098 토큰, asset 20,742 → 1,859. (skeptic verifier CONFIRM — "아키텍처 수준 주장이며 캐시 지역성/점진적 공개와 같은 논리, 특정 수치나 캡이 바뀌어도 원칙은 생존". 함께 제출된 "토큰 캡 초과" 후보는 이 항목의 근거일 뿐 독립 원칙이 아니라는 이유로 REJECT되어 여기 병합됨.)
-
-### 115. 구조 리팩터는 다른 파일의 지시문을 조용히 깨뜨린다 — 에이전트는 아무것도 등록하지 않고 "성공"을 보고한다 (2026-07-16)
-<!-- tier: principle -->
-
-- **상황**: 위 #114의 읽기 경로 분할로 레지스트리를 `LEADER.md`에서 `INDEX/LEDGER/CORE/COMMON`으로 옮긴 뒤, 사용자가 "이제 이 스킬로 학습할 준비된 건가?"라고 물었다.
-- **발견**: 분할을 참조하는 다른 파일들이 여전히 옛 구조를 가리키고 있었다. `figma-learn-all-pages/SKILL.md`는 "도메인의 `LEADER.md`에 등록하라"고 지시했는데 — 분할 전엔 참이었지만 지금은 거짓이다. **이를 따르는 에이전트는 존재하지 않는 섹션에 쓰려 하고, 아무것도 등록하지 못한 채 성공을 보고했을 것이다.** 처음엔 1건인 줄 알았으나, 스윕을 반복하자 총 **13건**이 나왔다(프로젝트 노트 8건, 라우팅 tiebreaker 1건, 승격 대상 3건, CORE 상호참조 1건).
-- **교훈**: 파일 분할/역할 이동 후에는 그 구조를 이름으로 참조하는 **모든** 문서를 grep으로 전수 스윕한다 — 1건을 고치고 끝났다고 가정하지 않는다(이번엔 1 → 5 → 13으로 늘었다). 근본 예방책은 지시문을 **폴더/파일 이름이 아니라 구조 유형**("분할 도메인 vs 단일 파일 도메인")으로 분기시키고, 권위 있는 단일 출처(각 도메인의 Mode 1)로 위임하는 것이다. 또한 **아무 지시문도 갱신을 명령하지 않는 표/매니페스트**(고아 문서)를 함께 찾아 소유자를 명시적으로 지정한다.
-- **근거**: `figma-learn-all-pages/SKILL.md` — "register into the domain's `LEADER.md`" (분할 후 거짓). 탐지에 가장 효과적이었던 것은 **읽기 전용 리허설/verifier 서브에이전트**였다: 저자가 놓친 고아 매니페스트(`nds/LEADER.md`의 `## Learned files` — 갱신 지시문이 어디에도 없음)를 찾아냈고, 이후 cold-read verifier가 남은 8건을 스스로 추가 발굴했다. (skeptic verifier CONFIRM — "프로즈 지시문이 여러 파일에 분산된 시스템의 불변 속성; 참조된 구조를 옮겨도 모든 포인터가 자동 갱신되지 않고, 낡은 포인터를 따르는 실행자는 대상이 사라졌다는 신호를 받지 못한다".)
-
-### 116. Figma 커버리지는 파일의 목차나 get_metadata가 아니라 figma.root.children으로만 인증한다 (2026-07-16)
-<!-- tier: tactical -->
-
-- **상황**: NDS_UX Guide 등 다수 페이지 Figma 파일을 전수 학습하고 "N/N 완료"를 선언하는 중.
-- **발견**: 앞서 낸 "17/17 complete"가 실제로는 **17/18**이었다 — 커버리지를 파일 자체의 목차(TOC)로 인증했는데, 그 TOC가 다른 모든 페이지가 의존하는 `- Principles` 페이지를 조용히 누락하고 있었다(수작업 유지되는 문서라 드리프트함). 또한 nodeId 없는 `get_metadata`는 28페이지 파일에서 **1페이지**만 보고한다(데스크톱 세션에 로드된 페이지만 반환). 유사 함정: `p.children.length`는 현재 페이지가 아닌 곳에서 신뢰 불가(6페이지 중 5페이지가 거짓으로 0 보고), 레이어 이름은 파일이 아니라 **페이지 단위로** 신뢰도가 갈린다.
-- **교훈**: 커버리지/완전성 주장은 `use_figma` → `figma.root.children`이라는 단일 분모로만 인증한다. 더 일반적으로 — **"목록을 반환하는 편한 API"가 세션 상태에 의존해 조용히 부분 답을 주는지** 의심하고, 권위 있는 열거 경로를 하나 정해 문서화한다. 값 불일치를 "충돌"로 단정하기 전에 그 파일이 참조 라이브러리를 실제로 구독하는지(`get_libraries`) 먼저 확인한다 — 구독하지 않는 파일의 키는 충돌이 아니라 문서 사본이다(이 확인으로 Core 오염을 2회 방지).
-- **근거**: `get_metadata`(nodeId 없음) → 1페이지 vs `figma.root.children` → 28페이지. TOC 17개 vs 실제 콘텐츠 18페이지. 5개 에이전트가 "key가 Core와 다르다"고 보고했으나 `get_libraries`로 NDS_M.web이 NDS_Library를 구독하지 않음이 드러나 오탐으로 판명. (skeptic verifier DOWNGRADE — "특정 MCP 버전의 툴 현재 동작이므로 principle 아님; 향후 릴리스에서 `get_metadata`가 전체 목록을 반환하면 이 워크어라운드는 죽은 조언이 된다".)
-- **추가 (2026-07-16)**: `get_metadata`의 부분-응답은 nodeId 없는 호출만의 문제가 아니다 — **nodeId를 주고 호출해도 자식이 `GROUP`이면 그 서브트리를 통째로 누락하고 부모를 self-closing으로 직렬화한다.** 한 페이지에서 **populated 프레임 241개 중 105개가 빈 것으로 보고**됐고, 그 페이지의 코드→기관 매핑 전체가 GROUP 자식에 살고 있어 metadata 읽기로는 100% 안 보였다. 카운트도 오염된다(자산 2,941 vs 실제 2,948, 최악의 이름 충돌 6건이 통째로 비가시). **⇒ `get_metadata`는 내비게이션/TEXT 전용. `.length`는 반드시 `findAllWithCriteria`로. "비어 있음"은 Plugin API(`setCurrentPageAsync` 후 `children.length`)로 재확인하기 전까지 증거가 아니다.** 이 세션에서 5개 페이지를 metadata-empty 근거로 스킵했고 전부 재확인 결과 실제로 비어 있었다 — **커버리지는 지켜졌지만 방법이 아니라 운 덕분이었다.**
-
-### 117. 우선순위 규칙에는 "무엇이 tie-breaker가 아닌지"를 명시해야 한다 — 정렬 순서와 인용 횟수는 그럴듯한 함정 (2026-07-16)
-<!-- tier: tactical -->
-
-- **상황**: 가이드 도메인과 프로젝트 도메인을 페어로 읽어 화면을 만드는 BUILD 경로를, 실제 실행 전에 읽기 전용 리허설 에이전트로 점검.
-- **발견**: 리허설 에이전트가 자기 추론을 그대로 노출했다 — 이름이 같은 두 컴포넌트 중 하나를 "목록에 먼저 나오고 6번 corroborate됐다"는 이유만으로 조용히 골랐을 것이라고. 문서들은 그런 기준을 지지한 적이 없다. 즉 **문서가 침묵하는 지점에서 모델은 그럴듯한 근거를 스스로 발명**하고, 그 발명은 눈에 띄지 않는다.
-- **교훈**: 우선순위/precedence 규칙을 쓸 때 적용 규칙만 쓰지 말고 **명시적 비적용(non-application) 케이스**를 함께 박는다. 이번엔 3개를 추가했다: (1) 가이드가 자기 자신과 충돌하면 우선순위로 고르지 말고 에스컬레이션 — 실재하는 두 컴포넌트가 같은 이름을 쓰는 것은 "주장의 충돌"이 아니다, (2) 신뢰성 주장(이 import가 실제로 되는가)과 디자인 주장(무엇처럼 보여야 하는가)은 다른 축이라 둘 다 참일 수 있다, (3) 양쪽 도메인이 모두 침묵하면 그 값을 **갖고 있지 않은 것**이므로 목업에서 추론하지 말고 에스컬레이션. 리허설 에이전트에게 판단 **근거를 말하게** 하는 것이 이 함정 탐지에 효과적이었다.
-- **근거**: 리허설 에이전트 원문 — "I would have silently picked Core's incumbent purely because it's listed first and 'corroborated 6×' — a plausible but ungrounded tie-breaker the files never actually endorse." (skeptic verifier DOWNGRADE — "관측된 실패가 아니라 서브에이전트의 자기보고 반사실(counterfactual)이며 한 파일의 모호성에 대한 단일 일화 → 지시문 설계 위생으로는 타당하나 principle 근거로는 부족".)
-
-### 118. N개 서브에이전트의 합의는 진실이 아니다 — 각자 참인 국소 관찰이 거짓 전역 주장으로 굳는다 (2026-07-16)
-<!-- tier: principle -->
-
-- **상황**: Figma 파일 NDS_CI를 6개 배치로 나눠 13페이지를 병렬 학습하고, 배치별 리턴을 CORE에 병합하던 중.
-- **발견**: 5개 배치가 각자 독립적으로 "내 페이지에는 컴포넌트가 0개"라고 보고했고, 나는 이를 **"이 파일의 모든 인벤토리 페이지는 컴포넌트가 0개"** 로 일반화해 CORE에 기록했다. 6번째 배치가 자기 페이지를 직접 확인해 **24개의 실재하는 로컬 마스터 컴포넌트(full 40-hex 키)** 를 찾아 반박했다. **5개 배치는 거짓말하지 않았다 — 각자의 관찰은 전부 참이었고, 거짓은 그 합의를 전역으로 확장한 리드(나)의 추론에 있었다.** 합의는 오히려 위험을 키웠다: 5개가 일치하니 검증할 이유가 없어 보였다. 같은 현상이 이미 #116의 근거에 1회 기록돼 있었다(5개 에이전트가 "key가 Core와 다르다" 오탐) — **2번째 독립 목격이므로 자체 교훈으로 승격한다.**
-- **교훈**: **에이전트 N개의 일치는 표본 N의 증거이지 전칭명제의 증거가 아니다.** 워커의 보고는 "내 스코프에서 관찰됨"으로 읽고, 전역 주장으로 승격할 때는 **스코프 밖을 최소 1회 직접 확인**한다. 특히 **부정 주장(X가 없다)** 은 합의로 확정하지 않는다 — 없음의 증명은 각 워커의 시야 밖에 있기 때문이다. 리드가 병합 전 헤드라인 주장을 1회 재검증하는 비용은 잘못된 CORE 엔트리 하나보다 항상 싸다.
-- **근거**: 6번째 배치 리턴 — "⛔ REFUTATION 1 — '0 components on every inventory page' is FALSE. 간편인증기관 **18** COMPONENT / 공공기관 **6** COMPONENT (guarded `findAllWithCriteria`)". 이 시점에 CORE에는 이미 "COMPONENT/COMPONENT_SET = 0 on every inventory page"가 병합돼 있었다.
-
-### 119. 리드가 주입한 잘못된 전제는 워커의 오류가 되어 돌아온다 — 브리핑은 지시가 아니라 검증 대상이다 (2026-07-16)
-<!-- tier: principle -->
-
-- **상황**: 16개 서브에이전트에 Figma 학습을 팬아웃하며, 각 브리핑에 "이 파일이 X의 authoritative home이다" 같은 사전 전제를 넣어 보냄.
-- **발견**: 내 브리핑 중 **3건이 사실과 달랐고, 에이전트들은 지시대로 따랐다.** (1) "NDS_CI가 브랜드 규칙의 원본"이라 했으나 그 규칙은 그 파일에 **아예 없었다**(스코프 불일치 — 제3자 로고 파일이라 자사 브랜드 색 관할이 없음). (2) "`guide_parent`는 세트의 variant"라 했으나 **독립 COMPONENT**여서 import 함수 자체가 달랐다. (3) "카드에 `제작중`이 있으니 ⛔로 플래그하라"고 했으나 그 텍스트는 **흰 배경 위 흰 글자로 비가시**였고, 따랐다면 **실재하는 152개 에셋을 차단**할 뻔했다. 세 건 모두 에이전트가 "당신 브리핑에 대한 정정"으로 시작하는 리턴을 보내와서야 드러났다 — **명시적으로 "verify independently, do NOT adopt"라고 쓴 브리핑에서만 그랬다.**
-- **교훈**: 리드의 브리핑은 워커에게 **사전 확률이 아니라 사실로 읽힌다.** 따라서 (1) 브리핑의 모든 전제에 **출처를 붙이고**(어느 파일/노드에서 왔는지), (2) "이건 내 가설이니 **독립 검증하고 반박하라**"를 명시하며, (3) 리턴 계약에 **"브리핑 정정" 슬롯을 요구**한다. 워커가 리드를 반박할 수 있게 만드는 것이 팬아웃 품질의 상한을 정한다 — 반박 채널이 없으면 **리드의 오류율이 곧 시스템의 오류율**이다.
-- **근거**: 3개 배치 리턴이 각각 "🚨 CORRECTION TO YOUR BRIEFING — Nmoji is NOT incomplete… `제작중` reports `visible:true` but its fill is `{r:1,g:1,b:1}`", "⚠️ BRIEF WAS WRONG, PLEASE READ — They are two separate components", "**ABSENT ENTIRELY** — zero hits for `Deep Blue`… This inverts the brief's premise"로 시작.
-
-### 120. Figma `get_metadata`는 depth 제한이 없다 — 큰 서브트리는 하드 에러, 얕은 열거는 `use_figma`로만 가능 (2026-07-17)
-<!-- tier: principle -->
-
-- **상황**: Figma 페이지의 자식 노드를 저비용으로 먼저 파악하려고 `get_metadata`를 노드 최상위에 바로 호출.
-- **발견**: `get_metadata`는 depth/limit 파라미터가 아예 없고 노드의 서브트리 전체를 재귀 직렬화한다 — 서브트리가 대략 500K~1M자를 넘으면 툴 출력 토큰 한도를 넘겨 **무조건 하드 에러**로 실패한다. 이 실패는 여러 개의 서로 다른 Figma 파일에서 반복 재현됐고, 툴 스키마 자체에도 depth 파라미터가 없어 구조적으로 우회 불가함이 확인됐다. 메타데이터만으로는 큰 페이지의 직계 자식 ID를 저비용으로 알아낼 방법이 없다 — 유일한 경로는 `use_figma`로 `page.children`/`figma.root.children`을 얕게 열거한 뒤, 필요한 서브트리에만 `get_metadata`를 거는 것.
-- **교훈**: 큰 Figma 페이지를 다룰 때는 `get_metadata`를 최상위 노드에 바로 쓰지 말고, 먼저 `use_figma`로 자식만 얕게 열거해 크기를 가늠한 다음 필요한 서브트리만 `get_metadata`/`get_screenshot`으로 조회한다.
-- **근거**: 여러 파일에서 "exceeds tool output token cap" 하드 에러 재현(500K~1M자 초과 서브트리), `use_figma`의 `page.children`/`figma.root.children`만이 실제로 동작한 우회 경로였음. (skeptic verifier CONFIRMED — 재현된 패턴 + 툴 스키마의 구조적 결함이 근거로 확인됨.)
-
-### 121. CSS 블록 주석 속 리터럴 `*/`는 뒤따르는 규칙 전체를 조용히 삭제한다 — 스크린샷으로는 안 보인다 (2026-07-17)
-<!-- tier: principle -->
-<!-- error-ref: ERR-2026-07-17-001 -->
-
-- **상황**: 출처 추적용 설명 주석을 CSS `/* ... */` 블록에 넣으면서, 문장 중간에 "--rust*/--nav-bg have no dedicated token..." 같은 문구를 그대로 씀.
-- **발견**: 이 문구 안의 `*/`가 블록 주석을 그 지점에서 조기 종료시켰고, 뒤따르던 실제 `:root{...}` 규칙의 셀렉터가 깨지면서 **커스텀 프로퍼티 블록 전체가 파서에서 조용히 드롭**됐다. 커스텀 프로퍼티에 의존하지 않는 다른 CSS 규칙은 그대로 렌더링돼서 **스크린샷만으로는 버그가 전혀 보이지 않았다**. `getComputedStyle(el).getPropertyValue('--custom-prop')`이 빈 문자열을 반환하고, `document.styleSheets`를 직접 순회해도 `:root` 규칙 자체가 존재하지 않는 것으로만 발견 가능했다. 주석 문구를 고쳐(`*/` 리터럴 제거) 재확인하니 프로퍼티가 정상 해석됐다.
-- **교훈**: CSS/JS 등 블록 주석 안에 자유 텍스트(특히 경로·변수명처럼 슬래시-별표 조합이 우연히 생길 수 있는 문자열)를 쓸 때는 종결 시퀀스(`*/`)가 섞여 있는지 반드시 검사한다. 커스텀 프로퍼티 관련 버그가 의심되면 스크린샷이 아니라 `getComputedStyle` + `document.styleSheets` 직접 조회로 규칙 존재 여부를 확인한다.
-- **근거**: 수정 전 `getComputedStyle(...).getPropertyValue('--jade-strong')` → 빈 문자열, `document.styleSheets` 순회해도 `:root` 규칙 없음. 주석에서 `*/` 리터럴 제거 후 동일 조회 → `#3c9800` 정상 반환. (skeptic verifier CONFIRMED — 수정 전/후 격리된 원인-결과 확인, 단일 변수만 바꾼 통제된 비교.)
-
-### 122. 병렬 에이전트가 공유 tmp 경로에 고정 파일명으로 쓰면 서로의 stale 콘텐츠와 충돌해 잘못된 대상에 실행될 위험이 있다 (2026-07-17)
-<!-- tier: principle -->
-
-- **상황**: 16개 서브에이전트가 각자 독립적으로 DB에 쓸 SQL을 준비하며 공유 파일시스템의 임시 경로에 ad-hoc 파일을 저장.
-- **발견**: 한 서브에이전트가 실행 직전 파일 내용을 확인했더니, 자신이 쓰려던 일반적/예측 가능한 tmp 파일명에 **이미 다른 동시 실행 중인 에이전트가 다른 대상 행(row)용으로 남긴 stale SQL**이 들어있었다. 그대로 실행했다면 잘못된 DB 행을 덮어썼을 것 — 실행 직전 내용 확인이라는 우연한 습관 덕에 발견됐을 뿐, 파일명 자체는 충돌을 막아주지 않았다.
-- **교훈**: 다수 에이전트가 같은 공유 위치에 중간 파일을 병렬로 쓸 때는 반드시 job/agent 스코프의 고유 tmp 경로(`mktemp` 방식 등)를 쓰고, 고정된 일반 파일명은 절대 쓰지 않는다. 공유 파일시스템에 쓴 파일은 실행 직전 내용을 재확인하는 습관도 함께 둔다.
-- **근거**: 서브에이전트 원문 — "a generic/predictable tmp filename it was about to write to and execute already held ANOTHER concurrent subagent's stale SQL content for a different target row — executing it as-is would have overwritten the wrong database row." (skeptic verifier CONFIRMED — 존재/위험 주장은 예측된 실패 양상을 직접 목격한 1회 관측만으로도 충분히 성립하며, 공유 경로+예측 가능 파일명+동시성이라는 메커니즘 자체가 그 관측을 완전히 설명함.)
 
 ### 123. 지식베이스 감사에서 row-presence는 콘텐츠 깊이를 은폐한다 — row-count 커버리지만으로는 거짓 확신이 생긴다 (2026-07-17)
 <!-- tier: principle -->
@@ -979,3 +720,11 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **교훈**: 지식베이스/DB 완성도를 감사할 때는 row-count 커버리지(있음/없음)뿐 아니라 **콘텐츠 깊이**(글자수, 필드 채움률, 혹은 각 행 자신의 gap-notes)를 별도 지표로 반드시 함께 확인한다. row-count만 보고 "N/N 완료"라 선언하는 것은 #116("커버리지 주장은 권위 있는 분모로만 인증")의 사촌 함정이다 — 분모는 맞아도 분자 안의 밀도가 거짓 확신을 만든다.
 - **근거**: 특정 페이지 행의 `content_md` 자체 서술 — "a page marked as having a row was actually only ~15-25% transcribed". (skeptic verifier CONFIRMED — 1차 문서화된 사실이며 추정이 아님, 주장이 요구하는 정확한 현상을 직접 예시함.)
 
+### 128. CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5)에서 의존성 조기 차단 (2026-06-17)
+<!-- tier: tactical -->
+<!-- renumbered 2026-07-17: 구 인라인 #16 — knowledge/ 이관 항목 #16과 번호 충돌로 재부여 -->
+
+- **상황**: cs-ceo, CS-test, CS-codebase-review가 serena/playwright/hookify 등 공식 플러그인에 의존하지만 런타임 진입 후에야 누락을 감지해 비용이 낭비되었음.
+- **발견**: pre_pass.py에 `_find_official_plugin()` + `_find_mcp_server()` 헬퍼를 추가하고 ceo.md Phase -3.5에서 preflight 단계에 감지·차단. CS-test는 playwright 미설치 시 Install/Skip/Abort AskUserQuestion 제공. OFFICIAL-PLUGINS.md가 설치 명령어 단일 진실.
+- **교훈**: 공식 플러그인 의존성은 멀티에이전트 워크플로우 진입 전 preflight 단계(-3.5)에서 차단하는 것이 비용 효율적. context7 패턴(누락 감지 → AskUserQuestion 설치 유도)을 공식 플러그인에 동일 적용.
+- **근거**: `defd9c1 feat: serena 통합 + 공식 플러그인 자동설치 유도 시스템 추가` — ceo.md +56줄, pre_pass.py +64줄, OFFICIAL-PLUGINS.md 신규 (2026-06-17)

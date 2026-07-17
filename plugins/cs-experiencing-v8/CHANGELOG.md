@@ -1,3 +1,11 @@
+## 8.2.0 (2026-07-17)
+
+- **무결성 게이트 신설**: `plugins/shared/scripts/pre_pass.py`에 `index-check` 서브커맨드 추가 — 학습 INDEX↔본문 정합성(C1 INDEX 누락 / C2 위치 포인터 해석 / C3·C4 번호 전역 유일성 / C5 연속성 / C6 인라인 본문 상한 15)을 결정론적으로 검증. version-up STEP 2(저장 직후)와 STEP 4b(commit 게이트)에 배선. LLM 반박 패스가 3회 놓친 드리프트 클래스를 기계적으로 차단한다.
+- **드리프트 일제 복구** (게이트 도입 전 축적분): INDEX 누락 #95-99·#120-123 백필(9건) / #100·#102 위치 포인터 오염 수정 / #89 앵커를 knowledge/multi-agent-orchestration.md에 추가 / 인라인 #12-16(2026-06 작성분)이 knowledge/ 이관 항목 #12-16과 번호 충돌 → #124-128 재부여(본문에 renumbered 주석으로 감사 추적).
+- **본문 오프로드**: 프로젝트-특화 인라인 본문 35건을 knowledge/ 12개 파일로 이동 (figma-design-system.md·llm-patterns.md·mobile-automation.md 신설). SKILL.md 982줄→730줄, 인라인 본문 46건→11건(#1-6, #10-11, #114, #123, #128 — 오케스트레이터 도메인만). 상시 로드 비용 감소, INDEX grep 기반 recall 경로는 불변.
+- **인프라 수정**: pre_pass.py가 macOS 시스템 python3(3.9)에서 `Path | None` 문법으로 즉사하던 잠재 버그 수정(`from __future__ import annotations`) — run_prepass.sh가 python3를 uv보다 먼저 시도하므로 이 머신에서 모든 게이트가 조용히 깨져 있었음.
+- 배경: Supabase RDB 이관 검토(ultracode 10-agent 분석) 결론 "이관 불가/불요, 진짜 병목은 LLM-집행 불변식의 드리프트" → 저비용 개선 1-3번 즉시 실행분.
+
 ## 8.1.12 (2026-07-17)
 
 - 학습 4건 추가 (모두 principle, skeptic CONFIRMED): #120 Figma `get_metadata`는 depth 제한 없이 큰 서브트리에서 하드 에러 — 얕은 열거는 `use_figma`로만 가능 / #121 CSS 블록 주석 속 리터럴 `*/`가 뒤따르는 규칙 전체를 조용히 삭제(스크린샷으로는 안 보임) / #122 병렬 에이전트의 공유 tmp 고정 파일명은 서로의 stale 콘텐츠와 충돌 위험 / #123 지식베이스 감사에서 row-presence는 콘텐츠 깊이를 은폐 — row-count만으로는 거짓 확신

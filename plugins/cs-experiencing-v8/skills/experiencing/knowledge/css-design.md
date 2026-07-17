@@ -33,3 +33,12 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: GWC-Help-Site globals.css에서 `--primary: 217 91% 50%`로 Google Blue를 주입했는데 `bg-primary` 유틸리티가 반응하지 않았다. `@layer base`에 변수 선언만으로는 Tailwind v4에서 부족하다.
 - **발견**: Tailwind v4는 CSS 변수와 유틸리티 클래스 사이에 `@theme inline { --color-primary: hsl(var(--primary)); }` 브리지 블록이 필수다. 이 블록 없이는 커스텀 CSS 변수가 Tailwind 유틸리티 생성 파이프라인에 포함되지 않는다. 표준 패턴: `@layer base`에 raw 값(`217 91% 50%`), `@theme inline`에서 `hsl(var(...))`로 변환.
 - **교훈**: Tailwind v4 프로젝트에서 커스텀 색상 토큰이 `bg-*`/`text-*`로 안 잡힐 때 첫 번째로 `@theme inline` 블록 유무를 확인하라. AGENTS.md의 "This is NOT the Next.js you know" 경고와 직결되는 v4 breaking change.
+
+### 121. CSS 블록 주석 속 리터럴 `*/`는 뒤따르는 규칙 전체를 조용히 삭제한다 — 스크린샷으로는 안 보인다 (2026-07-17)
+<!-- tier: principle -->
+<!-- error-ref: ERR-2026-07-17-001 -->
+
+- **상황**: 출처 추적용 설명 주석을 CSS `/* ... */` 블록에 넣으면서, 문장 중간에 "--rust*/--nav-bg have no dedicated token..." 같은 문구를 그대로 씀.
+- **발견**: 이 문구 안의 `*/`가 블록 주석을 그 지점에서 조기 종료시켰고, 뒤따르던 실제 `:root{...}` 규칙의 셀렉터가 깨지면서 **커스텀 프로퍼티 블록 전체가 파서에서 조용히 드롭**됐다. 커스텀 프로퍼티에 의존하지 않는 다른 CSS 규칙은 그대로 렌더링돼서 **스크린샷만으로는 버그가 전혀 보이지 않았다**. `getComputedStyle(el).getPropertyValue('--custom-prop')`이 빈 문자열을 반환하고, `document.styleSheets`를 직접 순회해도 `:root` 규칙 자체가 존재하지 않는 것으로만 발견 가능했다. 주석 문구를 고쳐(`*/` 리터럴 제거) 재확인하니 프로퍼티가 정상 해석됐다.
+- **교훈**: CSS/JS 등 블록 주석 안에 자유 텍스트(특히 경로·변수명처럼 슬래시-별표 조합이 우연히 생길 수 있는 문자열)를 쓸 때는 종결 시퀀스(`*/`)가 섞여 있는지 반드시 검사한다. 커스텀 프로퍼티 관련 버그가 의심되면 스크린샷이 아니라 `getComputedStyle` + `document.styleSheets` 직접 조회로 규칙 존재 여부를 확인한다.
+- **근거**: 수정 전 `getComputedStyle(...).getPropertyValue('--jade-strong')` → 빈 문자열, `document.styleSheets` 순회해도 `:root` 규칙 없음. 주석에서 `*/` 리터럴 제거 후 동일 조회 → `#3c9800` 정상 반환. (skeptic verifier CONFIRMED — 수정 전/후 격리된 원인-결과 확인, 단일 변수만 바꾼 통제된 비교.)

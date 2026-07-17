@@ -72,3 +72,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 서버리스 함수라도 warm instance 사이에는 모듈 스코프 변수가 유지된다. `let cache: {data, ts} | null` + `Date.now() - ts < TTL_MS` 체크만으로 별도 인프라(Redis 등) 없이 반복 조회를 제거할 수 있다. 데이터 성격에 맞춰 TTL을 다르게 줬다: 메뉴/팀원처럼 하루 중 거의 안 바뀌는 데이터는 5분, "오늘 팀 현황" 같은 좀 더 자주 바뀔 수 있는 요약 컨텍스트는 2분.
 - **교훈**: Next.js API route(또는 임의의 서버리스 함수)에서 "요청마다 거의 동일한 결과가 나오는 DB 조회"를 발견하면, 먼저 모듈-레벨 `{data, ts}` + TTL 체크 캐시를 시도한다. 캐시 무효화 정책 설계보다 "몇 분 stale 해도 무방한가"만 판단하면 되므로 구현 비용이 매우 낮다. userId처럼 요청별로 달라지는 파라미터가 있으면 그 경로는 캐시를 우회시킨다 (예: `if (!userId && cache && ...)`).
 - **근거**: `app/api/bot-chat/route.ts` — `siteContextCache`(2분 TTL) 추가 (git diff: `+let siteContextCache: { context: string; ts: number } | null = null;`); `app/api/voice-order/route.ts` — `teamCache`/`allMenusCache`(5분 TTL, `CACHE_TTL = 5 * 60 * 1000`) 추가해 `fetchCoffeeCandidates`/`fetchAllFoodMenus`/`fetchCandidates` 3개 함수를 단일 캐시 조회로 통합
+
+### 85. minified 번들에서 배포 반영 검증은 property name / JS 패턴으로 (2026-06-17)
+<!-- tier: tactical -->
+
+- **상황**: Vercel에 코드 픽스가 반영됐는지 확인하기 위해 minified JS 번들에서 변경 흔적을 탐색해야 했음.
+- **발견**: minified JS는 지역 변수명(rollingTraderTotal 등)을 단축 식별자로 치환하므로 원본 변수명으로 grep해도 검색 불가. 반면 객체 property name(`d8_total_uv`), 문자열 리터럴, 특징적인 연산자 패턴(`??` + 삼항 조합)은 minify 후에도 보존되어 배포 여부 판별 지표로 사용 가능.
+- **교훈**: 배포 검증 시 변수명 대신 property name, 문자열 리터럴, 로직 패턴(??/삼항 조합)을 grep 대상으로 사용한다.
+- **근거**: `rollingTraderTotal` grep → 검색 불가, `d8_total_uv` property name + `??` 패턴으로 Before/After 구분 성공 (page-7236727e66aef288.js, dash1-v2 세션 2026-06-17)

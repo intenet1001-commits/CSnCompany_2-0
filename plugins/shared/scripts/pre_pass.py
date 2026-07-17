@@ -15,7 +15,10 @@ Sub-commands
   session-digest [FLAGS...]   → session pre-pass: domain usage, BTW pending, knowhow index, stale entries
   learn-append [FLAGS...]     → append a structured learning candidate to the BTW store
   version-check <plugin_dir>  → assert VERSION == plugin.json == SKILL frontmatter
+  index-check [exp_dir]       → cs-experiencing 학습 INDEX ↔ 본문 정합성 검증 (commit gate)
 """
+
+from __future__ import annotations  # macOS 시스템 python3(3.9)에서 `Path | None` 등 PEP 604 지연 평가
 
 import datetime
 import json
@@ -735,6 +738,112 @@ def cmd_version_check(argv: list) -> dict:
     }
 
 
+def cmd_index_check(argv: list) -> dict:
+    """index-check [experiencing_dir] — 학습 INDEX ↔ 본문 정합성 결정론 검증.
+
+    LLM 체크리스트(반박 패스)가 3회 놓친 드리프트 클래스(#95-99 INDEX 누락,
+    #100 위치 포인터 오염, 인라인 #12-16 번호 충돌)를 기계적으로 차단한다.
+
+    검사 항목:
+      C1  본문(### N.)이 있는데 INDEX 행이 없음
+      C2  INDEX 행의 위치 포인터(인라인 / knowledge/*.md)에 실제 본문이 없음
+      C3  본문 번호 전역 중복 (SKILL.md + knowledge/* 통틀어 번호는 유일)
+      C4  INDEX 번호 중복
+      C5  INDEX 번호 연속성 (1..max 공백 없음)
+      C6  SKILL.md 인라인 본문 개수 ≤ INLINE_CAP (본문 오프로드 강제 게이트)
+
+    ok=false면 학습 저장(STEP 2) 및 버전업 commit(STEP 4b)을 진행하지 않는다.
+    """
+    INLINE_CAP = 15
+    root = Path(argv[0]).expanduser() if argv else Path(latest_plugin("cs-experiencing-"))
+    skill = root / "skills" / "experiencing" / "SKILL.md"
+    if not skill.is_file():
+        return {"error": f"SKILL.md not found: {skill}", "ok": False}
+    know_dir = skill.parent / "knowledge"
+
+    body_re = re.compile(r"^### (\d+)\. ", re.MULTILINE)
+    # INDEX 행: | N | 제목 | tier | 태그 | 위치 |  (제목/태그에 파이프 금지가 전제)
+    row_re = re.compile(r"^\|\s*(\d+)\s*\|(?:[^|\n]*\|){3}\s*([^|\n]+?)\s*\|\s*$", re.MULTILINE)
+
+    text = skill.read_text(encoding="utf-8")
+    inline_bodies = [int(m.group(1)) for m in body_re.finditer(text)]
+    knowledge_bodies: dict[str, list[int]] = {}
+    if know_dir.is_dir():
+        for kf in sorted(know_dir.glob("*.md")):
+            nums = [int(m.group(1)) for m in body_re.finditer(kf.read_text(encoding="utf-8"))]
+            if nums:
+                knowledge_bodies[kf.name] = nums
+
+    index_rows: dict[int, str] = {}
+    dup_index: list[int] = []
+    for m in row_re.finditer(text):
+        num, loc = int(m.group(1)), m.group(2).strip()
+        if num in index_rows:
+            dup_index.append(num)
+        index_rows[num] = loc
+
+    violations: list[str] = []
+
+    # C3 — 전역 번호 유일성
+    all_bodies: list[tuple[int, str]] = [(n, "SKILL.md(인라인)") for n in inline_bodies]
+    for fname, nums in knowledge_bodies.items():
+        all_bodies += [(n, f"knowledge/{fname}") for n in nums]
+    seen: dict[int, str] = {}
+    for n, where in all_bodies:
+        if n in seen:
+            violations.append(f"C3 번호 중복: #{n} — {seen[n]} 와 {where} 양쪽에 본문 존재")
+        else:
+            seen[n] = where
+
+    # C4 — INDEX 번호 중복
+    for n in dup_index:
+        violations.append(f"C4 INDEX 행 중복: #{n}")
+
+    # C1 — 본문은 있는데 INDEX 행 없음
+    for n, where in sorted(all_bodies):
+        if n not in index_rows:
+            violations.append(f"C1 INDEX 누락: #{n} 본문이 {where} 에 있으나 INDEX 행 없음")
+
+    # C2 — INDEX 위치 포인터가 실제 본문 위치와 불일치
+    inline_set = set(inline_bodies)
+    for n in sorted(index_rows):
+        loc = index_rows[n]
+        if "인라인" in loc:
+            if n not in inline_set:
+                violations.append(f"C2 포인터 불일치: INDEX #{n} 위치='인라인'인데 SKILL.md에 본문 없음")
+        elif loc.startswith("knowledge/"):
+            fname = loc.split("/", 1)[1].strip()
+            if n not in set(knowledge_bodies.get(fname, [])):
+                violations.append(f"C2 포인터 불일치: INDEX #{n} 위치='{loc}'인데 해당 파일에 본문 없음")
+        else:
+            violations.append(f"C2 위치 형식 오류: INDEX #{n} 위치='{loc}' (인라인 또는 knowledge/<file>.md 만 허용)")
+
+    # C5 — 연속성 (전역 유일 번호는 재사용하지 않으므로 1..max 공백은 유실 신호)
+    if index_rows:
+        missing = sorted(set(range(1, max(index_rows) + 1)) - set(index_rows))
+        if missing:
+            violations.append(f"C5 번호 공백: INDEX에 {missing} 없음 (1..{max(index_rows)})")
+
+    # C6 — 인라인 본문 상한 (프로젝트-특화 본문의 knowledge/ 오프로드 강제)
+    if len(inline_bodies) > INLINE_CAP:
+        violations.append(
+            f"C6 인라인 상한 초과: SKILL.md 인라인 본문 {len(inline_bodies)}건 > {INLINE_CAP}건 "
+            f"— 프로젝트-특화 본문을 knowledge/<topic>.md 로 이동하라"
+        )
+
+    return {
+        "plugin": root.name,
+        "checked": {
+            "index_rows": len(index_rows),
+            "inline_bodies": len(inline_bodies),
+            "inline_cap": INLINE_CAP,
+            "knowledge_files": {k: len(v) for k, v in knowledge_bodies.items()},
+        },
+        "ok": not violations,
+        "violations": violations,
+    }
+
+
 def cmd_plugin_versions() -> dict:
     # marketplace.json 파생 (R9) — 등록된 source 디렉토리를 우선 신뢰하고,
     # 존재하지 않으면 latest_plugin() 디렉토리 스캔으로 폴백
@@ -760,6 +869,7 @@ COMMANDS = {
     "session-digest":  lambda rest: cmd_session_digest(rest),
     "learn-append":    lambda rest: cmd_learn_append(rest),
     "version-check":   lambda rest: cmd_version_check(rest),
+    "index-check":     lambda rest: cmd_index_check(rest),
 }
 
 
