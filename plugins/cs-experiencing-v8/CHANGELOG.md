@@ -1,3 +1,9 @@
+## 8.1.12 (2026-07-17)
+
+- 학습 4건 추가 (모두 principle, skeptic CONFIRMED): #120 Figma `get_metadata`는 depth 제한 없이 큰 서브트리에서 하드 에러 — 얕은 열거는 `use_figma`로만 가능 / #121 CSS 블록 주석 속 리터럴 `*/`가 뒤따르는 규칙 전체를 조용히 삭제(스크린샷으로는 안 보임) / #122 병렬 에이전트의 공유 tmp 고정 파일명은 서로의 stale 콘텐츠와 충돌 위험 / #123 지식베이스 감사에서 row-presence는 콘텐츠 깊이를 은폐 — row-count만으로는 거짓 확신
+- REJECT: "Figma read-only 오류가 동시성에 의해 트리거된다"는 후보 — skeptic REFUTED (단일 관측, 통제 재시험 없음, 원 제안자도 "possibly"로 헤징한 인과 주장이라 살리지 않고 드롭)
+- 출처: nhdesign3(개인 스킬, NH 계열 Figma→Supabase 디자인 지식 학습) 세션 + 라이브 프로토타입(prototype-flame-five.vercel.app) 색상 토큰 수정 세션 — 이번 세션은 cs-* 플러그인 도메인 작업이 전혀 없었음(version-scout/doc-updater가 marketplace git diff로 확인, 실제 변경 파일 0건); DOMAINS_USED=["experiencing"]는 digest 폴백 아티팩트로 판단되어 신뢰하지 않고 세션 실제 내용으로 대체 검증함 (2026-07-17)
+
 ## 8.1.11 (2026-07-16)
 
 - 학습 2건 추가: #118 N개 서브에이전트의 합의는 진실이 아니다 (principle) / #119 리드가 주입한 잘못된 전제는 워커의 오류가 되어 돌아온다 (principle)

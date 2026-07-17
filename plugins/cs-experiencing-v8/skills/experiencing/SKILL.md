@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.1.11
+version: 8.1.12
 allowed-tools:
   - Read
   - Write
@@ -945,4 +945,37 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: 내 브리핑 중 **3건이 사실과 달랐고, 에이전트들은 지시대로 따랐다.** (1) "NDS_CI가 브랜드 규칙의 원본"이라 했으나 그 규칙은 그 파일에 **아예 없었다**(스코프 불일치 — 제3자 로고 파일이라 자사 브랜드 색 관할이 없음). (2) "`guide_parent`는 세트의 variant"라 했으나 **독립 COMPONENT**여서 import 함수 자체가 달랐다. (3) "카드에 `제작중`이 있으니 ⛔로 플래그하라"고 했으나 그 텍스트는 **흰 배경 위 흰 글자로 비가시**였고, 따랐다면 **실재하는 152개 에셋을 차단**할 뻔했다. 세 건 모두 에이전트가 "당신 브리핑에 대한 정정"으로 시작하는 리턴을 보내와서야 드러났다 — **명시적으로 "verify independently, do NOT adopt"라고 쓴 브리핑에서만 그랬다.**
 - **교훈**: 리드의 브리핑은 워커에게 **사전 확률이 아니라 사실로 읽힌다.** 따라서 (1) 브리핑의 모든 전제에 **출처를 붙이고**(어느 파일/노드에서 왔는지), (2) "이건 내 가설이니 **독립 검증하고 반박하라**"를 명시하며, (3) 리턴 계약에 **"브리핑 정정" 슬롯을 요구**한다. 워커가 리드를 반박할 수 있게 만드는 것이 팬아웃 품질의 상한을 정한다 — 반박 채널이 없으면 **리드의 오류율이 곧 시스템의 오류율**이다.
 - **근거**: 3개 배치 리턴이 각각 "🚨 CORRECTION TO YOUR BRIEFING — Nmoji is NOT incomplete… `제작중` reports `visible:true` but its fill is `{r:1,g:1,b:1}`", "⚠️ BRIEF WAS WRONG, PLEASE READ — They are two separate components", "**ABSENT ENTIRELY** — zero hits for `Deep Blue`… This inverts the brief's premise"로 시작.
+
+### 120. Figma `get_metadata`는 depth 제한이 없다 — 큰 서브트리는 하드 에러, 얕은 열거는 `use_figma`로만 가능 (2026-07-17)
+<!-- tier: principle -->
+
+- **상황**: Figma 페이지의 자식 노드를 저비용으로 먼저 파악하려고 `get_metadata`를 노드 최상위에 바로 호출.
+- **발견**: `get_metadata`는 depth/limit 파라미터가 아예 없고 노드의 서브트리 전체를 재귀 직렬화한다 — 서브트리가 대략 500K~1M자를 넘으면 툴 출력 토큰 한도를 넘겨 **무조건 하드 에러**로 실패한다. 이 실패는 여러 개의 서로 다른 Figma 파일에서 반복 재현됐고, 툴 스키마 자체에도 depth 파라미터가 없어 구조적으로 우회 불가함이 확인됐다. 메타데이터만으로는 큰 페이지의 직계 자식 ID를 저비용으로 알아낼 방법이 없다 — 유일한 경로는 `use_figma`로 `page.children`/`figma.root.children`을 얕게 열거한 뒤, 필요한 서브트리에만 `get_metadata`를 거는 것.
+- **교훈**: 큰 Figma 페이지를 다룰 때는 `get_metadata`를 최상위 노드에 바로 쓰지 말고, 먼저 `use_figma`로 자식만 얕게 열거해 크기를 가늠한 다음 필요한 서브트리만 `get_metadata`/`get_screenshot`으로 조회한다.
+- **근거**: 여러 파일에서 "exceeds tool output token cap" 하드 에러 재현(500K~1M자 초과 서브트리), `use_figma`의 `page.children`/`figma.root.children`만이 실제로 동작한 우회 경로였음. (skeptic verifier CONFIRMED — 재현된 패턴 + 툴 스키마의 구조적 결함이 근거로 확인됨.)
+
+### 121. CSS 블록 주석 속 리터럴 `*/`는 뒤따르는 규칙 전체를 조용히 삭제한다 — 스크린샷으로는 안 보인다 (2026-07-17)
+<!-- tier: principle -->
+<!-- error-ref: ERR-2026-07-17-001 -->
+
+- **상황**: 출처 추적용 설명 주석을 CSS `/* ... */` 블록에 넣으면서, 문장 중간에 "--rust*/--nav-bg have no dedicated token..." 같은 문구를 그대로 씀.
+- **발견**: 이 문구 안의 `*/`가 블록 주석을 그 지점에서 조기 종료시켰고, 뒤따르던 실제 `:root{...}` 규칙의 셀렉터가 깨지면서 **커스텀 프로퍼티 블록 전체가 파서에서 조용히 드롭**됐다. 커스텀 프로퍼티에 의존하지 않는 다른 CSS 규칙은 그대로 렌더링돼서 **스크린샷만으로는 버그가 전혀 보이지 않았다**. `getComputedStyle(el).getPropertyValue('--custom-prop')`이 빈 문자열을 반환하고, `document.styleSheets`를 직접 순회해도 `:root` 규칙 자체가 존재하지 않는 것으로만 발견 가능했다. 주석 문구를 고쳐(`*/` 리터럴 제거) 재확인하니 프로퍼티가 정상 해석됐다.
+- **교훈**: CSS/JS 등 블록 주석 안에 자유 텍스트(특히 경로·변수명처럼 슬래시-별표 조합이 우연히 생길 수 있는 문자열)를 쓸 때는 종결 시퀀스(`*/`)가 섞여 있는지 반드시 검사한다. 커스텀 프로퍼티 관련 버그가 의심되면 스크린샷이 아니라 `getComputedStyle` + `document.styleSheets` 직접 조회로 규칙 존재 여부를 확인한다.
+- **근거**: 수정 전 `getComputedStyle(...).getPropertyValue('--jade-strong')` → 빈 문자열, `document.styleSheets` 순회해도 `:root` 규칙 없음. 주석에서 `*/` 리터럴 제거 후 동일 조회 → `#3c9800` 정상 반환. (skeptic verifier CONFIRMED — 수정 전/후 격리된 원인-결과 확인, 단일 변수만 바꾼 통제된 비교.)
+
+### 122. 병렬 에이전트가 공유 tmp 경로에 고정 파일명으로 쓰면 서로의 stale 콘텐츠와 충돌해 잘못된 대상에 실행될 위험이 있다 (2026-07-17)
+<!-- tier: principle -->
+
+- **상황**: 16개 서브에이전트가 각자 독립적으로 DB에 쓸 SQL을 준비하며 공유 파일시스템의 임시 경로에 ad-hoc 파일을 저장.
+- **발견**: 한 서브에이전트가 실행 직전 파일 내용을 확인했더니, 자신이 쓰려던 일반적/예측 가능한 tmp 파일명에 **이미 다른 동시 실행 중인 에이전트가 다른 대상 행(row)용으로 남긴 stale SQL**이 들어있었다. 그대로 실행했다면 잘못된 DB 행을 덮어썼을 것 — 실행 직전 내용 확인이라는 우연한 습관 덕에 발견됐을 뿐, 파일명 자체는 충돌을 막아주지 않았다.
+- **교훈**: 다수 에이전트가 같은 공유 위치에 중간 파일을 병렬로 쓸 때는 반드시 job/agent 스코프의 고유 tmp 경로(`mktemp` 방식 등)를 쓰고, 고정된 일반 파일명은 절대 쓰지 않는다. 공유 파일시스템에 쓴 파일은 실행 직전 내용을 재확인하는 습관도 함께 둔다.
+- **근거**: 서브에이전트 원문 — "a generic/predictable tmp filename it was about to write to and execute already held ANOTHER concurrent subagent's stale SQL content for a different target row — executing it as-is would have overwritten the wrong database row." (skeptic verifier CONFIRMED — 존재/위험 주장은 예측된 실패 양상을 직접 목격한 1회 관측만으로도 충분히 성립하며, 공유 경로+예측 가능 파일명+동시성이라는 메커니즘 자체가 그 관측을 완전히 설명함.)
+
+### 123. 지식베이스 감사에서 row-presence는 콘텐츠 깊이를 은폐한다 — row-count 커버리지만으로는 거짓 확신이 생긴다 (2026-07-17)
+<!-- tier: principle -->
+
+- **상황**: 지식베이스(DB)가 "충분히 채워졌는가"를 감사하며, 열거된 항목의 100%가 DB 행을 갖고 있다는 사실만으로 완성도를 1차 판단.
+- **발견**: row가 존재한다고 표시된 페이지 중 하나를 열어보니, 그 페이지 자신의 gap-notes 필드에 **약 15~25%만 필사(transcribe)됐다고 명시적으로 기록**돼 있었다 — row-presence는 100%였지만 실제 콘텐츠 깊이는 매우 낮았다. 이는 추론이 아니라 해당 행 자신이 남긴 1차 기록이다.
+- **교훈**: 지식베이스/DB 완성도를 감사할 때는 row-count 커버리지(있음/없음)뿐 아니라 **콘텐츠 깊이**(글자수, 필드 채움률, 혹은 각 행 자신의 gap-notes)를 별도 지표로 반드시 함께 확인한다. row-count만 보고 "N/N 완료"라 선언하는 것은 #116("커버리지 주장은 권위 있는 분모로만 인증")의 사촌 함정이다 — 분모는 맞아도 분자 안의 밀도가 거짓 확신을 만든다.
+- **근거**: 특정 페이지 행의 `content_md` 자체 서술 — "a page marked as having a row was actually only ~15-25% transcribed". (skeptic verifier CONFIRMED — 1차 문서화된 사실이며 추정이 아님, 주장이 요구하는 정확한 현상을 직접 예시함.)
 
