@@ -213,7 +213,7 @@ CSnCompany_2-0/
 └── README.ko.md                   # Korean version
 ```
 
-Each plugin folder contains its own `.claude-plugin/plugin.json`, plus `agents/`, `commands/`, `skills/` as needed.
+Each plugin folder contains its own `.claude-plugin/plugin.json`, plus `agents/`, `commands/`, `skills/` as needed. These subdirectories are auto-discovered from the filesystem — do **not** declare `agents`/`commands`/`skills` as array fields inside `plugin.json`, that fails manifest validation with `Invalid input`.
 
 ---
 

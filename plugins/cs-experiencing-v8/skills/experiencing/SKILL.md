@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.2.4
+version: 8.2.5
 allowed-tools:
   - Read
   - Write
@@ -741,3 +741,12 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: pre_pass.py에 `_find_official_plugin()` + `_find_mcp_server()` 헬퍼를 추가하고 ceo.md Phase -3.5에서 preflight 단계에 감지·차단. CS-test는 playwright 미설치 시 Install/Skip/Abort AskUserQuestion 제공. OFFICIAL-PLUGINS.md가 설치 명령어 단일 진실.
 - **교훈**: 공식 플러그인 의존성은 멀티에이전트 워크플로우 진입 전 preflight 단계(-3.5)에서 차단하는 것이 비용 효율적. context7 패턴(누락 감지 → AskUserQuestion 설치 유도)을 공식 플러그인에 동일 적용.
 - **근거**: `defd9c1 feat: serena 통합 + 공식 플러그인 자동설치 유도 시스템 추가` — ceo.md +56줄, pre_pass.py +64줄, OFFICIAL-PLUGINS.md 신규 (2026-06-17)
+
+### 142. Claude Code plugin.json은 skills/agents/commands를 문자열 배열로 선언하면 안 된다 — auto-discovery 방식이라 선언 시 Invalid input 에러 (2026-07-17)
+<!-- tier: principle -->
+<!-- error-ref: ERR-2026-07-17-007 -->
+
+- **상황**: `cs-core-memory` 플러그인 설치 시 마켓플레이스 installer가 "agents: Invalid input, skills: Invalid input" 검증 에러로 설치를 거부. `.claude-plugin/plugin.json`을 읽어보니 `skills`/`agents`/`commands` 필드가 문자열 배열로 선언되어 있었음. 작동 중인 다른 플러그인(cs-end-v3, cs-clarify-v1)의 plugin.json에는 이 필드들이 아예 없었고, 대신 author/repository/license/keywords만 있었음. `find`로 확인한 결과 `agents/memory-keeper.md`와 `skills/cs-core-memory/SKILL.md` 파일은 실제로 디스크에 존재했다.
+- **발견**: Claude Code 플러그인 로더는 skills/agents/commands를 plugin.json에 문자열 배열로 선언하는 방식이 아니라, 플러그인 폴더 내 실제 디렉토리 구조(`agents/*.md`, `skills/*/SKILL.md`, `commands/*.md`)를 스캔해 자동 발견(auto-discovery)한다. plugin.json에 이 키들을 배열로 넣으면 installer의 스키마 검증에 걸려 "Invalid input" 에러가 난다. 추가로 cs-core-memory-v1은 `.claude-plugin/plugin.json` 외에 플러그인 루트에도 중복 `plugin.json`이 있었고(다른 모든 플러그인 중 유일), 이것도 같은 무효 필드를 갖고 있어 별도 커밋으로 삭제함 — 표준 위치(`.claude-plugin/plugin.json`) 하나만 유지.
+- **교훈**: 새 Claude Code 플러그인(특히 마켓플레이스 배포용) plugin.json을 작성/디버깅할 때, skills/agents/commands 키를 수동으로 선언하지 말 것 — 디렉토리 구조만으로 충분하다. "Invalid input" 검증 에러가 나면 같은 레포의 이미 설치 가능한 plugin.json들과 필드 셋을 diff하여 스키마 불일치를 확인한다.
+- **근거**: `cs-core-memory-v1/.claude-plugin/plugin.json`: `"skills": ["cs-core-memory"], "agents": ["memory-keeper"], "commands": []` → 설치 에러 "Plugin ... has an invalid manifest file ... Validation errors: agents: Invalid input, skills: Invalid input". `cs-end-v3/.claude-plugin/plugin.json`에는 해당 필드들이 전혀 없이 author/repository/license/keywords만 존재 (정상 설치됨). 수정: 커밋 d4dfac7 (필드 제거) + 6741a11 (중복 루트 plugin.json 삭제), PR #4.
