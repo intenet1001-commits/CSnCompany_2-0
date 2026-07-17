@@ -100,3 +100,18 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: Next.js 대시보드(`app/mau/page.tsx`)에서 한국어 문자열이 포함된 라인을 Edit 툴로 수정하려 하자 old_string 매칭이 반복 실패함.
 - **발견**: Edit 툴은 멀티바이트(한국어) 문자 포함 문자열 매칭에 신뢰할 수 없음. Python `readlines()` + 0-index 행 번호 직접 지정 후 `writelines()`가 안정적 대안.
 - **교훈**: 한국어가 포함된 파일 수정 시 Edit 툴 먼저 시도하지 말고 즉시 Python `readlines/writelines` + 행 번호 패턴으로 처리하라.
+
+### 138. EnterWorktree가 "Already in a worktree session"으로 막히면 디렉터리 존재를 의심하기 전에 ExitWorktree(remove)부터 시도한다 (2026-07-17)
+<!-- tier: principle -->
+- **상황**: 세션 내에서 이전 라운드에 만든 워크트리가 (이전 `ExitWorktree(action:'remove')` 호출 등으로) 이미 디스크에서 사라진 상태에서, 다음 라운드 작업을 위해 새 워크트리를 만들려고 `EnterWorktree`를 호출.
+- **발견**: 세션 내부 상태가 여전히 그 워크트리 안에 있다고 믿고 있어 `ls`/`cd`는 실패하는데도 `EnterWorktree`는 "Already in a worktree session" 오류로 새 워크트리 생성을 거부한다. `ExitWorktree({action:'remove', discard_changes:true})`를 먼저 호출하면 — 대상 디렉터리가 이미 없어도 안전하게 처리되고 — 세션 상태가 리셋되어 이후 `EnterWorktree`가 정상 동작한다. 이 시퀀스는 한 세션 안에서 최소 3회 반복 관측됐다(매 라운드 작업 종료 후 워크트리가 정리되고, 다음 라운드 시작 시 동일 패턴 재발).
+- **교훈**: `EnterWorktree`가 "Already in a worktree session"으로 실패하면 디렉터리 존재 여부를 조사하는 대신 바로 `ExitWorktree({action:'remove', discard_changes:true})` → `EnterWorktree` 재시도 패턴을 적용한다. 이 도구 조합의 재현 가능한 계약(디렉터리가 없어도 remove가 안전하게 세션 상태를 리셋함)으로 취급한다.
+- **근거**: 세션 중 "Already in a worktree session" 오류 발생 → `ExitWorktree(action:'remove', discard_changes:true)` 호출 시 "Exited and removed worktree at ... Session is now back in ..." 응답(대상 디렉터리가 이미 없었음에도 성공) → 곧이은 `EnterWorktree` 정상 생성, 총 3회 반복 재현 (2026-07-17 portmanagement 세션).
+
+### 139. Workflow 스크립트의 agent 프롬프트 안에 리터럴 `${...}`를 쓰면 sandbox가 즉시 평가해 "process is not defined"로 전체 런을 크래시시킨다 (2026-07-17)
+<!-- tier: principle -->
+<!-- error-ref: ERR-2026-07-17-005 -->
+- **상황**: Workflow 도구용 스크립트를 작성하며, 구현 에이전트에게 실제 코드 수정 내용을 설명하기 위해 agent(`...`) 프롬프트 문자열 안에 `http://localhost:${Number(process.env.API_PORT) || 3001}` 같은 예시 코드를 (백틱을 이스케이프해서) 그대로 적어 넣었다.
+- **발견**: 이 리터럴 `${...}` 시퀀스는 서브에이전트에게 전달되기 전에, 워크플로 스크립트 자체를 실행하는 sandbox JS 엔진이 즉시 템플릿 리터럴 치환으로 평가해버린다. 그 sandbox에는 Node의 `process` 전역이 없어 워크플로가 런칭 즉시 "Error: process is not defined"로 전체가 크래시했다 — 서브에이전트가 하나도 실행되기 전에 발생하는 실패라 원인 파악이 까다롭다. `Workflow` 도구가 항상 스크립트를 디스크에 persist하고 경로를 반환하므로, 그 파일을 `${` 로 grep해 정확한 라인을 찾아 `Edit`으로 수정한 뒤 `Workflow({scriptPath, resumeFromRunId})`로 재개하면 이미 완료된 `agent()` 호출은 캐시에서 그대로 재생되고 수정된 지점부터만 재실행된다.
+- **교훈**: Workflow 스크립트의 agent 프롬프트 안에서 실제 코드에 있는 `${...}` 문법 자체를 "설명"해야 할 때는 리터럴로 쓰지 말고 프로즈로 풀어쓴다(예: "PORT는 `Number(process.env.API_PORT) || 3001`로 읽는다"처럼 표현하되 그 표현 자체가 외부 템플릿 리터럴 안에 `${`로 나타나지 않게 한다). 워크플로가 launch 직후 크래시하면 persisted 스크립트 경로를 grep해 `${` 시퀀스부터 의심하고, 고치면 `resumeFromRunId`로 캐시 재사용 재개가 가능하다.
+- **근거**: 워크플로 launch 직후 "Error: process is not defined at workflow.js:32:413" 크래시 → persisted 스크립트 파일에서 `\${Number(process.env.API_PORT) || 3001}` 라인 발견 → 리터럴 표현으로 교체 후 `Workflow({scriptPath, resumeFromRunId})` 재개, 이전 완료 agent 결과는 캐시에서 재생되고 정상 완주 (2026-07-17 portmanagement 세션, cs-end Workflow 스크립트 저작 중).

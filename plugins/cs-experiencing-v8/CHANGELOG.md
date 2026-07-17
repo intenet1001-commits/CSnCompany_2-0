@@ -1,3 +1,11 @@
+## 8.2.3 (2026-07-17)
+
+- 학습 6건 신규 추가: #133 dev 오케스트레이터 스크립트의 하드코딩 포트 + 무조건 kill이 "자기 자신의 워크트리 실행" 시 메인 앱을 죽인다 (tactical, tauri-windows.md) / #134 Workflow parallel adversarial review가 "cleanup 완전 비활성화" 스코프 오류를 잡아낸 사례 (principle, multi-agent-orchestration.md, skeptic CONFIRMED) / #135 느슨한 ancestor-path 매칭이 오탐을 유발 — 코드리뷰가 놓치고 Playwright 라이브 검증이 잡아낸 사례 (tactical, debugging.md, skeptic DOWNGRADE) / #136 git worktree remove는 그 디렉터리를 cwd로 쓰는 실행 중 프로세스를 멈추지 않는다 (tactical, tauri-windows.md) / #137 상태 정리 수정은 실제 프로덕션 데이터에 합성 케이스를 주입해 전후 id-set diff로 검증 — 격리 포트 + 왕복 클린업 전제 (tactical, misc-tooling.md, skeptic DOWNGRADE) / #138 EnterWorktree "Already in a worktree session" 오류 시 ExitWorktree(remove)부터 시도 (principle, claude-code-platform.md, skeptic CONFIRM) / #139 Workflow 스크립트 프롬프트 안 리터럴 `${...}`가 sandbox에서 즉시 평가돼 크래시 (principle, claude-code-platform.md, skeptic CONFIRM)
+- PENDING 5건 (2-3점, 저장 안 함, 리포트에만 노출): 워크트리 실행 시 PORT env 미전파로 인한 크래시 근본원인 / lsof 스캔 범위 미갱신으로 워크트리 서버 감지 무력화(기존 #115 "구조 리팩터 전수 스윕" 원칙과 실질적 중복) / 워크트리 삭제 시 orphan 프로세스(→ #136으로 재평가 후 승격) / vite dev-proxy 타깃 하드코딩(#115와 동일 계열 원인, 낮은 재사용성)
+- 중복-갱신 규칙 적용 1건: 외부에서 삭제된 워크트리가 UI 카드로 무기한 잔존하는 문제는 독립 항목 대신 #99(debugging.md, portmanagement "표시 계층 데이터 소스" 체크리스트) 하단에 7번째 체크리스트 항목으로 addendum 병합
+- 출처: portmanagement(포트관리기 Tauri 앱) 세션 — 워크트리 "실행" 크래시 수정(PR #12) → 워크트리 패널 UX + Playwright 검증(PR #13) → 사용자가 직접 지적한 스테일 UI 카드(":10136 이미 삭제된거 아닌가?") 정리(PR #14), 3개 draft PR 모두 cs-end 세션 시점 기준 미병합
+- 프로세스 노트: version-scout가 마켓플레이스 레포 git diff로 확인한 실제 도메인 변경은 0건(모든 코드 변경은 별도 프로젝트 레포)이었으나, 세션 내용 자체가 cs-end/cs-experiencing 도메인 밖의 harness/tooling 지식(EnterWorktree, Workflow 스크립트 sandbox)과 일반화 가능한 프로세스 관리 지식을 다수 포함해 learning-extractor 위임 대신 오케스트레이터가 직접 세션 요약을 작성해 주입하는 방식으로 진행함
+
 ## 8.2.2 (2026-07-17)
 
 - 학습 2건 신규 추가: #131 라이브 참조 없는 화면/유형은 발명 대신 스코프 제외 또는 reference-weak 명시 플래그 (principle, figma-design-system.md, skeptic CONFIRMED) / #132 Figma 빌드 완료 선언 전 라이브/템플릿 스크린샷 대조 게이트가 육안 검수로 못 잡는 버그를 반복 확인 (tactical, figma-design-system.md)

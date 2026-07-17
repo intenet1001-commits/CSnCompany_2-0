@@ -1,7 +1,7 @@
 {
   "name": "cs-experiencing",
-  "version": "8.2.2",
-  "description": "Accumulated knowledge repository — CS-test, CS-plan, CS-codebase-review, cs-design domain learnings. Integrated: bkit btw capture, Karpathy guidelines, gstack Iron Law + atomic commits.",
+  "version": "8.2.3",
+  "description": "Accumulated knowledge repository \u2014 CS-test, CS-plan, CS-codebase-review, cs-design domain learnings. Integrated: bkit btw capture, Karpathy guidelines, gstack Iron Law + atomic commits.",
   "author": {
     "name": "gwanli",
     "url": "https://github.com/intenet1001-commits"

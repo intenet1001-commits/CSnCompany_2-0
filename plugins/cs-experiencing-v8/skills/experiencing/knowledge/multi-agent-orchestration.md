@@ -90,3 +90,10 @@ CS 마켓플레이스를 3개 대표 프레임워크와 벤치마크해 이식�
 - **발견**: CEO의 진단대로 --model haiku만 적용해 `time`으로 실측했더니 42s→41s로 거의 무변화였다. 실제 병목은 CLI 부팅 오버헤드(무거운 플러그인/훅이 다수 설치된 계정)였고, 이를 스킵하는 플래그를 적용하자 42~47s→13~18s로 개선됐다.
 - **교훈**: 서브에이전트/AI가 내놓은 성능·원인 진단은 검증 전 가설로만 취급한다. 코드에 반영하기 전 `time` 등 실측 도구로 전/후를 직접 비교해 진단이 맞는지 확인한다 — 정적 분석 기반 추정은 그럴듯해도 틀릴 수 있다.
 - **근거**: portmanagement git commit 492846a 메시지: "--model haiku만으로는 속도 개선이 거의 없었음(42s→41s, 모델 자체는 병목이 아니었음). 실측 결과 진짜 병목은 CLI 부팅 오버헤드…" (skeptic verifier CONFIRM — 특정 도구/버전에 종속되지 않는 일반 인식론적 원칙).
+
+### 134. Workflow의 parallel adversarial review가 "cleanup 완전 비활성화"라는 스코프 오류를 잡아낸 사례 (2026-07-17)
+<!-- tier: principle -->
+- **상황**: Implement → 병렬 Verify(logic reviewer + build/typecheck reviewer) → Apply Fixes 순서의 Workflow로 포트 관련 크래시를 수정하던 중, 1차 구현이 "override가 설정되면 stale listener cleanup을 통째로 꺼버리는" 방식으로 만들어졌다.
+- **발견**: 병렬 리뷰어 중 하나가 "워크트리 세션이 크래시하면 동일 override로 재시작해도 orphan 리스너가 안 지워진다"는 구체적 회귀 시나리오를 지적했다 — cleanup을 "완전 비활성화"가 아니라 "이번 세션이 실제로 바인딩할 포트로 범위 한정"하는 방식으로 교정하는 후속 Apply Fixes 단계에서 반영됨.
+- **교훈**: 런타임 정리/가드 로직을 조건부로 끄는 수정을 설계할 때 "완전 비활성화" 대신 "대상 범위 축소"를 먼저 검토한다. 이런 트레이드오프 오류는 순수 자기검토보다 Workflow의 병렬 adversarial reviewer 단계(서로 다른 관점의 리뷰어를 동시에 붙이는 구조)로 걸러내는 것이 실증적으로 효과적이었다 — 리뷰어가 실제로 "완전 비활성화 vs 범위 축소"라는 구체적 대안까지 제시했다.
+- **근거**: 리뷰어 코멘트 원문 — "if a worktree session crashes, the next launch with the same override won't clear the orphaned listener because cleanup was fully disabled whenever ANY override was set" → Apply Fixes 단계에서 cleanup을 실제 타겟 포트로 스코프하는 수정 적용, 재검증 통과 (portmanagement PR #12, cs-end Workflow run).

@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.2.2
+version: 8.2.3
 allowed-tools:
   - Read
   - Write
@@ -643,6 +643,13 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 130 | 검증 중 실측된 신규 데이터가 유효한 결과물이면 테스트 데이터처럼 되돌리지 않는다 (2026-07-17) | tactical | verification, production-data, test-cleanup | knowledge/misc-tooling.md |
 | 131 | 라이브 참조 없는 화면/유형은 발명하지 않고 스코프 제외 또는 reference-weak로 명시 플래그한다 (2026-07-17) | principle | figma, reference-gap, scope, anti-invention | knowledge/figma-design-system.md |
 | 132 | Figma 빌드 완료 선언 전 라이브 사이트/템플릿 스크린샷 대조 게이트는 육안 검수로 못 잡는 버그를 반복적으로 잡아낸다 (2026-07-17) | tactical | figma, screenshot-gate, quality-gate, verification | knowledge/figma-design-system.md |
+| 133 | dev 오케스트레이터 스크립트의 하드코딩 포트 + 무조건 kill이 "자기 자신의 워크트리 실행" 시나리오에서 메인 앱을 죽인다 (2026-07-17) | tactical | tauri, dev-server, port-env, self-referential | knowledge/tauri-windows.md |
+| 134 | Workflow의 parallel adversarial review가 "cleanup 완전 비활성화"라는 스코프 오류를 잡아낸 사례 (2026-07-17) | principle | workflow-tool, adversarial-review, code-review, scope | knowledge/multi-agent-orchestration.md |
+| 135 | 프로세스/포트 cwd 매칭에 느슨한 ancestor-path 비교를 쓰면 무관한 프로세스와 오탐 — 코드리뷰가 놓치고 Playwright 라이브 검증이 잡아낸 사례 (2026-07-17) | tactical | process-matching, false-positive, playwright, live-verification | knowledge/debugging.md |
+| 136 | git worktree remove는 그 디렉터리를 cwd로 쓰는 실행 중 프로세스를 멈추지 않는다 — 삭제 전 명시적 stop 필요 (2026-07-17) | tactical | git-worktree, orphan-process, cwd, cleanup | knowledge/tauri-windows.md |
+| 137 | 상태 정리/마이그레이션 수정은 실제 프로덕션 데이터에 합성 케이스를 주입해 전후 id-set diff로 검증하면 더 강한 확신을 준다 — 단, 격리 포트 + 왕복 클린업이 전제 (2026-07-17) | tactical | verification, production-data, isolated-testing, cleanup-protocol | knowledge/misc-tooling.md |
+| 138 | EnterWorktree가 "Already in a worktree session"으로 막히면 디렉터리 존재를 의심하기 전에 ExitWorktree(remove)부터 시도한다 (2026-07-17) | principle | claude-code, enterworktree, exitworktree, session-recovery | knowledge/claude-code-platform.md |
+| 139 | Workflow 스크립트의 agent 프롬프트 안에 리터럴 ${...}를 쓰면 sandbox가 즉시 평가해 "process is not defined"로 전체 런을 크래시시킨다 (2026-07-17) | principle | workflow-tool, template-literal, sandbox, scripting-pitfall | knowledge/claude-code-platform.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
