@@ -215,7 +215,7 @@ CSnCompany_2-0/
 └── README.ko.md                   # 이 문서
 ```
 
-각 플러그인 폴더에는 자체 `.claude-plugin/plugin.json`이 있고, 필요에 따라 `agents/`, `commands/`, `skills/`가 들어 있습니다.
+각 플러그인 폴더에는 자체 `.claude-plugin/plugin.json`이 있고, 필요에 따라 `agents/`, `commands/`, `skills/`가 들어 있습니다. 이 하위 디렉토리들은 파일시스템에서 자동 발견(auto-discovery)되므로, `plugin.json` 안에 `agents`/`commands`/`skills`를 배열 필드로 선언하면 안 됩니다 — 매니페스트 검증에서 `Invalid input` 에러가 발생합니다.
 
 ---
 

@@ -1,3 +1,10 @@
+## 8.2.5 (2026-07-17)
+
+- 학습 1건 신규 추가: #142 Claude Code plugin.json은 skills/agents/commands를 문자열 배열로 선언하면 안 된다 — auto-discovery 방식이라 선언 시 Invalid input 에러 (principle, cs-core-memory-v1/.claude-plugin/plugin.json 직접 수정 사례)
+- PENDING 1건 (2점, 저장 안 함): "마켓플레이스 플러그인 manifest 수정은 격리된 워크트리에서 브랜치+draft PR로 처리" — 기존 워크트리 격리 원칙(#138)의 재확인 사례로 판정, 신규성 낮음
+- Core Memory 갱신: cs-core-memory-v1 memory-keeper가 CORE.md Recurring Issues 섹션에 동일 패턴을 신규 항목으로 기록 (Session Count 0→1)
+- 출처: cs-core-memory 플러그인 설치 실패("agents: Invalid input, skills: Invalid input") 디버깅 세션 — `.claude-plugin/plugin.json`의 무효 skills/agents/commands 배열 필드 제거 + 표준 위치 밖 중복 루트 plugin.json 삭제, PR #4 (미머지)
+
 ## 8.2.4 (2026-07-17)
 
 - 학습 2건 신규 추가: #140 표시 이름과 권한 플래그가 분리된 인증 구조에서는 이름 충돌이 사일런트 권한 오판을 만든다 (principle, react-frontend.md, skeptic CONFIRM) / #141 서브에이전트가 idle_notification만 반복하고 도구 호출이 전혀 없으면 데드락 신호로 보고 직접 실행으로 전환한다 (tactical, multi-agent-orchestration.md)
