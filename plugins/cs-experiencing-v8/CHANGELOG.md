@@ -1,3 +1,13 @@
+## 8.2.1 (2026-07-17)
+
+- 학습 2건 신규 추가 (모두 skeptic 검증 완료): #129 AI 서브에이전트의 성능/원인 진단은 실측 재검증 없이 신뢰하지 않는다 (principle, multi-agent-orchestration.md) / #130 검증 중 실측된 신규 데이터가 유효한 결과물이면 테스트 데이터처럼 되돌리지 않는다 (tactical, misc-tooling.md)
+- DOWNGRADE 1건: "claude CLI --bare vs --safe-mode" 후보는 skeptic이 "구체적 플래그명에 종속된 지식이라 tactical이 적절"로 판정 → 독립 항목화하지 않고 #37(claude-code-platform.md) addendum으로 병합
+- 중복-갱신 규칙 적용 2건 (독립 항목 대신 기존 항목 addendum으로 병합):
+  - #37에 addendum 2건 — `--safe-mode`(OAuth 유지) vs `--bare`(API 키 전용) 경량 부팅 모드 차이 / "배치를 단일 호출로 묶어 O(N)→O(1)" 최적화가 배치 크기 무한정 커질 때 60s 타임아웃으로 조용히 전체 실패하는 반례(청크 분할 필요)
+  - #99(debugging.md)에 addendum 2건 — 웹+네이티브 이중 구현 드리프트의 두 번째 확인 사례(같은 portmanagement 프로젝트, 다른 필드) / "표시 계층 데이터 소스" 체크리스트 6번째 항목 신설(쓰기 경로가 존재해도 실행 중 조용히 실패하는 경우)
+- 프로세스 노트: learning-extractor가 SKILL.md 인라인 본문만 grep해 노벨티를 사전 채점했으나, 실제 중복은 knowledge/*.md로 이관된 본문에 있었음(발견은 cs-end 세션 중 직접 grep 확장으로 이루어짐) — 향후 세션의 노벨티 체크는 SKILL.md뿐 아니라 knowledge/ 전체를 대상으로 해야 함
+- 출처: portmanagement(포트 관리 Tauri+React 앱) 세션 — 기존 폴더 등록 검색 버그, AI 별명짓기 속도 개선(`--safe-mode --model haiku`), AI 배치 호출 60초 타임아웃으로 인한 카테고리 데이터 전무 문제의 근본 원인 발견·수정(청크 분할), Tauri 데스크톱 앱의 category 미지원 버그 수정, 카테고리 태그 아코디언 UI (PR #12, https://github.com/intenet1001-commits/AgentsToZ_byCS/pull/12)
+
 ## 8.2.0 (2026-07-17)
 
 - **무결성 게이트 신설**: `plugins/shared/scripts/pre_pass.py`에 `index-check` 서브커맨드 추가 — 학습 INDEX↔본문 정합성(C1 INDEX 누락 / C2 위치 포인터 해석 / C3·C4 번호 전역 유일성 / C5 연속성 / C6 인라인 본문 상한 15)을 결정론적으로 검증. version-up STEP 2(저장 직후)와 STEP 4b(commit 게이트)에 배선. LLM 반박 패스가 3회 놓친 드리프트 클래스를 기계적으로 차단한다.

@@ -81,3 +81,12 @@ CS 마켓플레이스를 3개 대표 프레임워크와 벤치마크해 이식�
 - **발견**: 한 서브에이전트가 실행 직전 파일 내용을 확인했더니, 자신이 쓰려던 일반적/예측 가능한 tmp 파일명에 **이미 다른 동시 실행 중인 에이전트가 다른 대상 행(row)용으로 남긴 stale SQL**이 들어있었다. 그대로 실행했다면 잘못된 DB 행을 덮어썼을 것 — 실행 직전 내용 확인이라는 우연한 습관 덕에 발견됐을 뿐, 파일명 자체는 충돌을 막아주지 않았다.
 - **교훈**: 다수 에이전트가 같은 공유 위치에 중간 파일을 병렬로 쓸 때는 반드시 job/agent 스코프의 고유 tmp 경로(`mktemp` 방식 등)를 쓰고, 고정된 일반 파일명은 절대 쓰지 않는다. 공유 파일시스템에 쓴 파일은 실행 직전 내용을 재확인하는 습관도 함께 둔다.
 - **근거**: 서브에이전트 원문 — "a generic/predictable tmp filename it was about to write to and execute already held ANOTHER concurrent subagent's stale SQL content for a different target row — executing it as-is would have overwritten the wrong database row." (skeptic verifier CONFIRMED — 존재/위험 주장은 예측된 실패 양상을 직접 목격한 1회 관측만으로도 충분히 성립하며, 공유 경로+예측 가능 파일명+동시성이라는 메커니즘 자체가 그 관측을 완전히 설명함.)
+
+### 129. AI 서브에이전트의 성능/원인 진단은 가설이다 — 코드 반영 전 반드시 실측으로 재검증한다 (2026-07-17)
+<!-- tier: principle -->
+<!-- error-ref: ERR-2026-07-17-002 -->
+
+- **상황**: "AI 별명짓기 새로고침이 느리다"는 리포트를 cs-ceo:ceo에게 위임했고, CEO는 정적 분석만으로 "claude -p 호출에 --model 미지정이 느림의 원인"이라 진단했다.
+- **발견**: CEO의 진단대로 --model haiku만 적용해 `time`으로 실측했더니 42s→41s로 거의 무변화였다. 실제 병목은 CLI 부팅 오버헤드(무거운 플러그인/훅이 다수 설치된 계정)였고, 이를 스킵하는 플래그를 적용하자 42~47s→13~18s로 개선됐다.
+- **교훈**: 서브에이전트/AI가 내놓은 성능·원인 진단은 검증 전 가설로만 취급한다. 코드에 반영하기 전 `time` 등 실측 도구로 전/후를 직접 비교해 진단이 맞는지 확인한다 — 정적 분석 기반 추정은 그럴듯해도 틀릴 수 있다.
+- **근거**: portmanagement git commit 492846a 메시지: "--model haiku만으로는 속도 개선이 거의 없었음(42s→41s, 모델 자체는 병목이 아니었음). 실측 결과 진짜 병목은 CLI 부팅 오버헤드…" (skeptic verifier CONFIRM — 특정 도구/버전에 종속되지 않는 일반 인식론적 원칙).

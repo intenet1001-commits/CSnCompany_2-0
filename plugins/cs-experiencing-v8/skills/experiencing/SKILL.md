@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.2.0
+version: 8.2.1
 allowed-tools:
   - Read
   - Write
@@ -639,6 +639,8 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 126 | HeroSparkline optional height prop — 컴포넌트 복제 없이 크기 변형 흡수 (2026-06-12, 구 인라인 #14) | tactical | react, optional-prop, variant | knowledge/react-frontend.md |
 | 127 | git cat-file + branch --contains — 특정 커밋의 브랜치 추적 2-step 패턴 (2026-06-17, 구 인라인 #15) | tactical | git, cat-file, branch-contains, ff-only | knowledge/git-worktree.md |
 | 128 | CSnCompany 공식 플러그인 헬스 게이트 — preflight(-3.5) 의존성 조기 차단 (2026-06-17, 구 인라인 #16) | tactical | preflight, official-plugins, dependency-gate, pre_pass | 인라인 |
+| 129 | AI 서브에이전트의 성능/원인 진단은 가설이다 — 코드 반영 전 실측 재검증 (2026-07-17) | principle | agent-diagnosis, empirical-verification, time-measurement | knowledge/multi-agent-orchestration.md |
+| 130 | 검증 중 실측된 신규 데이터가 유효한 결과물이면 테스트 데이터처럼 되돌리지 않는다 (2026-07-17) | tactical | verification, production-data, test-cleanup | knowledge/misc-tooling.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.

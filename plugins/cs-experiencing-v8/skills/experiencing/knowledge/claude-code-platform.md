@@ -15,6 +15,8 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: portmanagement 앱에서 AI 이름 추천 기능(`/api/suggest-batch`) 원리를 분석. Anthropic API 키 없이 로컬에서 AI 기능을 서버사이드로 구현하는 방식이 궁금했음.
 - **발견**: `claude -p <prompt>` (-p = print/non-interactive 모드)를 `Bun.spawn([CLAUDE_PATH, '-p', prompt])` 로 서브프로세스 실행하여 stdout에서 응답을 수집. CLAUDE_PATH는 서버 시작 시 1회 탐지(`zsh -l -c 'which claude'` → 하드코딩 경로 fallback). CLAUDE_PATH 미탐지 시 503 반환. suggest-batch는 N개 포트를 단일 프롬프트로 묶어 CLI 1회 호출 → O(N) 호출을 O(1)로 최적화.
 - **교훈**: Anthropic API 키가 없어도 로컬에 Claude Code CLI가 설치·로그인된 환경이라면 Bun/Node 서버에서 서브프로세스로 AI 추론을 수행할 수 있다. 503 vs 500 구분으로 "CLI 미설치"와 "런타임 오류"를 의미론적으로 분리하는 것이 디버깅에 유리.
+- **addendum (2026-07-17)**: 무거운 플러그인/훅이 다수 설치된 OAuth 계정에서는 `claude -p` 서브프로세스 스폰 자체가 CLI 부팅 오버헤드(hooks/plugin sync/CLAUDE.md 자동탐색)로 수십 초가 걸릴 수 있다. `claude --help`의 경량 모드 중 `--bare`는 API 키 인증만 지원해 OAuth 계정에서 즉시 로그인 실패하지만, `--safe-mode`는 OAuth 인증을 유지하면서 동일한 부팅 오버헤드를 스킵한다 — 실측 42~47s → 13~18s. 서브프로세스로 반복 스폰할 때는 인증 방식과 호환되는 경량 모드를 `--help`로 먼저 확인한다 (플래그명은 버전마다 바뀔 수 있어 tactical로 취급). (skeptic verifier: CLI 플래그명 자체는 버전 종속이라 principle 승격 안 함).
+- **addendum (2026-07-17)**: "suggest-batch는 N개를 단일 호출로 묶어 O(N)→O(1) 최적화"라는 위 발견은 배치 크기가 무한정 커질 수 있다는 전제가 빠져 있었다 — 실측 결과 미완료 항목 62개를 단일 호출로 묶으면 응답 생성 시간이 60s 고정 서버 타임아웃을 넘겨 결과 없이 조용히 실패했다(호출부는 "완료: 0개"로 성공처럼 보이는 메시지만 띄움). 가변 크기 입력을 단일 API 호출로 배치 처리할 때는 고정 청크 크기(예: 15개)로 나눠 순차 호출하고, 청크마다 즉시 결과를 저장해 부분 실패에도 진행분을 보존해야 한다 — O(N)→O(1) 최적화는 N이 유계일 때만 안전하다. (skeptic verifier CONFIRM — 숫자를 뺀 일반형 아키텍처 위험 원칙으로 생존, portmanagement commit 6203c1d). <!-- error-ref: ERR-2026-07-17-003 -->
 
 ### 45. 마켓플레이스 플러그인 폴더명 vs 캐노니컬 이름 — 항상 manifest 우선 (2026-05-23)
 <!-- tier: principle -->

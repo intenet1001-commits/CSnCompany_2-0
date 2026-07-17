@@ -41,3 +41,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: Read 도구 EPERM, `cp` EPERM("Operation not permitted"), `osascript ... tell application "Finder"` -1743("Not authorized to send Apple events to Finder") — 세 가지 방식 모두 실패. macOS TCC가 다른 앱의 `~/Library/Containers/<bundle-id>/...` 트리에 대한 접근을 Full Disk Access로, Finder 등 타 앱 자동화를 Automation 권한으로 별도 게이팅하기 때문. 이는 호출 프로세스(터미널)의 TCC 권한 부여 여부에 달린 조건부 차단이며 — Full Disk Access가 부여된 터미널이라면 접근 가능하므로 "무조건 불가"가 아니라 "권한 미부여 시 불가"로 이해해야 함(verifier 지적).
 - **교훈**: 경로가 `~/Library/Containers/<bundle-id>/...` 형태로 보이면 즉시 접근 실패를 예상하고, Read/cp/osascript 재시도로 시간 쓰지 말고 바로 사용자에게 파일을 비샌드박스 위치(Desktop, 프로젝트 디렉토리 등)로 옮겨달라고 요청하는 것으로 전환한다.
 - **근거**: Derivative1 프로젝트 세션 2026-07-08 — Read tool `EPERM: operation not permitted, open '/Users/gwanli/Library/Containers/cc.ffitch.shottr/...'`, `cp` → `Operation not permitted`, `osascript` → `29:202: execution error: Not authorized to send Apple events to Finder. (-1743)` (동일 파일에 3가지 방식 모두 실패, skeptic verifier CONFIRMED)
+
+### 130. 검증 중 실측된 신규 데이터가 유효한 결과물이면 테스트 데이터처럼 되돌리지 않는다 (2026-07-17)
+<!-- tier: tactical -->
+
+- **상황**: 버그 수정 후 실제 프로덕션 데이터(100개 프로젝트)에 대해 기능을 실행해 62개 항목의 값을 실기기에서 생성·검증했다.
+- **발견**: 이 생성 결과는 정리해야 할 테스트 데이터가 아니라 사용자의 실제 운영 데이터였다.
+- **교훈**: 검증 과정에서 실제 프로덕션 데이터를 변경한 경우, 그것이 유효한 결과물이라면(순수 테스트 목적이 아니라면) 되돌리지 않고 그대로 반영한다 — "테스트 데이터는 원복한다"는 습관을 무조건 적용하지 않는다.
+- **근거**: portmanagement 세션 로그 — "이 AI 생성 결과는 테스트 데이터가 아니라 사용자의 실제 데이터라 되돌리지 않고 반영." (실기기 검증: category 0/100 → 62/100 전원 성공).
