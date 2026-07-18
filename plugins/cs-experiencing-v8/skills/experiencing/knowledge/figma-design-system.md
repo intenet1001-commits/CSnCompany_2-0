@@ -68,3 +68,11 @@ cs-experiencing 학습 INDEX가 참조하는 본문 모음. 신규 학습은 끝
 - **발견**: 두 빌드 모두 이 게이트에서 실제 버그를 잡아 수정했다 — NDS 빌드는 탭행 텍스트 오버플로우·테이블 컬럼 오버플로우·브랜치 화살표 스크립트의 잘못된 노드 참조 3건, web-proposal 빌드는 NEW뱃지-탭라벨 겹침·여러 화면에서 누락된 LNB 서브아이템·우측 레일과 스티키 티커바 누락(실측 좌표로 수정)·Closing 슬라이드의 템플릿 대비 잘못된 배경색 4건을 각각 찾아 고쳤다. 두 경우 모두 스크린샷 대조 이전에는 발견되지 않았던 버그였다.
 - **교훈**: Figma 빌드(제안서/화면 흐름 등)를 완료로 선언하기 전에는 항상 (1) 완성 화면 vs 라이브 사이트/원본 스크린샷, (2) 완성 산출물 vs 참조 템플릿 파일이라는 두 축의 스크린샷 대조 게이트를 실행한다. 오버플로우, 컴포넌트 누락, 잘못된 노드 참조, 색상 불일치 같은 결함은 빌드 로그나 코드 리뷰가 아니라 육안 스크린샷 비교에서만 드러나는 경우가 많다.
 - **근거**: NDS 빌드 보고 — "screenshotted every screen... fixed two real bugs found this way — a tab-row text overflow and a table-column overflow, plus a wrong-node reference." / web-proposal 빌드 보고 — "This caught real bugs I fixed: NEW badge overlapping the 5th tab label, LNB sub-items stripped from screens 2–4, and missing right rail + ticker... my Closing was white, template's is #12233D navy."
+
+### 143. Figma 노드의 `.x`/`.y`는 절대좌표가 아니라 부모 프레임 기준 상대좌표다 (2026-07-18)
+<!-- tier: principle -->
+
+- **상황**: nhdesign3 PPT 빌드에서 실측 target-element 좌표로 재계산한 9개 numbered callout badge를 각 배지 노드의 `.x`/`.y`에 대입해 재배치하는 중.
+- **발견**: 계산해 둔 좌표는 페이지 기준 절대좌표였는데, 배지 노드의 실제 부모가 페이지가 아니라 Slide 프레임이었다. 그 절대좌표를 그대로 `node.x`/`node.y`에 대입하자 Figma가 이를 **부모(Slide) 기준 로컬좌표**로 해석해, Slide 자신의 페이지-오프셋만큼 조용히 이중으로 밀려나갔다 — 배지가 엉뚱한 슬라이드의 좌표 범위로 사라지는 형태로 나타났다. `SceneNode.x`/`.y`가 부모 좌표계 기준이라는 것은 Figma Plugin API 타입 정의에 명시된 안정적 플랫폼 동작이며 API 버전에 걸쳐 바뀌지 않는다.
+- **교훈**: Figma Plugin API로 노드 위치를 절대(페이지) 좌표 기준으로 계산했다면, 대입 직전에 반드시 `localX = absX - node.parent.absoluteBoundingBox.x`(y도 동일)로 부모-로컬 좌표로 변환한다. 노드를 읽을 때(`absoluteBoundingBox`)는 항상 절대좌표라 안전하지만, 쓸 때(`node.x =`)는 부모 기준이라는 이 비대칭성 때문에 발생하는 함정이며, 대상 노드의 부모가 페이지인지 프레임/그룹/Slide인지부터 먼저 확인해야 한다.
+- **근거**: "assigning an absolute page coordinate directly to a Figma node's `.x`/`.y` when that node's parent is NOT the page (e.g. a Slide frame) silently double-offsets it, because node.x is interpreted as parent-local, not absolute — this caused badges to briefly vanish off-slide." (skeptic verifier CONFIRMED — `SceneNode.x`/`.y`가 부모-상대 좌표라는 것은 문서화된 안정적 Plugin API 동작이며 특정 버전/설정에 종속되지 않는다고 판단.)

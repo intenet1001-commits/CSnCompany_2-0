@@ -1,3 +1,10 @@
+## 8.2.6 (2026-07-18)
+
+- 학습 1건 신규 추가: #143 Figma 노드의 `.x`/`.y`는 절대좌표가 아니라 부모 프레임 기준 상대좌표다 (principle, figma-design-system.md, skeptic CONFIRM)
+- PENDING 1건 (2점, 저장 안 함): "생성형 UI 마커(화살표/뱃지)는 임의 균등배치가 아니라 실측 요소 좌표로 앵커해야 함" — 기존 #111("추측 대신 실측 샘플링") 원칙의 위치(position) 도메인 파생 적용으로 판정, 신규성 낮음
+- Core Memory 갱신: cs-core-memory-v1 memory-keeper가 CORE.md Recurring Issues 섹션에 2건 신규 기록 (Session Count 1→2) — 부모-로컬 좌표 이중 오프셋 + 실측 좌표 앵커링 원칙
+- 출처: nhdesign3(별도 Figma/Postgres 스킬 생태계, CSnCompany_2-0 마켓플레이스 밖) PPT 기획서 넘버링 배지 오배치 수정 세션 — 9개 배지를 실측 좌표로 재배치하는 도중 절대좌표를 Slide 프레임 자식 노드에 그대로 대입해 이중 오프셋되는 버그를 발견/수정. nhdesign3 자체의 세부 교훈(화살표 레시피, PPT 템플릿 특이사항)은 이미 별도의 nhdesign3 knowhow DB에 저장되어 있어 여기 중복 반영하지 않음 — 이 항목만 CS 도메인 전반에 재사용 가능한 Figma Plugin API 일반 원칙으로 판단해 승격.
+
 ## 8.2.5 (2026-07-17)
 
 - 학습 1건 신규 추가: #142 Claude Code plugin.json은 skills/agents/commands를 문자열 배열로 선언하면 안 된다 — auto-discovery 방식이라 선언 시 Invalid input 에러 (principle, cs-core-memory-v1/.claude-plugin/plugin.json 직접 수정 사례)
