@@ -73,6 +73,7 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 동일 레포의 다른 워크트리(원래 체크아웃 디렉토리)가 이미 `main`을 체크아웃하고 있으면, 일반 `gh pr merge`는 병합 후 로컬 main 브랜치를 갱신하려다 `fatal: 'main' is already used by worktree` 에러로 실패한다. `gh api repos/<owner>/<repo>/pulls/<N>/merge -X PUT -f merge_method=squash`로 GitHub API를 직접 호출하면 로컬 체크아웃 상태와 무관하게 원격에서 병합된다.
 - **교훈**: worktree를 상시 여러 개 운용하는 리포에서 `gh pr merge`가 이 에러로 실패하면 재시도하지 말고 즉시 `gh api .../merge -X PUT`으로 전환한다.
 - **근거**: `gh pr merge 3 --squash --delete-branch` → `failed to run git: fatal: 'main' is already used by worktree at '/Users/gwanli/product_2026/portmanagement'` / `gh api repos/intenet1001-commits/AgentsToZ_byCS/pulls/3/merge -X PUT -f merge_method=squash` → `{"merged":true}` (2026-07-09 세션)
+- **addendum (2026-07-19)**: `gh pr merge --merge --delete-branch`도 동일 에러로 exit 1을 내지만, 이때 원격 머지 자체는 로컬 checkout 단계보다 먼저 실행되어 **이미 성공해 있는 경우가 있다** — `gh api ... -X PUT`으로 재시도하기 전에 반드시 `gh pr view <N> --json state,mergedAt,mergeCommit`로 확인할 것. `state: MERGED`이면 재병합 시도 없이 곧장 정리 단계(원격 브랜치는 `--delete-branch`도 abort됐을 수 있으므로 `gh api -X DELETE .../git/refs/heads/<branch>`로 별도 삭제, 로컬은 `git worktree unlock` → `remove` → `prune` → `checkout main` → `pull` → `branch -d`)로 넘어간다. 근거: PR #17에서 `gh pr merge --merge --delete-branch` exit 1 직후 `gh pr view`가 `state: MERGED, mergeCommit: ff629d4...`를 반환, 원격 브랜치만 남아있어 API로 별도 삭제.
 
 ### 100. git worktree prune는 locked 항목을 설계상 조용히 건너뛴다 — remove 전 unlock 선행 필수 (2026-07-11)
 <!-- tier: principle, error-ref: ERR-2026-07-11-001 -->

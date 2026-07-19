@@ -1,3 +1,8 @@
+## 9.0.0 (2026-07-19)
+
+- Addendum 1건 (기존 #97 확장, knowledge/git-worktree.md, 신규 번호 미부여 — 본문 비교 결과 상황/원인이 동일해 새 항목 대신 addendum): `gh pr merge --merge --delete-branch`가 "'main' is already used by worktree" 에러로 exit 1을 내더라도 원격 머지 자체는 로컬 checkout 단계보다 먼저 실행되어 이미 성공해 있는 경우가 있다 — `gh api PUT merge`로 재시도하기 전에 `gh pr view <N> --json state,mergedAt,mergeCommit`로 먼저 확인할 것 (state: MERGED면 재병합 없이 정리 단계로).
+- 출처: `/Users/gwanli/product_2026/portmanagement` — PR #17을 `gh pr merge --merge --delete-branch`로 머지 중 발견. domains_used는 fallback값 experiencing (CS 플러그인 도메인 밖, git/gh CLI 워크플로우).
+
 ## 8.2.8 (2026-07-19)
 
 - 학습 2건 신규 추가 (모두 knowledge/misc-tooling.md, 근거 인용 포함, novelty 재검증 완료 — SKILL.md+knowledge/ 전체 grep 결과 유사 항목 없음):

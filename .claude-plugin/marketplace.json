@@ -74,8 +74,8 @@
     {
       "name": "cs-experiencing",
       "description": "📚 Knowledge Keeper — Meta-router across CS-test / CS-plan / CS-codebase-review / cs-design with versioned learnings. Includes /cs-end session-wrap.",
-      "source": "./plugins/cs-experiencing-v8",
-      "version": "8.2.8"
+      "source": "./plugins/cs-experiencing-v9",
+      "version": "9.0.0"
     },
     {
       "name": "convo-maker",
