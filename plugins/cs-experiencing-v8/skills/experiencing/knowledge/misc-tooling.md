@@ -56,3 +56,17 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 합성 fake stale 카드 1개를 실제 공유 상태 파일에 API로 주입한 뒤, 완전히 격리된 인스턴스(사용자가 이미 쓰고 있는 포트와 절대 겹치지 않는, 사전에 비어있음을 확인한 포트)에서 앱을 로드해 정리 로직을 실행시키고, 전후 id-set diff로 "합성 카드 + 실제로 이미 스테일했던 카드"만 제거되고 나머지 100개는 완전히 무변경임을 확인했다. 이 과정에서 로컬 파일과 Supabase 동기화 사본 양쪽에서 주입한 행을 모두 되돌리는 왕복 클린업까지 수행했다.
 - **교훈**: 상태 정리/마이그레이션류 수정은 (1) 사용자의 기존 실행 인스턴스가 점유한 포트는 절대 쓰지 않고 사전 확인된 미사용 포트에서만 검증하고, (2) 실제 프로덕션 규모의 공유 상태 파일에 합성 케이스를 주입해 전후 id-set diff로 "의도한 항목만 바뀌었는가"를 확인하며, (3) 클라우드 동기화가 있다면 로컬+클라우드 양쪽 모두 왕복 클린업한다 — 스크래치 데이터만으로는 실제 스케일/형태에서의 부작용을 놓칠 수 있다.
 - **근거**: 실제 101개 항목 `ports.json`에 합성 카드 주입 → Playwright로 앱 로드 → 정리 후 100개로 감소, id-set diff로 합성 카드 + 기존 실제 스테일 카드(`:10136`)만 제거되고 나머지 100개 무변경 확인 → 로컬+Supabase 양쪽 왕복 클린업 후 재확인 (portmanagement PR #14).
+
+### 148. WebFetch가 클라이언트 렌더링(Next.js RSC) 페이지에서 실제 콘텐츠를 누락시킨다 — curl+grep/python 파싱으로 폴백 (2026-07-19)
+<!-- tier: principle -->
+- **상황**: Eagle MCP 서버 설정법을 알아내려고 공식 지원 문서(en.eagle.cool)를 WebFetch로 가져왔다.
+- **발견**: WebFetch의 요약 패스가 페이지의 실제 JSON 설정 내용을 두 번의 시도에서도 누락시켰다 — 페이지가 클라이언트 렌더링되는 Next.js 페이지였고, 진짜 콘텐츠는 `self.__next_f.push([1,"..."])` 형태의 임베디드 RSC payload 스크립트 청크 안에 JSON-escape된 문자열로 들어있었다. `curl`로 raw HTML을 받아 `grep`/`python3`로 해당 청크를 직접 추출하자 전체 설정(JSON 스니펫 포함)을 얻을 수 있었다.
+- **교훈**: WebFetch 결과가 예상보다 빈약하거나 핵심 정보(코드 블록/JSON/설정값)가 누락되어 있으면, 재시도 대신 즉시 그 페이지가 클라이언트 사이드 렌더링(Next.js RSC, SPA 등)인지 의심하고 `curl` raw HTML + `grep`/`python3`로 `__next_f.push`/`__NEXT_DATA__` 같은 임베디드 payload를 직접 파싱하는 방식으로 전환한다.
+- **근거**: WebFetch 2회 연속 "the actual body content ... wasn't included" 응답 → `curl -sL <url> | grep -o 'mcpServers...'`로 실제 JSON 설정(`"transport": "http", "url": "http://localhost:41596/mcp"`) 직접 추출 성공 (Eagle_mcp 프로젝트 세션, 2026-07-19).
+
+### 149. GUI 전용 설치 단계를 자동화 불가로 단정하기 전에, 설치 대상 산출물이 이미 디스크에 존재하는지 먼저 확인한다 (2026-07-19)
+<!-- tier: principle -->
+- **상황**: Eagle Skill 공식 설치 가이드가 Eagle 앱 내부의 GUI 파일 피커("+ Install Skill" 버튼 클릭 → 폴더 선택)를 필수 단계로 요구했다.
+- **발견**: 문서상 절차는 GUI 조작이 필수였지만, 실제로는 해당 스킬 패키지(SKILL.md + scripts/ + references/)가 이미 Eagle 앱 지원 폴더(`~/Library/Application Support/Eagle/Plugins/mcp-server/skills/eagle-skill/`)에 설치되어 있었다. 이를 대상 프로젝트의 `.claude/skills/`로 직접 복사하는 것만으로 GUI 단계 전체를 대체할 수 있었다.
+- **교훈**: 설치/등록 절차가 GUI 전용이라 자동화 불가처럼 보이면, 먼저 그 GUI 동작이 만들어내는 최종 산출물(파일/폴더)이 이미 디스크의 예측 가능한 위치(앱 지원 폴더, 플러그인 디렉토리 등)에 존재하는지 탐색한다. 존재하면 파일 복사로 GUI 단계를 생략할 수 있다.
+- **근거**: `find / -iname "eagle-skill"` → `~/Library/Application Support/Eagle/Plugins/mcp-server/skills/eagle-skill/SKILL.md` 발견 → `cp -R`로 프로젝트 `.claude/skills/`에 복사 → `/reload-skills`로 정상 인식 확인 (Eagle_mcp 프로젝트 세션, 2026-07-19).

@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.2.7
+version: 8.2.8
 allowed-tools:
   - Read
   - Write
@@ -658,6 +658,8 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 145 | 글로벌 설정/플러그인 수정의 타 프로젝트 반영 검증은 새 `claude -p` 헤드리스 프로세스로 한다 (2026-07-19) | principle | claude-code, verification, headless, claude-p, restart-simulation | knowledge/claude-code-platform.md |
 | 146 | 이름 기반 UI 요소 검색은 정확 일치를 전체 스크롤에서 먼저 시도하고, 없을 때만 부분 일치로 폴백해야 한다 (2026-07-19) | principle | ui-automation, substring-match, exact-match, search-order, ocr | knowledge/mobile-automation.md |
 | 147 | dumpsys 등 상태 덤프에서 상태를 판정할 때는 관련 라인만 파싱해야 한다 — 전체 텍스트에 마커 문자열이 있는지로 판단하면 안 된다 (2026-07-19) | principle | android, dumpsys, state-parsing, stale-state, mobile-automation | knowledge/mobile-automation.md |
+| 148 | WebFetch가 클라이언트 렌더링(Next.js RSC) 페이지에서 실제 콘텐츠를 누락시킨다 — curl+grep/python 파싱으로 폴백 (2026-07-19) | principle | webfetch, nextjs, rsc, client-render, fallback, curl | knowledge/misc-tooling.md |
+| 149 | GUI 전용 설치 단계를 자동화 불가로 단정하기 전에, 설치 대상 산출물이 이미 디스크에 존재하는지 먼저 확인한다 (2026-07-19) | principle | installation, gui-workaround, disk-artifact, automation | knowledge/misc-tooling.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.

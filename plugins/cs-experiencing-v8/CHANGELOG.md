@@ -1,9 +1,12 @@
-## (미배포, 다음 버전에 포함 예정 — 아래 참고)
+## 8.2.8 (2026-07-19)
 
-- Addendum 2건 (기존 항목 확장, 신규 번호 미부여): #75(deployment.md) — GH Actions `schedule:` 트리거는 cold-start 없이도 이미 정상 동작 중이던 워크플로우의 슬롯 대부분을 그냥 드롭할 수 있음(7회 시도 중 2회만 발화, skeptic CONFIRM) / #99(debugging.md) 체크리스트 (4)번 — "필드를 채우는 쓰기 경로 존재 확인"이 UI 표시 계층뿐 아니라 backend/cron 로직에도 동일 적용됨을 확인 (skeptic CONFIRM)
-- PENDING 2건 (저장 안 함): "임시 tsx 스크립트 + anon key로 Supabase 운영 데이터 직접 조회/수정" (3점 — 관련 원칙 #76의 새 각도지만 편의성 위주, impact 낮음) / "AJPark 사이트 등록 상태는 세션(pKey) 단위 판정이라 재입차 시 자동 리셋" (2점 — 단일 외부 사이트 마크업에 종속, 재사용성 낮음)
-- 출처: freeparking-1(무료주차 자동등록 앱) 세션 — GitHub Actions 크론이 오늘 7회 중 2회만 발화한 원인 조사 + Supabase `__ticketchoices__` 오버라이드 데이터 수정(코드 변경 없음, DB 데이터만)
-- 버전업 보류 사유: 같은 파일 그룹(`skills/experiencing/SKILL.md`, `knowledge/claude-code-platform.md`)에 이 세션이 만들지 않은 별도 uncommitted 변경(+6/-1, +14)이 이미 존재 — 다른 동시 세션의 진행 중 작업으로 추정되어 version-check 정합성 게이트가 막힘. 그 변경과 충돌 없이 정리된 뒤 다음 버전업 때 이 addendum도 함께 포함.
+- 학습 2건 신규 추가 (모두 knowledge/misc-tooling.md, 근거 인용 포함, novelty 재검증 완료 — SKILL.md+knowledge/ 전체 grep 결과 유사 항목 없음):
+  - #148 WebFetch가 클라이언트 렌더링(Next.js RSC) 페이지에서 실제 콘텐츠를 누락시킨다 — curl+grep/python 파싱으로 폴백 (principle)
+  - #149 GUI 전용 설치 단계를 자동화 불가로 단정하기 전에, 설치 대상 산출물이 이미 디스크에 존재하는지 먼저 확인한다 (principle)
+- PENDING 2건 (저장 안 함, Learning Gate 2-3점): "HTTP transport MCP 서버는 user-scope 등록 후 `claude mcp get`으로 연결 확인" (3점 — 유용하나 이미 자명한 검증 습관, impact 낮음) / "번들 스킬 CLI(`eagle-api-cli.js`)로 라이브러리 조회/태깅" (2점 — 특정 프로젝트/스킬에 국한, 재사용성 낮음)
+- Core Memory 갱신: cs-core-memory-v1 memory-keeper가 CORE.md Recurring Issues에 2건 신규 기록 (WebFetch RSC 누락 패턴, GUI 설치 전 디스크 산출물 확인 패턴 — Session Count 6→7)
+- CHANGELOG 정리: 이전 "미배포" pending 블록(freeparking-1 세션의 #75/#99 addendum)이 실제로는 commit d79b9fd(2026-07-19, VERSION 8.2.6 상태)에서 이미 파일에 반영·커밋되었음을 확인 — 버전업만 누락된 채 pending 헤더가 8.2.7 이후에도 정리되지 않고 남아있던 것으로, 이번 8.2.8에 소급 포함하여 정리함
+- 출처: `/Users/gwanli/product_2026/Eagle_mcp` (Eagle MCP 서버 + Eagle Skill 설치) 세션 — domains_used는 fallback값 experiencing이었고 실제로는 cs-plugin 도메인 밖(Eagle 앱 연동) 작업. cs-experiencing 자체는 모든 세션의 학습 캡처 대상이므로 버전업 진행.
 
 ## 8.2.7 (2026-07-19)
 
