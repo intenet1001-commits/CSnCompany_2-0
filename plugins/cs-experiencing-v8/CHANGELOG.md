@@ -5,6 +5,17 @@
 - 출처: freeparking-1(무료주차 자동등록 앱) 세션 — GitHub Actions 크론이 오늘 7회 중 2회만 발화한 원인 조사 + Supabase `__ticketchoices__` 오버라이드 데이터 수정(코드 변경 없음, DB 데이터만)
 - 버전업 보류 사유: 같은 파일 그룹(`skills/experiencing/SKILL.md`, `knowledge/claude-code-platform.md`)에 이 세션이 만들지 않은 별도 uncommitted 변경(+6/-1, +14)이 이미 존재 — 다른 동시 세션의 진행 중 작업으로 추정되어 version-check 정합성 게이트가 막힘. 그 변경과 충돌 없이 정리된 뒤 다음 버전업 때 이 addendum도 함께 포함.
 
+## 8.2.7 (2026-07-19)
+
+- 학습 2건 신규 추가 (모두 knowledge/mobile-automation.md, skeptic CONFIRM):
+  - #146 이름 기반 UI 요소 검색은 정확 일치를 전체 스크롤에서 먼저 시도하고, 없을 때만 부분 일치로 폴백해야 한다 (principle)
+  - #147 dumpsys 등 상태 덤프에서 상태를 판정할 때는 관련 라인만 파싱해야 한다 (principle)
+- Addendum 1건 (기존 #108 확장, knowledge/mobile-automation.md, 신규 번호 미부여): OCR 삭제 아이콘 매칭 실패의 두 가지 추가 원인 — (1) OCR이 실제로는 ASCII 'x'가 아니라 유니코드 곱셈기호 '×'(U+00D7)를 반환 (skeptic CONFIRM), (2) 동일 정적 스크린샷에서도 OCR이 일부 행의 아이콘 글리프를 비결정적으로 누락 → 좌표 기반 탭으로 폴백 (skeptic DOWNGRADE, tactical)
+- PENDING 1건 (3점, 저장 안 함): "동일 퍼블리셔/화이트라벨 앱이라도 UI 관례(아이콘 위치·문구)는 자동 상속되지 않는다" — 기존 #107(퍼블리셔 prefix가 안정성 신호가 될 수 있음)과 관련 있으나 impact/reusability가 낮아 게이트 미통과
+- 또한 이번 버전에 이전 세션의 미커밋 학습 2건 포함(별도 세션에서 이미 파일에는 반영됐으나 버전업 전이었음): #144 Claude Code 플러그인 캐시 갱신은 version bump + `claude plugin marketplace update`/`update` 모두 필요 (principle) / #145 글로벌 설정 반영 검증은 새 `claude -p` 헤드리스 프로세스로 한다 (principle) — knowledge/claude-code-platform.md
+- Core Memory 갱신: cs-core-memory-v1 memory-keeper가 CORE.md Recurring Issues에 4건 신규 기록 (OCR 유니코드 불일치, OCR 비결정적 글리프 누락→좌표 폴백, 이름 검색 부분일치 오탐, 퍼블리셔 UI 관례 미상속 — Session Count 5→6). "잠금화면 판정 dumpsys 전체스캔" 후보는 episodic으로 판정되어 CORE.md에는 미기록(SKILL.md #147로는 저장됨 — CORE.md와 SKILL.md는 게이트 기준이 다름).
+- 출처: `/Users/gwanli/product_2026/Ordering1` (Mega Coffee/Mammoth Coffee/Twosome Place 다중 카페 주문 자동화 프로젝트) 실기기 라이브 테스트 세션 — adb+Vision OCR 기반 UI 자동화 중 발견한 OCR 매칭/디바이스 상태 파싱 버그들. 프로젝트 자체는 cs-plugin 도메인 밖(coffee-ordering side project)이라 domains_used는 fallback값 experiencing.
+
 ## 8.2.6 (2026-07-18)
 
 - 학습 1건 신규 추가: #143 Figma 노드의 `.x`/`.y`는 절대좌표가 아니라 부모 프레임 기준 상대좌표다 (principle, figma-design-system.md, skeptic CONFIRM)

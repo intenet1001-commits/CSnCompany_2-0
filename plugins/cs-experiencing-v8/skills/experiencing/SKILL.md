@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 8.2.6
+version: 8.2.7
 allowed-tools:
   - Read
   - Write
@@ -652,12 +652,18 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 139 | Workflow 스크립트의 agent 프롬프트 안에 리터럴 ${...}를 쓰면 sandbox가 즉시 평가해 "process is not defined"로 전체 런을 크래시시킨다 (2026-07-17) | principle | workflow-tool, template-literal, sandbox, scripting-pitfall | knowledge/claude-code-platform.md |
 | 140 | 표시 이름과 권한 플래그가 분리된 인증 구조에서는 이름 충돌이 사일런트 권한 오판을 만든다 (2026-07-17) | principle | auth, display-name, permission, reserved-name, react | knowledge/react-frontend.md |
 | 141 | 서브에이전트가 idle_notification만 반복하고 도구 호출이 전혀 없으면 데드락 신호로 보고 직접 실행으로 전환한다 (2026-07-17) | tactical | multi-agent, idle-loop, deadlock, delegation, escalation | knowledge/multi-agent-orchestration.md |
+| 142 | Claude Code plugin.json은 skills/agents/commands를 문자열 배열로 선언하면 안 된다 — auto-discovery 방식이라 선언 시 Invalid input 에러 (2026-07-17) | principle | claude-code, plugin.json, auto-discovery, invalid-input | 인라인 |
+| 143 | Figma 노드의 `.x`/`.y`는 절대좌표가 아니라 부모 프레임 기준 상대좌표다 (2026-07-18) | principle | figma, coordinates, parent-relative, plugin-api | knowledge/figma-design-system.md |
+| 144 | Claude Code 플러그인 캐시는 plugin.json version bump + `claude plugin marketplace update`/`claude plugin update` 명시적 실행이 모두 있어야 갱신된다 (2026-07-19) | principle | claude-code, plugin-cache, version-bump, marketplace-update | knowledge/claude-code-platform.md |
+| 145 | 글로벌 설정/플러그인 수정의 타 프로젝트 반영 검증은 새 `claude -p` 헤드리스 프로세스로 한다 (2026-07-19) | principle | claude-code, verification, headless, claude-p, restart-simulation | knowledge/claude-code-platform.md |
+| 146 | 이름 기반 UI 요소 검색은 정확 일치를 전체 스크롤에서 먼저 시도하고, 없을 때만 부분 일치로 폴백해야 한다 (2026-07-19) | principle | ui-automation, substring-match, exact-match, search-order, ocr | knowledge/mobile-automation.md |
+| 147 | dumpsys 등 상태 덤프에서 상태를 판정할 때는 관련 라인만 파싱해야 한다 — 전체 텍스트에 마커 문자열이 있는지로 판단하면 안 된다 (2026-07-19) | principle | android, dumpsys, state-parsing, stale-state, mobile-automation | knowledge/mobile-automation.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
 > 2026-07-17 무결성 복구: INDEX 누락분 #95-99·#120-123 백필, 인라인 #12-16(2026-06 작성분)은 knowledge/ 이관 항목과의 번호 충돌로 #124-128 재부여, 프로젝트-특화 인라인 본문을 knowledge/로 오프로드. 이후 정합성은 `bash plugins/shared/run_prepass.sh index-check`가 커밋 게이트에서 기계 검증한다 (C1 INDEX 누락 / C2 위치 포인터 / C3·C4 번호 유일성 / C5 연속성 / C6 인라인 상한 15).
 
-### 오케스트레이터 도메인 학습 (인라인: #1-6, #10-11, #114, #123, #128)
+### 오케스트레이터 도메인 학습 (인라인: #1-6, #10-11, #114, #123, #128, #142)
 
 ### 1. version-up은 학습 캡처 + 디렉토리 복사 두 단계여야 한다 (2026-04-11)
 <!-- tier: principle -->
