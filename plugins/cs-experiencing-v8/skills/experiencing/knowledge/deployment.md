@@ -34,6 +34,8 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: GitHub Actions `schedule:` 트리거는 워크플로우 파일이 **이미 default branch에 존재해야** 인식된다. 12시 이후에 파일이 생겼으므로 그날 12시 발화는 처음부터 불가능했다. 소급 발화 없음, 에러·알림도 없음(단순히 조건 미충족).
 - **교훈**: 새 `schedule:` 워크플로우를 배포한 직후에는 반드시 `workflow_dispatch`로 즉시 수동 실행 검증. 기존 스케줄러에서 마이그레이션할 때는 파일이 merge된 시점이 다음 발화 이전인지 확인하고, 확신이 없으면 한 사이클은 기존 스케줄러와 병행 운영.
 - **근거**: `weekly-parking.yml` 커밋이 12:00 KST 이후 — 사용자 "오늘 오후 12시에 자동으로 주차등록이 안돼서 수기로 방금 처리했다" + ultracode 22-agent 분석 "오늘 실패 원인: 워크플로우 파일이 당일 12시 이후에 푸시됨 (타이밍 이슈)"
+- **addendum (2026-07-19)**: cold-start(파일이 아직 없던 시각) 없이도, 이미 몇 주째 정상 동작 중인 `schedule:` 워크플로우가 특정 날 슬롯의 대부분을 그냥 드롭할 수 있음을 확인. `cron: '0 0-6 * * 0'`(KST 09-15시 매시 7회 시도 — "지연되면 다음 시간에 재시도"라는 가정으로 설계된 안전장치)인데, 실제로는 7회 중 2회(10:29, 14:00 KST)만 발화하고 나머지 5개 슬롯(09/11/12/13/15시)은 각 슬롯의 실행 가능 시간대가 완전히 지나도록 단 한 번도 발화하지 않음. "몇 분 늦게라도 결국 돈다"는 지연 가정이 아니라 "그날은 아예 안 돌 수도 있다"는 완전 누락 가정으로 설계해야 함 — 매시 재시도만으로는 나쁜 날(bad day)에 불충분하므로, 마지막 성공 실행 시각이 임계치를 넘으면 알림을 보내는 워치독이나 외부 cron 서비스발 `workflow_dispatch` 이중 트리거를 추가 검토 (skeptic verifier CONFIRMED — `gh run list --json ... | event=schedule` 재실행으로 2건만 존재 재확인).
+- **근거(addendum)**: `gh run list --workflow=weekly-parking.yml --limit 50 --json databaseId,status,conclusion,createdAt,event` 결과를 2026-07-19로 필터링 → event="schedule" 레코드가 `createdAt: "2026-07-19T01:29:16Z"`, `"2026-07-19T05:00:14Z"` 2건뿐 (예상 7개 슬롯 UTC 00/01/02/03/04/05/06시 중 5개 없음), 재검증 시각 2026-07-19T07:23:23Z(16:23 KST) 기준 마지막 슬롯 실행 가능 시간대도 이미 지남
 
 ### 76. NEXT_PUBLIC_ anon key를 서버 전용 route에서 사용하면 RLS에 silently 차단된다 (2026-06-14)
 <!-- tier: principle -->

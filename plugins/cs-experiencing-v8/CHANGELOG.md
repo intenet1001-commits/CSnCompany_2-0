@@ -1,3 +1,10 @@
+## (미배포, 다음 버전에 포함 예정 — 아래 참고)
+
+- Addendum 2건 (기존 항목 확장, 신규 번호 미부여): #75(deployment.md) — GH Actions `schedule:` 트리거는 cold-start 없이도 이미 정상 동작 중이던 워크플로우의 슬롯 대부분을 그냥 드롭할 수 있음(7회 시도 중 2회만 발화, skeptic CONFIRM) / #99(debugging.md) 체크리스트 (4)번 — "필드를 채우는 쓰기 경로 존재 확인"이 UI 표시 계층뿐 아니라 backend/cron 로직에도 동일 적용됨을 확인 (skeptic CONFIRM)
+- PENDING 2건 (저장 안 함): "임시 tsx 스크립트 + anon key로 Supabase 운영 데이터 직접 조회/수정" (3점 — 관련 원칙 #76의 새 각도지만 편의성 위주, impact 낮음) / "AJPark 사이트 등록 상태는 세션(pKey) 단위 판정이라 재입차 시 자동 리셋" (2점 — 단일 외부 사이트 마크업에 종속, 재사용성 낮음)
+- 출처: freeparking-1(무료주차 자동등록 앱) 세션 — GitHub Actions 크론이 오늘 7회 중 2회만 발화한 원인 조사 + Supabase `__ticketchoices__` 오버라이드 데이터 수정(코드 변경 없음, DB 데이터만)
+- 버전업 보류 사유: 같은 파일 그룹(`skills/experiencing/SKILL.md`, `knowledge/claude-code-platform.md`)에 이 세션이 만들지 않은 별도 uncommitted 변경(+6/-1, +14)이 이미 존재 — 다른 동시 세션의 진행 중 작업으로 추정되어 version-check 정합성 게이트가 막힘. 그 변경과 충돌 없이 정리된 뒤 다음 버전업 때 이 addendum도 함께 포함.
+
 ## 8.2.6 (2026-07-18)
 
 - 학습 1건 신규 추가: #143 Figma 노드의 `.x`/`.y`는 절대좌표가 아니라 부모 프레임 기준 상대좌표다 (principle, figma-design-system.md, skeptic CONFIRM)
