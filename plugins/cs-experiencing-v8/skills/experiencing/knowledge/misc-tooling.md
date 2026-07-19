@@ -70,3 +70,6 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 문서상 절차는 GUI 조작이 필수였지만, 실제로는 해당 스킬 패키지(SKILL.md + scripts/ + references/)가 이미 Eagle 앱 지원 폴더(`~/Library/Application Support/Eagle/Plugins/mcp-server/skills/eagle-skill/`)에 설치되어 있었다. 이를 대상 프로젝트의 `.claude/skills/`로 직접 복사하는 것만으로 GUI 단계 전체를 대체할 수 있었다.
 - **교훈**: 설치/등록 절차가 GUI 전용이라 자동화 불가처럼 보이면, 먼저 그 GUI 동작이 만들어내는 최종 산출물(파일/폴더)이 이미 디스크의 예측 가능한 위치(앱 지원 폴더, 플러그인 디렉토리 등)에 존재하는지 탐색한다. 존재하면 파일 복사로 GUI 단계를 생략할 수 있다.
 - **근거**: `find / -iname "eagle-skill"` → `~/Library/Application Support/Eagle/Plugins/mcp-server/skills/eagle-skill/SKILL.md` 발견 → `cp -R`로 프로젝트 `.claude/skills/`에 복사 → `/reload-skills`로 정상 인식 확인 (Eagle_mcp 프로젝트 세션, 2026-07-19).
+<!-- addendum (2026-07-19): 동일 패턴 재확인 — WordPress Studio에서 `studio` CLI가 PATH에 없어 wp-cli 작업이 막혔을 때, 앱을 열거나 PATH를 고치는 대신 앱 번들 내 동봉 스크립트(`/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh`)를 절대경로로 직접 실행해 `wp post create`를 성공시켰다. GUI 전용 도구를 만나면 "산출물이 이미 있는지" 뿐 아니라 "`.app/Contents/Resources/bin/` 하위에 동봉 CLI 스크립트가 있는지"도 함께 확인할 것 (portmanagement/WordPress Studio 세션). -->
+<!-- error-ref: ERR-2026-07-19-004 -->
+
