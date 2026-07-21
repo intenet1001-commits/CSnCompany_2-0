@@ -1,3 +1,10 @@
+## 9.0.3 (2026-07-22)
+
+- 학습 0건 신규 저장, 1건 addendum (기존 항목 #54와 겹침 — 노벨티 1점, 새 번호 미부여):
+  - addendum (knowledge/git-worktree.md #54): GUI 앱(Tauri)에서 워크트리 node_modules 자동 설치를 백그라운드로 구현할 때, Finder 실행 시 최소 PATH만 상속되어 bare 프로그램 호출이 조용히 ENOENT 실패하는 문제 + 그 대응으로 실행 직전 동기 self-heal 가드가 필요하다는 것 + 웹 dev shell 테스트 그린이 GUI 실행 경로 버그를 은폐할 수 있다는 것. principle 후보였으나 skeptic 검증에서 tactical로 강등(단일 저장소·단일 e2e 사례 근거, 대안 아키텍처 존재).
+  - PENDING (미저장, 게이트 미달): uv PATH 경로(`~/.local/bin`) 누락 사례(3점), stale 워크트리 브랜치의 vite PORT 하드코딩(2점), orca 워크트리 감지 범위 미검증(3점)
+- 출처: `/Users/gwanli/product_2026/portmanagement` (Tauri+React 포트 관리 앱) — 워크트리 "실행" 버튼이 여전히 안 되는 문제를 2라운드 심층 진단, PATH desert self-heal 수정 + e2e 검증(HTTP 200) + DMG v115 빌드까지 완료. domains_used는 fallback값 experiencing (cs-ceo:ceo 에이전트로 진단 위임, CS 도메인 워크플로우 직접 사용 없음). 마켓플레이스 레포 코드 변경 없음(version-scout 확인) — 버전 bump는 addendum 캡처만으로 patch 자릿수 1 증가.
+
 ## 9.0.2 (2026-07-22)
 
 - 학습 6건 신규 추가 (근거 인용 포함, novelty 재검증 완료 — SKILL.md+knowledge/ 전체 grep 결과 유사 항목 없음, 번호 충돌 1건 발견해 143-148 → 158-163으로 재조정):

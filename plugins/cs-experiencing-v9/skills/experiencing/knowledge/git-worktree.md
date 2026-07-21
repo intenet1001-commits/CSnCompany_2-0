@@ -58,6 +58,7 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: `git worktree add`로 생성한 워크트리에서 `npm run dev` 실행 시 Turbopack이 node_modules 심링크를 거부하며 에러를 냈다.
 - **발견**: git worktree는 기본적으로 node_modules 디렉토리를 갖지 않는다. 메인 트리의 node_modules를 심링크하면 Turbopack이 이를 감지하고 거부한다. 워크트리 디렉토리 안에서 `npm install`을 직접 실행해 실제 node_modules를 생성해야 정상 동작한다.
 - **교훈**: Next.js + Turbopack 프로젝트에서 git worktree 사용 시 반드시 `npm install`(또는 `pnpm install`) 실행. 심링크 방식 공유는 Turbopack에서 작동하지 않음. 워크트리 셋업 체크리스트에 node_modules 설치 단계 포함할 것.
+- **addendum (2026-07-22)**: 이 install을 GUI 앱(Tauri 등)에서 자동화할 때는 두 가지가 추가로 필요하다. (1) Finder로 실행된 GUI 앱은 최소 PATH(`/usr/bin:/bin`)만 상속하므로 `Command::new("bun")` 같은 bare 호출이 ENOENT로 실패하기 쉽고, 그 결과를 `let _ = ...`로 버리면 실패가 완전히 조용해져 "고쳤다고 생각한 버그"가 그대로 남는다 — PATH 보강 + 실패 로깅이 필수. (2) 생성 시점의 백그라운드 설치만으로는 타이밍 레이스(설치 완료 전 실행)·설치 실패·기존에 이미 깨진 워크트리를 못 막으므로, "실행" 버튼 클릭 직전에 node_modules/.venv 존재를 동기로 재확인하고 없으면 설치부터 완료하는 self-heal 가드를 이중으로 둬야 한다. 이 자동화 코드를 웹 dev shell(Playwright 등)에서 테스트하면 로그인 셸 PATH를 그대로 상속해 통과하지만 실제 GUI 실행 경로에서는 재현되므로, GUI PATH 의존 로직은 웹 테스트 그린만으로 검증 완료로 보면 안 된다. (portmanagement 프로젝트 commit 22c2b30, e2e 검증: node_modules 삭제 후 execute-command 호출 → self-heal 설치 → 커스텀 포트 바인딩 → HTTP 200)
 
 ### 83. 빌드 아티팩트 unstaged → git pull --rebase 실패 (2026-06-14)
 <!-- tier: tactical -->
