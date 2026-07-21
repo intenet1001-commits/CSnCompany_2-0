@@ -73,3 +73,10 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 <!-- addendum (2026-07-19): 동일 패턴 재확인 — WordPress Studio에서 `studio` CLI가 PATH에 없어 wp-cli 작업이 막혔을 때, 앱을 열거나 PATH를 고치는 대신 앱 번들 내 동봉 스크립트(`/Applications/Studio.app/Contents/Resources/bin/studio-cli.sh`)를 절대경로로 직접 실행해 `wp post create`를 성공시켰다. GUI 전용 도구를 만나면 "산출물이 이미 있는지" 뿐 아니라 "`.app/Contents/Resources/bin/` 하위에 동봉 CLI 스크립트가 있는지"도 함께 확인할 것 (portmanagement/WordPress Studio 세션). -->
 <!-- error-ref: ERR-2026-07-19-004 -->
 
+### 157. Claude Artifact 안에서 외부 라이브러리 없이 PDF 다운로드 구현 — print-media CSS + window.print() (2026-07-21)
+<!-- tier: tactical -->
+- **상황**: NH투자증권 사실조회 프로토타입(Artifact)에 "통신사기정보 제공 확인서" PDF 다운로드 버튼을 추가해야 했다. Artifact CSP는 외부 스크립트 CDN(jsPDF 등)을 막는다.
+- **발견**: 화면에는 `#pdf-doc { display:none; }`으로 숨겨둔 별도 인쇄 전용 레이아웃 div를 만들고, `@media print { body * { visibility:hidden } #pdf-doc, #pdf-doc * { visibility:visible } ... }` 규칙으로 인쇄 시에만 그 레이아웃이 전체 페이지를 차지하도록 했다. 버튼 클릭 시 `window.print()`만 호출하면 브라우저 네이티브 인쇄 대화상자가 뜨고, 사용자가 "PDF로 저장"을 선택해 실제 PDF 파일을 받을 수 있었다.
+- **교훈**: Artifact/프로토타입에서 "PDF 다운로드" 요구가 나오면 jsPDF 같은 라이브러리 도입을 먼저 검토하지 말고, `display:none` 인쇄 전용 레이아웃 + `@media print` + `window.print()` 조합이 CSP 제약 없이 되는지부터 확인한다.
+- **근거**: `#pdf-doc { display:none } + @media print { ... }` + `downloadPdf(){ window.print(); }` 구현 후 인쇄 미리보기에서 화면 UI 없이 확인서 레이아웃만 단독 렌더링되는 것을 확인.
+

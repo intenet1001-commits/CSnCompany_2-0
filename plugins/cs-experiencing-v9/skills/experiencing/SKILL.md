@@ -5,7 +5,7 @@ description: |
   경험 지식 저장소 오케스트레이터.
   도메인별 누적 학습 조회, 실행, 버전 관리.
   Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 9.0.0
+version: 9.0.1
 allowed-tools:
   - Read
   - Write
@@ -660,6 +660,14 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 147 | dumpsys 등 상태 덤프에서 상태를 판정할 때는 관련 라인만 파싱해야 한다 — 전체 텍스트에 마커 문자열이 있는지로 판단하면 안 된다 (2026-07-19) | principle | android, dumpsys, state-parsing, stale-state, mobile-automation | knowledge/mobile-automation.md |
 | 148 | WebFetch가 클라이언트 렌더링(Next.js RSC) 페이지에서 실제 콘텐츠를 누락시킨다 — curl+grep/python 파싱으로 폴백 (2026-07-19) | principle | webfetch, nextjs, rsc, client-render, fallback, curl | knowledge/misc-tooling.md |
 | 149 | GUI 전용 설치 단계를 자동화 불가로 단정하기 전에, 설치 대상 산출물이 이미 디스크에 존재하는지 먼저 확인한다 (2026-07-19) | principle | installation, gui-workaround, disk-artifact, automation | knowledge/misc-tooling.md |
+| 150 | Figma Plugin API에서 `clone()` 후 `appendChild()`는 항상 최상위 z-order로 붙는다 (2026-07-21) | principle | figma, clone, appendChild, z-order, insertChild | knowledge/figma-design-system.md |
+| 151 | Figma Plugin API에는 자동 리플로우가 없다 — 행 삽입 시 하위 요소 좌표를 전부 수동 시프트해야 한다 (2026-07-21) | principle | figma, absolute-position, manual-reflow, resize | knowledge/figma-design-system.md |
+| 152 | GROUP 노드는 FRAME과 달리 고정 선택 경계가 없어 콘텐츠 변경 시 플로팅 선택-핸들 아티팩트를 유발한다 (2026-07-21) | principle | figma, group-vs-frame, selection-bounds, bounding-box | knowledge/figma-design-system.md |
+| 153 | clipsContent=true인 프레임은 스크린샷이 정상으로 보여도 자식이 부모보다 크면 바운딩박스 오버플로우를 숨긴다 (2026-07-21) | principle | figma, clipsContent, overflow, backdrop, hidden-bug | knowledge/figma-design-system.md |
+| 154 | 구조 변경(컨테이너 타입 전환 등) 직후 좌표가 우연히 일치하면 실제로는 상대좌표가 아닌 버그가 가려질 수 있다 — 이동시켜 스트레스 테스트해야 드러난다 (2026-07-21) | principle | debugging, coincidental-match, coordinate-bug, stress-test | knowledge/debugging.md |
+| 155 | 여러 항목에 동일 패턴의 오차가 의심되면 먼저 read-only로 전수 진단해 상수-델타 여부를 확인한 뒤 단일 배치 연산으로 고친다 (2026-07-21) | principle | debugging, diagnose-fix-verify, multi-agent, batch-shift | knowledge/multi-agent-orchestration.md |
+| 156 | 그럴듯한 원인을 고쳤다고 끝내지 말고, 사용자가 최초에 보고한 정확한 증상과 대조해 진짜 원인을 특정했는지 재확인한다 (2026-07-21) | principle | debugging, root-cause, symptom-match, verification | knowledge/debugging.md |
+| 157 | Claude Artifact 안에서 외부 라이브러리 없이 PDF 다운로드 구현 — print-media CSS + window.print() (2026-07-21) | tactical | claude-artifact, pdf, print-css, window.print | knowledge/misc-tooling.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.

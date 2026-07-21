@@ -76,3 +76,35 @@ cs-experiencing 학습 INDEX가 참조하는 본문 모음. 신규 학습은 끝
 - **발견**: 계산해 둔 좌표는 페이지 기준 절대좌표였는데, 배지 노드의 실제 부모가 페이지가 아니라 Slide 프레임이었다. 그 절대좌표를 그대로 `node.x`/`node.y`에 대입하자 Figma가 이를 **부모(Slide) 기준 로컬좌표**로 해석해, Slide 자신의 페이지-오프셋만큼 조용히 이중으로 밀려나갔다 — 배지가 엉뚱한 슬라이드의 좌표 범위로 사라지는 형태로 나타났다. `SceneNode.x`/`.y`가 부모 좌표계 기준이라는 것은 Figma Plugin API 타입 정의에 명시된 안정적 플랫폼 동작이며 API 버전에 걸쳐 바뀌지 않는다.
 - **교훈**: Figma Plugin API로 노드 위치를 절대(페이지) 좌표 기준으로 계산했다면, 대입 직전에 반드시 `localX = absX - node.parent.absoluteBoundingBox.x`(y도 동일)로 부모-로컬 좌표로 변환한다. 노드를 읽을 때(`absoluteBoundingBox`)는 항상 절대좌표라 안전하지만, 쓸 때(`node.x =`)는 부모 기준이라는 이 비대칭성 때문에 발생하는 함정이며, 대상 노드의 부모가 페이지인지 프레임/그룹/Slide인지부터 먼저 확인해야 한다.
 - **근거**: "assigning an absolute page coordinate directly to a Figma node's `.x`/`.y` when that node's parent is NOT the page (e.g. a Slide frame) silently double-offsets it, because node.x is interpreted as parent-local, not absolute — this caused badges to briefly vanish off-slide." (skeptic verifier CONFIRMED — `SceneNode.x`/`.y`가 부모-상대 좌표라는 것은 문서화된 안정적 Plugin API 동작이며 특정 버전/설정에 종속되지 않는다고 판단.)
+
+### 150. Figma Plugin API에서 `clone()` 후 `appendChild()`는 항상 최상위 z-order로 붙는다 (2026-07-21)
+<!-- tier: principle -->
+
+- **상황**: NH투자증권 사실조회 기획서 Figma 파일에서 조회결과 목록 표에 상태별(신청완료/통지완료/취소) 행을 추가하면서, 새 행의 배경 사각형을 기존 행의 배경을 `clone()`한 뒤 `appendChild()`로 붙였다.
+- **발견**: 새로 만든 배경 사각형이 스크린샷에서 그 행의 텍스트를 전부 가려버렸다. 원인은 `appendChild()`가 새 노드를 부모의 자식 배열 맨 끝(=렌더링 z-order 최상위)에 삽입하기 때문 — 배경/장식용으로 나중에 clone한 노드가 먼저 있던 텍스트 콘텐츠보다 위에 그려진다.
+- **교훈**: 배경/장식 요소를 기존 콘텐츠보다 아래에 두려면 `appendChild()` 대신 `parent.insertChild(existingContentNode의_index, bgRect)`로 삽입 위치(인덱스)를 명시해야 한다. 특히 표/리스트 행을 통째로 clone해서 새 행을 만들 때, 배경 사각형과 텍스트 노드를 같은 순서로 다시 쌓고 싶다면 배경을 먼저 삽입하거나 인덱스를 명시적으로 지정해야 한다.
+- **근거**: 새로 추가한 배경 사각형(row bg)이 텍스트 위에 z-order상 올라와 텍스트가 가려지는 버그 발생 → `mockup.insertChild(textNodeIndex, bgRect)`로 배경을 텍스트보다 낮은 인덱스에 삽입해 해결, 이후 `get_screenshot`으로 텍스트가 다시 보이는 것을 확인.
+
+### 151. Figma Plugin API에는 자동 리플로우가 없다 — 행 삽입 시 하위 요소 좌표를 전부 수동 시프트해야 한다 (2026-07-21)
+<!-- tier: principle -->
+
+- **상황**: 같은 NH 사실조회 기획서 작업에서, 절대좌표 프레임(auto-layout 아님)인 표에 새 상태 행을 추가.
+- **발견**: 행 하나를 추가할 때마다 그 아래에 있는 페이지네이션·푸터 등 모든 형제 노드의 y좌표를 수동으로 계산해서 밀어야 했고, 표를 감싸는 프레임 높이(`resize`)와 배경 사각형 높이도 함께 늘려야 레이아웃이 깨지지 않았다. 이런 시프트를 여러 슬라이드에서 반복해야 했다.
+- **교훈**: Figma 절대좌표 프레임에 콘텐츠를 위→아래로 삽입할 때는, 삽입 전에 영향받는 모든 하위 형제 노드와 그 y좌표를 먼저 수집한 뒤 델타 값을 계산해 일괄 시프트하고, 마지막에 프레임/배경 사각형의 높이를 `resize()`한다. auto-layout 프레임이 아니라면 이 수동 시프트 절차를 표준 체크리스트로 삼는다.
+- **근거**: 표에 행을 하나 추가할 때 페이지네이션·푸터 등 하위 요소 y좌표를 전부 수동으로 밀고, 목업/백드롭 프레임 높이도 함께 늘려야 했다(예: 649.2→665.86). 시프트 델타를 누락한 최초 시도에서는 새 행의 배경(위 #150)이나 하위 요소가 겹치는 버그가 발생했고, `get_screenshot`으로 재확인 후 보정했다.
+
+### 152. GROUP 노드는 FRAME과 달리 고정 선택 경계가 없어 콘텐츠 변경 시 플로팅 선택-핸들 아티팩트를 유발한다 (2026-07-21)
+<!-- tier: principle -->
+
+- **상황**: 사용자가 "레이어 바깥영역에 이상한 도형(작은 브래킷/리사이즈 핸들)이 있다"고 신고. Figma 화면흐름개요 다이어그램의 최상위 컨테이너를 검사.
+- **발견**: 사람이 만든 레퍼런스 마스터 파일은 최상위 화면/다이어그램 컨테이너로 FRAME을 쓰는데, 작업 파일의 컨테이너는 GROUP이었다. GROUP의 바운딩박스는 자식에 맞춰 자동으로 수축/확장되며 FRAME처럼 고정된 선택 경계를 갖지 않는다 — 이 때문에 캔버스에서 선택했을 때 실제 화면 콘텐츠 경계와 어긋난 선택 핸들이 떠 보일 수 있다.
+- **교훈**: Figma에서 화면/다이어그램급(재사용되는 최상위 레이아웃) 컨테이너는 GROUP이 아니라 FRAME으로 만들어야 선택 경계가 안정적이고, 배경/패딩 지정과 clipsContent 제어도 가능하다. GROUP→FRAME 전환은 같은 위치/크기로 새 FRAME을 만들고 `appendChild`로 자식을 옮기면 되며, 마지막 자식이 빠지는 순간 원래 GROUP은 자동 삭제되므로 별도 `remove()` 호출은 불필요(오히려 에러).
+- **근거**: 레퍼런스 파일(WxM7YGGlbrKuFn2J0Cp3Yt, ⭐MASTER⭐ 페이지) get_metadata 결과 최상위 화면이 전부 `<frame>` 타입인 반면, 작업 파일(zRrojC3HnGljRiRYMFiCjX) node 2173:2574/2037:1446은 `type: GROUP`.
+
+### 153. clipsContent=true인 프레임은 스크린샷이 정상으로 보여도 자식이 부모보다 크면 바운딩박스 오버플로우를 숨긴다 (2026-07-21)
+<!-- tier: principle -->
+
+- **상황**: 팝업/다이얼로그 목업 FRAME(예: "Mockup C — 제출 확인 다이얼로그", 540×1387, `clipsContent: true`) 선택 시 화면 밖 빈 공간에 리사이즈 핸들이 떠 보이는 현상 재확인.
+- **발견**: 목업 프레임 안의 "Backdrop(실제 호스트 화면을 dimmed 처리해서 복제한 배경)" 자식이 부모 프레임보다 167px 더 컸다(540×1554). `clipsContent: true`라서 스크린샷/렌더링은 완전히 정상으로 보이지만, 실제 콘텐츠 바운딩박스는 여전히 초과분까지 확장돼 있어 Figma 선택 UI에는 그 초과 지점에 핸들이 떠 보였다.
+- **교훈**: clipsContent=true인 컨테이너는 "스크린샷이 멀쩡하다"는 것만으로 안심할 수 없다 — 자식의 실제 width/height를 부모와 별도로 읽어 `child.y + child.height > parent.height` 같은 초과 여부를 직접 계산해야 한다. 특히 실제 화면을 통째로 복제해 배경으로 쓰는 패턴(Backdrop)에서는 원본이 목업 프레임보다 길 수 있으므로, 붙인 직후 반드시 크기 검증을 한다.
+- **근거**: node 2173:2848 "Mockup C" 자식 "Backdrop (real screen, dimmed) — 상세·투표 화면": x=0,y=0,w=540,h=1554, bottomEdge=1554 > 부모 height 1387.

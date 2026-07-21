@@ -1,3 +1,13 @@
+## 9.0.1 (2026-07-21)
+
+- 학습 2건 신규 추가 (근거 인용 포함, novelty 재검증 완료 — SKILL.md+knowledge/ 전체 grep 결과 유사 항목 없음):
+  - #150 Figma Plugin API에서 `clone()` 후 `appendChild()`는 항상 최상위 z-order로 붙는다 (principle, knowledge/figma-design-system.md)
+  - #151 Figma Plugin API에는 자동 리플로우가 없다 — 행 삽입 시 하위 요소 좌표를 전부 수동 시프트해야 한다 (principle, knowledge/figma-design-system.md)
+  - #157 Claude Artifact 안에서 외부 라이브러리 없이 PDF 다운로드 구현 — print-media CSS + window.print() (tactical, knowledge/misc-tooling.md)
+- 출처: NH투자증권 "본인정보 공유여부 사실조회" N2 화면기획서 세션 — Figma MCP(use_figma) 슬라이드 편집 + HTML Artifact 프로토타입 갱신 (2026-07-21). domains_used는 fallback값 experiencing (CS 플러그인 도메인 밖, Figma/Artifact 워크플로우).
+- 참고: 이번 세션 중 다른 동시 진행 프로세스가 같은 SKILL.md/knowledge 파일에 #152-#156(Figma GROUP/clipsContent, 디버깅 원칙 3건)을 병행 기록 — 번호 충돌 3라운드 재조정 후 index-check ok:true로 최종 정합성 확인.
+- #152-#156 출처 (Right2 프로젝트, 해외주식 의결권 투표 화면흐름개요 v5 Figma 세션, 2026-07-21): GROUP→FRAME 컨테이너 전환, 전환 직후 우연한 좌표 일치가 relative-좌표 버그를 가림, Backdrop이 clipsContent 프레임보다 커서 오버플로우가 스크린샷엔 안 보이고 선택 UI에만 남는 문제, diagnose→fix→verify 멀티에이전트 루프로 상수-델타 오프셋 일괄 수정, 그럴듯한 원인 수정 후 최초 신고 증상과의 재대조 원칙.
+
 ## 9.0.0 (2026-07-19)
 
 - Addendum 1건 (기존 #97 확장, knowledge/git-worktree.md, 신규 번호 미부여 — 본문 비교 결과 상황/원인이 동일해 새 항목 대신 addendum): `gh pr merge --merge --delete-branch`가 "'main' is already used by worktree" 에러로 exit 1을 내더라도 원격 머지 자체는 로컬 checkout 단계보다 먼저 실행되어 이미 성공해 있는 경우가 있다 — `gh api PUT merge`로 재시도하기 전에 `gh pr view <N> --json state,mergedAt,mergeCommit`로 먼저 확인할 것 (state: MERGED면 재병합 없이 정리 단계로).
