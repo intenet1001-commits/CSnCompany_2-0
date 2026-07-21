@@ -1,3 +1,16 @@
+## 9.0.2 (2026-07-22)
+
+- 학습 6건 신규 추가 (근거 인용 포함, novelty 재검증 완료 — SKILL.md+knowledge/ 전체 grep 결과 유사 항목 없음, 번호 충돌 1건 발견해 143-148 → 158-163으로 재조정):
+  - #158 yt-dlp `--cookies-from-browser`는 프로필 미지정 시 여러 Chrome 프로필 중 무작위 선택 — Local State JSON으로 폴더명↔표시이름 매핑 (tactical)
+  - #159 yt-dlp 쿠키 인증 시 로그인 가능 클라이언트(tv/web)로 전환되며 JS 런타임 + `--remote-components ejs:github` 둘 다 필요 (tactical)
+  - #160 Radix ScrollArea의 `display:table` 내부 래퍼는 자식 truncate를 무력화 — `w-px min-w-full`로 강제 필요 (tactical, skeptic verifier가 principle→tactical 강등: Radix 내부 구현 의존)
+  - #161 파일명에 `#` 포함 시 인코딩 없이 URL에 넣으면 브라우저가 프래그먼트로 해석해 요청 경로가 잘려 404 (tactical)
+  - #162 for 루프 순차 처리에서 아이템별 try/catch 없으면 하나만 실패해도 나머지 전체가 스킵됨 (tactical)
+  - #163 Electron fetch+blob 다운로드에서 `revokeObjectURL`을 너무 빨리 호출하면 큰 파일에서 실패 — 서버가 이미 로컬 저장한 파일은 blob 재다운로드 자체가 불필요 (tactical)
+  - addendum (knowledge/claude-code-platform.md #37): CLI 다중 버전 설치 시 spawn이 실행 컨텍스트에 따라 다른 버전을 집는 문제 — 단일 탐지+fallback이 아니라 후보 경로 순회 + `--version` 비교 resolver 패턴
+- PENDING (미저장, 게이트 미달 2-3점): "붙여넣기 버튼이 클립보드 내용을 검증 없이 URL 입력창에 넣는 문제" (novelty2/impact0/reuse1=3)
+- 출처: `/Users/gwanli/product_2026/easyconversion_web1` (Electron+Next.js YouTube 다운로드 탭에 쿠키 인증 + 재생목록 일괄 다운로드 기능 구현, 실사용 중 발견된 6개 버그 순차 디버깅). domains_used는 fallback값 experiencing (세션 시작 시 `/smart-run` 1회 호출 외 CS 플러그인 도메인 워크플로우는 사용하지 않음). 이번 세션은 마켓플레이스 레포 코드 변경 없음(version-scout 확인) — 버전 bump는 학습 캡처만으로 patch 자릿수 1 증가.
+
 ## 9.0.1 (2026-07-21)
 
 - 학습 2건 신규 추가 (근거 인용 포함, novelty 재검증 완료 — SKILL.md+knowledge/ 전체 grep 결과 유사 항목 없음):
