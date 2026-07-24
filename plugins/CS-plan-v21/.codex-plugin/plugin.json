@@ -1,0 +1,34 @@
+{
+  "name": "CS-plan",
+  "version": "21.0.0",
+  "description": "TDD + Clean Architecture 4-agent planning - domain analysis, architecture, test strategy, implementation checklist",
+  "author": {
+    "name": "intenet1001-commits",
+    "url": "https://github.com/intenet1001-commits"
+  },
+  "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+  "license": "MIT",
+  "keywords": [
+    "tdd",
+    "clean-architecture",
+    "ddd",
+    "planning",
+    "agent-teams"
+  ],
+  "interface": {
+    "displayName": "CS Plan",
+    "shortDescription": "TDD + Clean Architecture 4-agent planning - domain analysis, architecture, test strategy, implementation check",
+    "longDescription": "TDD + Clean Architecture 4-agent planning - domain analysis, architecture, test strategy, implementation checklist",
+    "developerName": "intenet1001-commits",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+    "defaultPrompt": [],
+    "brandColor": "#0F766E"
+  },
+  "skills": "./skills/"
+}

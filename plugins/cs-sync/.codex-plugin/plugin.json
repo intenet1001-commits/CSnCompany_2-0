@@ -1,0 +1,36 @@
+{
+  "name": "cs-sync",
+  "version": "1.0.0",
+  "description": "🔄 Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin .codex-plugin manifests, bumps versions (Codex cache-bust), mirrors the Codex versioned cache, and does safe git pull/push. (/cs-sync)",
+  "author": {
+    "name": "intenet1001-commits",
+    "url": "https://github.com/intenet1001-commits"
+  },
+  "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+  "license": "MIT",
+  "keywords": [
+    "sync",
+    "codex",
+    "claude-code",
+    "marketplace",
+    "cross-tool",
+    "github",
+    "cs-series"
+  ],
+  "interface": {
+    "displayName": "Cs Sync",
+    "shortDescription": "Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin",
+    "longDescription": "🔄 Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin .codex-plugin manifests, bumps versions (Codex cache-bust), mirrors the Codex versioned cache, and does safe git pull/push. (/cs-sync)",
+    "developerName": "intenet1001-commits",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+    "defaultPrompt": [],
+    "brandColor": "#0F766E"
+  },
+  "skills": "./skills/"
+}

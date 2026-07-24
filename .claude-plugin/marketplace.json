@@ -86,6 +86,11 @@
       "name": "cs-core-memory",
       "description": "장기 핵심 메모리 — 세션 간 전략적 지혜 축적 ('30년 근속' 맥락 제공)",
       "source": "./plugins/cs-core-memory-v1"
+    },
+    {
+      "name": "cs-sync",
+      "description": "🔄 Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin .codex-plugin manifests, bumps versions, mirrors the Codex cache, and does safe git pull/push. (/cs-sync)",
+      "source": "./plugins/cs-sync"
     }
   ]
 }

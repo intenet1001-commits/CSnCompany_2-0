@@ -1,0 +1,44 @@
+{
+  "name": "cs-ceo",
+  "version": "15.1.0",
+  "description": "CS 시리즈 CEO 오케스트레이터 — 공수 추정 후 CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run 자율 배분. v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지, 외부 플러그인 에이전트 직접 호출 지원.",
+  "author": {
+    "name": "intenet1001-commits",
+    "url": "https://github.com/intenet1001-commits"
+  },
+  "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+  "license": "MIT",
+  "keywords": [
+    "orchestrator",
+    "ceo",
+    "routing",
+    "cs-series",
+    "partnership",
+    "superpowers",
+    "bkit",
+    "omc",
+    "gstack",
+    "context7",
+    "auto-research",
+    "cs-v7",
+    "personal-knowledge",
+    "external-agent",
+    "dynamic-resolve"
+  ],
+  "interface": {
+    "displayName": "Cs Ceo",
+    "shortDescription": "CS 시리즈 CEO 오케스트레이터 — 공수 추정 후 CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run 자율 배분. v5.5: Dynamic Re",
+    "longDescription": "CS 시리즈 CEO 오케스트레이터 — 공수 추정 후 CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run 자율 배분. v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지, 외부 플러그인 에이전트 직접 호출 지원.",
+    "developerName": "intenet1001-commits",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+    "defaultPrompt": [],
+    "brandColor": "#0F766E"
+  },
+  "skills": "./skills/"
+}

@@ -1,0 +1,35 @@
+{
+  "name": "cs-design",
+  "version": "20.0.0",
+  "description": "5-agent parallel design review + claude.ai/design-quality generation (--gen mode). Review: visual hierarchy, interaction quality, design system consistency, responsive/accessibility, anti-pattern detection. Generate: oklch() palette, ec-* namespace, self-contained HTML or Next.js TSX output.",
+  "author": {
+    "name": "intenet1001-commits",
+    "url": "https://github.com/intenet1001-commits"
+  },
+  "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+  "license": "MIT",
+  "keywords": [
+    "design",
+    "ui",
+    "ux",
+    "accessibility",
+    "anti-patterns",
+    "agent-teams"
+  ],
+  "interface": {
+    "displayName": "Cs Design",
+    "shortDescription": "5-agent parallel design review + claude.ai/design-quality generation (--gen mode). Review: visual hierarchy, i",
+    "longDescription": "5-agent parallel design review + claude.ai/design-quality generation (--gen mode). Review: visual hierarchy, interaction quality, design system consistency, responsive/accessibility, anti-pattern detection. Generate: oklch() palette, ec-* namespace, self-contained HTML or Next.js TSX output.",
+    "developerName": "intenet1001-commits",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+    "defaultPrompt": [],
+    "brandColor": "#0F766E"
+  },
+  "skills": "./skills/"
+}

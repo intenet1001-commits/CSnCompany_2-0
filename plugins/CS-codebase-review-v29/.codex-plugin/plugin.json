@@ -1,0 +1,37 @@
+{
+  "name": "CS-codebase-review",
+  "version": "29.0.1",
+  "description": "5-perspective codebase review - architecture, quality, security, performance, maintainability",
+  "author": {
+    "name": "intenet1001-commits",
+    "url": "https://github.com/intenet1001-commits"
+  },
+  "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "architecture",
+    "quality",
+    "security",
+    "performance",
+    "maintainability",
+    "react",
+    "multi-device"
+  ],
+  "interface": {
+    "displayName": "CS Codebase Review",
+    "shortDescription": "5-perspective codebase review - architecture, quality, security, performance, maintainability",
+    "longDescription": "5-perspective codebase review - architecture, quality, security, performance, maintainability",
+    "developerName": "intenet1001-commits",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+    "defaultPrompt": [],
+    "brandColor": "#0F766E"
+  },
+  "skills": "./skills/"
+}
