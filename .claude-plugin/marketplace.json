@@ -88,9 +88,9 @@
       "source": "./plugins/cs-core-memory-v1"
     },
     {
-      "name": "cs-sync",
-      "description": "🔄 Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin .codex-plugin manifests, bumps versions, mirrors the Codex cache, and does safe git pull/push. (/cs-sync)",
-      "source": "./plugins/cs-sync"
+      "name": "csn-sync",
+      "description": "🔄 Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin .codex-plugin manifests, bumps versions, mirrors the Codex cache, and does safe git pull/push. (/csn-sync)",
+      "source": "./plugins/csn-sync"
     }
   ]
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# cs-sync — keep the CSnCompany_2-0 marketplace in sync across Claude Code and Codex.
+# csn-sync — keep the CSnCompany_2-0 marketplace in sync across Claude Code and Codex.
 #
 # Architecture (modeled on nhdesign4-sync, adapted for a MULTI-plugin marketplace):
 #   - There is exactly ONE git repo: the Claude Code marketplace clone
@@ -140,7 +140,7 @@ commit_all() {
   bump_all_versions
   git -C "$REPO" add -A
   local msg="$COMMIT_MSG"
-  [ -z "$msg" ] && msg="cs-sync: local changes $(git -C "$REPO" diff --cached --name-only | tr '\n' ' ' | cut -c1-120)"
+  [ -z "$msg" ] && msg="csn-sync: local changes $(git -C "$REPO" diff --cached --name-only | tr '\n' ' ' | cut -c1-120)"
   git -C "$REPO" commit -m "$msg" >/dev/null && say "committed: $msg"
 }
 

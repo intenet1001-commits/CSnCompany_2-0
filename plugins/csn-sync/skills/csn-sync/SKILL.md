@@ -1,10 +1,10 @@
 ---
-name: cs-sync
-description: Keep the CSnCompany_2-0 marketplace in sync across Claude Code and Codex, using GitHub (intenet1001-commits/CSnCompany_2-0) as the single source of truth. There is one git repo — the Claude Code clone at ~/.claude/plugins/marketplaces/CSnCompany_2-0 — and Codex references that same folder as a source_type="local" marketplace (per ~/.codex/config.toml), rebuilding its own version-keyed cache from it. So "sync Claude ↔ Codex" is just git pull/push of that one repo, then each tool refreshes its view. Unlike a single-plugin marketplace, CSnCompany ships ~14 plugins, so version bumps and cache mirroring loop over all of them, and each plugin needs a .codex-plugin/plugin.json (regenerated from its .claude-plugin twin). Trigger: "/cs-sync", "동기화", "싱크 맞춰줘", "sync the marketplace", "pull the latest CSnCompany", "push my CS changes", "codex랑 클로드 맞춰줘", or any request to reconcile this marketplace between the two tools or with GitHub.
+name: csn-sync
+description: Keep the CSnCompany_2-0 marketplace in sync across Claude Code and Codex, using GitHub (intenet1001-commits/CSnCompany_2-0) as the single source of truth. There is one git repo — the Claude Code clone at ~/.claude/plugins/marketplaces/CSnCompany_2-0 — and Codex references that same folder as a source_type="local" marketplace (per ~/.codex/config.toml), rebuilding its own version-keyed cache from it. So "sync Claude ↔ Codex" is just git pull/push of that one repo, then each tool refreshes its view. Unlike a single-plugin marketplace, CSnCompany ships ~14 plugins, so version bumps and cache mirroring loop over all of them, and each plugin needs a .codex-plugin/plugin.json (regenerated from its .claude-plugin twin). Note: named csn-sync (not cs-sync) to avoid colliding with the pre-existing global cs-sync skill for the separate cs_plugins marketplace. Trigger: "/csn-sync", "동기화", "싱크 맞춰줘", "sync the marketplace", "pull the latest CSnCompany", "push my CS changes", "codex랑 클로드 맞춰줘", or any request to reconcile this marketplace between the two tools or with GitHub.
 risk: safe
 ---
 
-# cs-sync
+# csn-sync
 
 One repo, two tools, GitHub as the hub. This skill wraps a deterministic git helper so an
 update made in **either** Claude Code or Codex propagates to the other through GitHub. It is the
@@ -41,7 +41,7 @@ Sync = `git pull` / `git push` of the one repo, then each tool refreshes its own
 
 ## How to run it
 
-The helper is `scripts/sync.sh` next to this file (`${CLAUDE_PLUGIN_ROOT}/skills/cs-sync/scripts`
+The helper is `scripts/sync.sh` next to this file (`${CLAUDE_PLUGIN_ROOT}/skills/csn-sync/scripts`
 in Claude Code; the script self-locates the repo if that variable isn't set, e.g. under Codex).
 
 ```bash

@@ -1,7 +1,7 @@
 {
-  "name": "cs-sync",
+  "name": "csn-sync",
   "version": "1.0.0",
-  "description": "🔄 Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin .codex-plugin manifests, bumps versions (Codex cache-bust), mirrors the Codex versioned cache, and does safe git pull/push. (/cs-sync)",
+  "description": "🔄 Marketplace Sync — keep CSnCompany_2-0 in sync across Claude Code and Codex via GitHub. Regenerates per-plugin .codex-plugin manifests, bumps versions (Codex cache-bust), mirrors the Codex versioned cache, and does safe git pull/push. (/csn-sync)",
   "author": {
     "name": "intenet1001-commits",
     "url": "https://github.com/intenet1001-commits"

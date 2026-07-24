@@ -6,7 +6,7 @@
 # .codex-plugin/plugin.json (verified against the OpenAI-bundled browser/latex plugins and
 # the nhdesign4 plugin). Claude Code reads .claude-plugin/*; Codex reads .codex-plugin/*.
 # This script keeps the Codex manifest a faithful, regenerable projection of the Claude one,
-# so cs-sync can re-run it on every push and the two tools never drift.
+# so csn-sync can re-run it on every push and the two tools never drift.
 #
 # It is idempotent: re-running overwrites each .codex-plugin/plugin.json from source.
 #
