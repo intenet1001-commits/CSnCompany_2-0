@@ -6,7 +6,7 @@ description: |
   surfaces patterns, decisions, and historical warnings relevant to the current task.
   Used by cs-ceo at session start after GOAL_STATEMENT is confirmed.
   Use for internal strategic recall, or when user says "과거 패턴", "이전에 어떻게 했지", "historical context".
-version: 2.0.0
+version: 2.0.1
 allowed-tools:
   - Read
   - Bash

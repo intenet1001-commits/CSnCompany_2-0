@@ -86,7 +86,7 @@
       "name": "cs-memory",
       "description": "🧠 Memory Trainer — 장기기억 학습 + 학습 후보 기반 관련 에이전트 업그레이드",
       "source": "./plugins/cs-core-memory-v1",
-      "version": "2.0.0"
+      "version": "2.0.1"
     },
     {
       "name": "csn-sync",
