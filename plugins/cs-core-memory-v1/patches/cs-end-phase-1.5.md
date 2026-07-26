@@ -2,13 +2,13 @@
 
 **Target file:** `plugins/cs-end-v*/commands/cs-end.md`
 **Insert position:** After Phase 1 (4-Agent parallel analysis), before Phase 2 (Learning Gate)
-**Depends on:** cs-core-memory-v1 installed
+**Depends on:** `cs-memory` installed (source directory: `cs-core-memory-v1`)
 
 ---
 
 ## Phase 1.5 — Core Memory Synthesis (memory-keeper)
 
-**Skip condition:** If `$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v1/` does not exist, output one line "Phase 1.5: cs-core-memory not installed — skipping" and proceed to Phase 2.
+**Skip condition:** If `$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v1/` does not exist, output one line "Phase 1.5: cs-memory not installed — skipping" and proceed to Phase 2.
 
 ```bash
 CORE_MEMORY_PLUGIN=$(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v"* 2>/dev/null | sort -V | tail -1)
@@ -16,14 +16,14 @@ MEMORY_KEEPER="$CORE_MEMORY_PLUGIN/agents/memory-keeper.md"
 CORE_MEMORY_FILE="$HOME/.claude/core-memory/CORE.md"
 
 if [ -z "$CORE_MEMORY_PLUGIN" ] || [ ! -f "$MEMORY_KEEPER" ]; then
-  echo "Phase 1.5: cs-core-memory not installed — skipping"
+  echo "Phase 1.5: cs-memory not installed — skipping"
   CORE_MEMORY_SUMMARY=""
 else
   echo "Phase 1.5: Spawning memory-keeper agent..."
 fi
 ```
 
-**When cs-core-memory IS installed**, spawn memory-keeper as a single Task with the following inputs from Phase 0.5 and Phase 1:
+**When cs-memory IS installed**, spawn memory-keeper as a single Task with the following inputs from Phase 0.5 and Phase 1:
 
 ```
 Task(
@@ -95,9 +95,9 @@ CORE    : [top_insight from CORE_MEMORY_SUMMARY, or "no cross-session patterns y
 ```
 /compact 2026-06-25 cs-end core-memory-v1 integrated. memory-keeper synthesizes cross-session patterns.
 
-DONE    : cs-core-memory-v1 plugin created and integrated with cs-end Phase 1.5 and cs-ceo Phase G
+DONE    : cs-memory plugin created and integrated with cs-end Phase 1.5 and cs-ceo Phase G
 LEARNED : memory-keeper distinguishes episodic (cs-experiencing) from semantic/strategic (CORE.md) — no duplication
-DOMAINS : cs-end, cs-core-memory
+DOMAINS : cs-end, cs-memory
 NEXT    : Run first real session with /cs-end to populate CORE.md with actual patterns
 BTWS    : 0 pending — none
 CORE    : No cross-session patterns yet (first session)

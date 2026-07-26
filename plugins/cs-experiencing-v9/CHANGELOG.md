@@ -1,3 +1,23 @@
+## 9.1.0 (2026-07-26)
+
+- 사용자용 실행 래퍼(`test`, `plan`, `review`, `design`, `update`, 무조건 전체 버전업)를 제거했다.
+- `cs-experiencing`을 공통 경험지식 조회·검증·저장 백엔드로 한정했다.
+- 장기기억 학습과 관련 에이전트의 선택적 업그레이드는 `cs-memory`의 `learn`/`upgrade`가 담당한다.
+
+## 9.0.5 (2026-07-26)
+
+- `/long-term-memory-training` 첫 실전 학습으로 프로젝트 장기기억 4곳의 변경 근거를 Learning Gate에 연결했다.
+- 신규 경험 2건(`#164` 파괴적 `.git` 재초기화 가드, `#165` 실측 오디오 기반 자막 타이밍)을 추가했다.
+- 기존 `#20`, `#21`, `#29`, `#37`, `#60`, `#71`, `#72`, `#98`, `#102`, `#114`, `#122`에 범위·안전성·소비 경로·동시성·온라인 의존성 근거를 addendum으로 병합해 새 번호 중복을 피했다.
+- 모든 승격/병합에는 training run, memory ID, source range, candidate ID provenance를 남겼다.
+
+## 9.0.4 (2026-07-26)
+
+- `long-term-memory-training` 연동: 프로젝트 장기기억 후보에 run/range/memory provenance를 저장하고, 동일 provenance+lesson 재시도는 멱등 처리하며, 즉시 Learning Gate 결과를 `pending|promoted|rejected`로 갱신할 수 있게 했다.
+- BTW 큐 read-modify-write를 파일 잠금 + 0600 원자 교체로 직렬화하고, legacy `pending-patch`에 안정 ID/status를 부여해 `/cs-end` 없이도 재평가할 수 있게 했다.
+- canonical BTW 경로를 `~/.claude/.experiencing-btw.json`으로 통일했다.
+- 기존 #158-163의 누락 INDEX 행을 복구하고 본문을 `knowledge/download-pipeline.md`로 이동해 `index-check` 정합성과 인라인 상한을 회복했다. 신규 학습 번호 추가는 없다.
+
 ## 9.0.3 (2026-07-22)
 
 - 학습 0건 신규 저장, 1건 addendum (기존 항목 #54와 겹침 — 노벨티 1점, 새 번호 미부여):

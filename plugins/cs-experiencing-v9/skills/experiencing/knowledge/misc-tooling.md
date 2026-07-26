@@ -33,6 +33,8 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: CEO 에이전트가 "앱 내 실시간 채팅방" 구현을 시작하려 했음. 실제로는 `components/chat-bubble.tsx`에 Supabase Realtime 채팅이 이미 구현되어 있었음.
 - **발견**: 도메인 명사(chat, message, realtime)로 `components/`와 `lib/`를 grep했더라면 370줄짜리 기존 구현을 즉시 발견했을 것. 실제 작업은 기존 파일에 ~20줄 추가가 전부.
 - **교훈**: 새 기능 구현 전 `grep -rn "도메인명사" components/ lib/`로 기존 구현 여부를 반드시 확인. false-negative 시 중복 테이블 생성 + 충돌 RLS 정책 리스크. 이 프로젝트는 `meokgo_` prefix 테이블이 여러 앱과 공존하므로 특히 중요.
+- **추가 (2026-07-26)**: durable store를 새로 만들기 전에는 known project-local locations도 탐지한다. 기존 user-authored 문서가 있으면 이동·정규화·재작성하지 말고 relative source pointer를 config에 저장한 뒤 tool-owned metadata/adapters만 idempotently regenerate/upgrade한다. 실제 문서 migration은 별도 backup/confirmation 절차로 분리한다.
+<!-- provenance: candidate=btw-provenance-4785741f27807b8505ff557d; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
 
 ### 95. macOS 앱 샌드박스 컨테이너 파일은 Full Disk Access/Automation 권한 없는 터미널에서 접근 불가 (2026-07-08)
 <!-- tier: principle, error-ref: ERR-2026-07-08-001 -->
@@ -79,4 +81,3 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 화면에는 `#pdf-doc { display:none; }`으로 숨겨둔 별도 인쇄 전용 레이아웃 div를 만들고, `@media print { body * { visibility:hidden } #pdf-doc, #pdf-doc * { visibility:visible } ... }` 규칙으로 인쇄 시에만 그 레이아웃이 전체 페이지를 차지하도록 했다. 버튼 클릭 시 `window.print()`만 호출하면 브라우저 네이티브 인쇄 대화상자가 뜨고, 사용자가 "PDF로 저장"을 선택해 실제 PDF 파일을 받을 수 있었다.
 - **교훈**: Artifact/프로토타입에서 "PDF 다운로드" 요구가 나오면 jsPDF 같은 라이브러리 도입을 먼저 검토하지 말고, `display:none` 인쇄 전용 레이아웃 + `@media print` + `window.print()` 조합이 CSP 제약 없이 되는지부터 확인한다.
 - **근거**: `#pdf-doc { display:none } + @media print { ... }` + `downloadPdf(){ window.print(); }` 구현 후 인쇄 미리보기에서 화면 UI 없이 확인서 레이아웃만 단독 렌더링되는 것을 확인.
-

@@ -1,0 +1,5 @@
+interface:
+  display_name: "에이전트 업그레이드"
+  short_description: "누적 장기기억을 검토해 관련 CS 에이전트만 개선"
+  default_prompt: "Use $upgrade to improve affected agents from pending memory lessons."
+

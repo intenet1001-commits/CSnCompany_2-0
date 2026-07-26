@@ -15,6 +15,8 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **상황**: portmanagement 프로젝트에서 `worktrees/otherai/src/App.tsx`를 수정하고 포트 9000(main 브랜치 Vite 서버)에서 테스트했으나 변경이 반영되지 않음. Playwright 검증은 통과했으나 사용자 브라우저에선 구버전이 표시됨.
 - **발견**: `git worktree add`는 완전히 독립된 파일 시스템 경로를 생성한다. `worktrees/otherai/src/App.tsx`와 `src/App.tsx`는 별개 파일 — 심볼릭 링크 없음. 한쪽 수정이 다른 쪽에 전혀 영향 없음.
 - **교훈**: 워크트리에서 버그 수정 후 반드시 main 브랜치 동일 파일도 수정해야 함. 두 브랜치가 동일 수정을 요구하면 cherry-pick 또는 양쪽 직접 편집. 수정 후 서버 포트(9000 vs 10493)가 일치하는지 반드시 확인.
+- **추가 (2026-07-26, scanner consequence)**: 프로젝트 scanner/trainer는 Git에 등록된 linked worktree를 main 아래에 nested되어 있어도 독립 source로 취급해 root/HEAD/branch/history/dirty/untracked와 cursor를 각각 수집해야 한다. parent의 일반 untracked traversal에서는 해당 nested root를 제외해 중복·임의 디렉터리 추적을 막고, 같은 common-dir/top-level인지 검증한다. 등록 root가 inaccessible/symlink이거나 scan 도중 registry·HEAD가 변하면 fail closed한다. 임의 nested 폴더가 아니라 Git-registered worktree에만 적용한다.
+<!-- provenance: candidate=btw-provenance-fdb3a05d8e27d66c5c272900; run=8388c4ae-0c29-40c0-9a9b-849e524ca316; memory=94de0f94-73ec-43df-8dc0-dedf3a1749c9; range=git:4093de09c0d28a4179cade33b33a31d7720e6fef;untracked:69cb1e5d01ff8ab76b809dc2cdce0d9080236890736201386271c01db354138a;linked:042a2dbe011b5e6a24c8b2b043025251ef5ad022..7abbdfb4d96b82c2f65d0103d6d6ea10e9fbeba7;linked-dirty:69e2f0fad485c2aa8ccfa4201492f5059926fe7e1f149c03e50e1cd395cb64c0;linked-untracked:1e2f40714ed05c5164777b4d00acb3de6a88bd9abe8f2055527acaf5a332e160;truncated=true -->
 
 ### 30. Vite Dev Server는 자신의 소스 디렉토리만 Watch (2026-05-20)
 <!-- tier: principle -->
@@ -99,6 +101,8 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: git은 워크트리 경로를 내부적으로 realpath로 정규화해 보고하지만(`/private/var/...`), 애플리케이션 코드는 입력받은 원본 경로(`/var/...`, symlink 미해석)를 기준으로 `startsWith()` prefix 비교를 하고 있어 두 경로 문자열이 일치하지 않아 필터링에서 조용히 탈락했다. 동일 로직을 symlink가 없는 `/Users/...` 경로에서 재실행하면 정상 동작함을 대조 확인.
 - **교훈**: git(또는 OS 파일시스템 API)이 내부적으로 realpath 정규화를 수행하는 값과, 애플리케이션이 별도로 받은 원본 입력 경로를 문자열로 직접 비교(특히 `startsWith`/`endsWith` prefix/suffix 매칭)하는 코드는 symlink가 섞인 환경(대표적으로 macOS `/var` → `/private/var`, `/tmp` → `/private/tmp`)에서 조용히 실패할 수 있다. 경로 비교 전 양쪽을 동일하게 정규화(realpath)하거나, 정규화 차이를 감안한 테스트를 거쳐야 한다.
 - **근거**: `/api/list-git-worktrees`가 `/var/folders/...` 경로에서는 등록된 워크트리를 누락시키고, 동일 로직이 `/Users/...` 경로에서는 정상 반환하는 것을 curl로 대조 확인 (skeptic verifier CONFIRMED — 이 사용자의 실제 프로젝트 경로는 symlink가 없어 직접 영향은 없으나, 패턴 자체는 플랫폼 안정 사실).
+- **추가 (2026-07-26, security)**: `resolve(root, rel)`과 문자열 prefix는 `..` 탈출만 막고 root 내부 symlink를 통한 외부 탈출은 막지 못하므로 보안 경계가 아니다. 기존 target의 read/delete는 canonical root/target realpath containment와 `lstat`/no-follow 정책을 확인한다. 신규 write target은 가장 가까운 existing parent를 realpath한 뒤 containment를 재검증하고 mutation 직전에 다시 검사해 TOCTOU 창을 줄인다. 이번 관찰의 `safeProjectPath`는 아직 이 계약을 구현하지 않았고 직접 symlink-escape E2E도 없으므로 미해결 부채로 기록한다.
+<!-- provenance: candidate=btw-provenance-774e8883f1a2309704cfa478; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
 
 ### 103. git add로 스테이징한 파일도 커밋 전에 내용을 직접 열어 확인해야 한다 — PII/실데이터 유출 방지 (2026-07-11)
 <!-- tier: principle -->
@@ -116,3 +120,12 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: `git fetch origin` → `git cat-file -t <hash>`로 객체 존재 확인 → `git branch -r --contains <hash>`로 포함 브랜치 특정 → `git merge --ff-only <remote-branch>` 순으로 안전하게 적용. fetch 없이는 `unknown revision` 오류 발생.
 - **교훈**: 알 수 없는 커밋 해시 merge 요청: (1) fetch → (2) cat-file -t 존재 확인 → (3) branch -r --contains 브랜치 특정 → (4) ff-only merge. 이 순서를 생략하면 중단됨.
 - **근거**: `git merge --ff-only origin/claude/csncompany-plugin-auto-install-am7h2x` → "Fast-forward / 6 files changed, 175 insertions(+)" (2026-06-17 세션)
+
+### 164. `.git`을 재귀 삭제·재초기화하는 엔드포인트는 절대 경로와 호출별 확인만으로 부족하다 — canonical root와 no-follow entry 분류가 필요 (2026-07-26)
+<!-- tier: principle -->
+<!-- provenance: candidate=btw-provenance-a53fd3fc37ca0caaca3434ca; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
+
+- **상황**: 프로젝트의 `<root>/.git`을 재귀 삭제한 뒤 새 저장소로 초기화하는 HTTP 엔드포인트를 검토했다. 이 작업은 일반 파일 수정과 달리 로컬 Git 이력과 worktree 연결을 즉시 잃게 할 수 있다.
+- **발견**: 안전 경계에는 네 가지가 함께 필요하다. (1) absolute project root를 canonicalize하고 허용 범위에 포함되는지 확인한다. (2) 상태를 바꾸는 바로 그 요청에서 fresh user confirmation을 요구한다. (3) 삭제 직전 `.git`을 no-follow metadata로 다시 분류한다. (4) 실제 디렉터리일 때만 삭제하고 worktree pointer file이나 symlink는 거부한다. 절대 경로 문법만 확인하면 ancestor symlink와 TOCTOU를 막지 못한다.
+- **교훈**: repository metadata를 파괴하는 API는 단순한 `confirmed: true` 플래그를 일반 삭제 권한처럼 재사용하지 않는다. canonical containment와 mutation-time `lstat`/no-follow 검사를 결합하고, 예상한 entry type이 아니면 fail closed한다.
+- **근거**: portmanagement `api-server.ts`의 mutating route, `App.tsx`의 확인 UI, Rust command를 교차 검토했다. 현재 구현은 마지막 `.git` entry의 file/symlink를 거부하지만 ancestor realpath와 TOCTOU, 직접 rejection test는 아직 부채다. Worktree pointer file 삭제는 부모 repository를 재귀 손상시키는 것이 아니라 해당 worktree를 깨뜨리거나 detach한다.

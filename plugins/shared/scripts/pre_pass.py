@@ -14,19 +14,31 @@ Sub-commands
   plugin-versions             → latest dir for every CS plugin
   session-digest [FLAGS...]   → session pre-pass: domain usage, BTW pending, knowhow index, stale entries
   learn-append [FLAGS...]     → append a structured learning candidate to the BTW store
-  version-check <plugin_dir>  → assert VERSION == plugin.json == SKILL frontmatter
+  learn-update-status [...]   → atomically mark a queued learning pending/promoted/rejected
+  version-check <plugin_dir>  → assert VERSION == Claude/Codex manifests == SKILL frontmatter
   index-check [exp_dir]       → cs-experiencing 학습 INDEX ↔ 본문 정합성 검증 (commit gate)
 """
 
-from __future__ import annotations  # macOS 시스템 python3(3.9)에서 `Path | None` 등 PEP 604 지연 평가
+from __future__ import annotations  # 지원 런타임에서 annotation 평가를 지연한다.
 
 import datetime
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
+import time
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Optional, Tuple
+
+try:
+    import fcntl
+except ImportError:  # Windows fallback uses an exclusive lock marker below.
+    fcntl = None
 
 HOME = Path.home()
 MARKETPLACE = HOME / ".claude/plugins/marketplaces/CSnCompany_2-0"
@@ -42,6 +54,176 @@ def _marketplace_plugins() -> list[dict]:
         return json.loads(mj.read_text(encoding="utf-8")).get("plugins", [])
     except Exception:
         return []
+
+
+def _atomic_write_json(path: Path, value: object) -> None:
+    """같은 디렉토리의 0600 임시 파일을 fsync한 뒤 원자적으로 교체한다."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent),
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    try:
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as tmp:
+            json.dump(value, tmp, ensure_ascii=False, indent=2)
+            tmp.write("\n")
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        os.replace(tmp_name, path)
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
+@contextmanager
+def _queue_lock(path: Path):
+    """BTW 큐별 advisory lock — 모든 read/modify/write 구간을 직렬화한다."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f".{path.name}.lock")
+    if fcntl is not None:
+        fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o600)
+        try:
+            if hasattr(os, "fchmod"):
+                os.fchmod(fd, 0o600)
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
+        return
+
+    marker = lock_path.with_suffix(lock_path.suffix + ".exclusive")
+    deadline = time.time() + 10.0
+    marker_fd = None
+    while marker_fd is None:
+        try:
+            marker_fd = os.open(
+                str(marker),
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                0o600,
+            )
+        except FileExistsError:
+            try:
+                if time.time() - marker.stat().st_mtime > 1800:
+                    marker.unlink()
+                    continue
+            except FileNotFoundError:
+                continue
+            if time.time() >= deadline:
+                raise TimeoutError(f"BTW queue lock is busy: {marker}")
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        os.close(marker_fd)
+        try:
+            marker.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _read_learning_queue(path: Path, *, missing_ok: bool) -> list:
+    """큐를 읽되 손상된 JSON/비배열을 빈 큐로 덮어쓰지 않는다."""
+    if not path.is_file():
+        if missing_ok:
+            return []
+        raise FileNotFoundError(f"BTW store not found: {path}")
+    try:
+        items = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise ValueError(f"BTW store read failure: {exc}") from exc
+    if not isinstance(items, list):
+        raise ValueError("BTW store must contain a JSON array")
+    return items
+
+
+def _canonical_entry_hash(item: dict) -> str:
+    """ID/status와 무관한 canonical content hash."""
+    payload = {key: value for key, value in item.items() if key not in {"id", "status"}}
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _unique_id(base: str, used: set[str]) -> str:
+    candidate = base
+    suffix = 2
+    while candidate in used:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate
+
+
+def _normalize_learning_queue(items: list) -> bool:
+    """Legacy pending-patch와 누락/중복 ID를 결정론적으로 정규화한다."""
+    changed = False
+    used: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        legacy_pending = "status" not in item and item.get("type") == "pending-patch"
+        if legacy_pending:
+            # 기존 임의 ID가 있어도 본문에서 계산한 안정 ID로 이관한다.
+            base_id = f"btw-legacy-{_canonical_entry_hash(item)[:24]}"
+            normalized_id = _unique_id(base_id, used)
+            if item.get("id") != normalized_id:
+                item["id"] = normalized_id
+                changed = True
+            item["status"] = "pending"
+            changed = True
+        else:
+            item_id = item.get("id")
+            if not isinstance(item_id, str) or not item_id or item_id in used:
+                base_id = f"btw-repaired-{_canonical_entry_hash(item)[:24]}"
+                normalized_id = _unique_id(base_id, used)
+                if item_id != normalized_id:
+                    item["id"] = normalized_id
+                    changed = True
+
+        item_id = item.get("id")
+        if isinstance(item_id, str) and item_id:
+            used.add(item_id)
+    return changed
+
+
+def _provenance_tuple(item: dict) -> Optional[Tuple[str, str, str]]:
+    provenance = item.get("provenance")
+    if not isinstance(provenance, dict):
+        return None
+    values = (
+        provenance.get("source_run_id"),
+        provenance.get("memory_id"),
+        provenance.get("source_range"),
+    )
+    if not all(isinstance(value, str) and value for value in values):
+        return None
+    return values
+
+
+def _is_pending_learning(item: object) -> bool:
+    """Canonical pending 또는 status 키가 없는 legacy pending-patch."""
+    if not isinstance(item, dict):
+        return False
+    return item.get("status") == "pending" or (
+        "status" not in item and item.get("type") == "pending-patch"
+    )
 
 
 # 도메인 short-key 별칭 (게이트/버전업에서 쓰는 축약명만 등록)
@@ -434,16 +616,28 @@ def cmd_session_digest(argv: list) -> dict:
 
     # ── 2. BTW pending items ──────────────────────────────────────────────────
     btw_pending: list[dict] = []
-    if Path(btw_file).is_file():
+    btw_path = Path(btw_file)
+    if btw_path.is_file():
         try:
-            items = json.loads(Path(btw_file).read_text(encoding="utf-8"))
-            if isinstance(items, list):
-                btw_pending = [
-                    {"id": it.get("id"), "idea": it.get("idea", ""), "date": it.get("date", "")}
-                    for it in items
-                    if isinstance(it, dict) and it.get("status") == "pending"
-                ]
-        except (json.JSONDecodeError, OSError):
+            with _queue_lock(btw_path):
+                items = _read_learning_queue(btw_path, missing_ok=False)
+                if _normalize_learning_queue(items):
+                    _atomic_write_json(btw_path, items)
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                if not _is_pending_learning(it):
+                    continue
+                idea = it.get("idea") or it.get("learning") or it.get("change") or ""
+                btw_pending.append({
+                    "id": it.get("id"),
+                    "idea": idea,
+                    "date": it.get("date", ""),
+                    "evidence": it.get("evidence", ""),
+                    "tier": it.get("tier", "tactical"),
+                    "provenance": it.get("provenance", {}),
+                })
+        except (FileNotFoundError, ValueError, OSError):
             pass
 
     # ── 3. Domain usage (GRU Update Gate) — git diff heuristic ───────────────
@@ -541,11 +735,11 @@ def find_agent_file(name: str) -> str:
     return ""
 
 
-def _plugin_root_from_path(start: Path) -> Path | None:
-    """Walk up from start to find a directory that has .claude-plugin/plugin.json or agents/."""
+def _plugin_root_from_path(start: Path) -> Optional[Path]:
+    """Walk up from a skill/agent path to the nearest real plugin manifest."""
     current = start
     for _ in range(7):
-        if (current / ".claude-plugin" / "plugin.json").exists() or (current / "agents").is_dir():
+        if (current / ".claude-plugin" / "plugin.json").exists():
             return current
         current = current.parent
     return None
@@ -620,7 +814,15 @@ def find_partner_info(name: str) -> dict:
         agents_dir = plugin_root / "agents"
 
         if agents_dir.is_dir() and plugin_name:
-            return _build_agent_result(name, skill_path, plugin_root, plugin_name)
+            agent_names = {path.stem for path in agents_dir.glob("*.md")}
+            hint = _SKILL_TO_AGENT_HINT.get(name, "")
+            matching_agent = (
+                (hint and hint in agent_names)
+                or name in agent_names
+                or name.replace("-", "_") in agent_names
+            )
+            if matching_agent:
+                return _build_agent_result(name, skill_path, plugin_root, plugin_name)
 
         if plugin_name:
             skill_folder = Path(skill_path).parent.name
@@ -650,11 +852,20 @@ def cmd_resolve_partner(argv: list) -> dict:
 
 def cmd_learn_append(argv: list) -> dict:
     """learn-append --plugin X --lesson "..." [--evidence "..."] [--tier tactical|principle]
+    [--source-run-id ID] [--source-range RANGE] [--memory-id ID]
 
     어떤 플러그인이든 구조화된 학습 후보를 BTW 저장소에 추가한다 (R7).
     승격은 /cs-end Learning Gate가 담당 — 여기서는 캡처만.
     """
-    fields = {"plugin": "", "lesson": "", "evidence": "", "tier": "tactical"}
+    fields = {
+        "plugin": "",
+        "lesson": "",
+        "evidence": "",
+        "tier": "tactical",
+        "source-run-id": "",
+        "source-range": "",
+        "memory-id": "",
+    }
     btw_file = HOME / ".claude" / ".experiencing-btw.json"
     i = 0
     while i < len(argv):
@@ -668,34 +879,195 @@ def cmd_learn_append(argv: list) -> dict:
         if a == "--btw-file" and i + 1 < len(argv):
             i += 1
             btw_file = Path(argv[i])
+        elif a.startswith("--btw-file="):
+            btw_file = Path(a[len("--btw-file=") :])
         i += 1
     if not fields["plugin"] or not fields["lesson"]:
         return {"error": "learn-append requires --plugin and --lesson"}
+    provenance_values = (
+        fields["source-run-id"].strip(),
+        fields["memory-id"].strip(),
+        fields["source-range"].strip(),
+    )
+    if fields["plugin"].startswith("project-memory:") and not all(provenance_values):
+        return {
+            "error": (
+                "project-memory:* learn-append requires --source-run-id, "
+                "--memory-id, and --source-range together"
+            )
+        }
     if not fields["evidence"]:
         # LOOP-PROTOCOL [a]: 근거 없는 학습은 tactical 상한
         fields["tier"] = "tactical"
-    items = []
-    if btw_file.is_file():
-        try:
-            items = json.loads(btw_file.read_text(encoding="utf-8"))
-        except Exception:
-            items = []
-    entry = {
-        "id": f"btw-{datetime.date.today().isoformat()}-{len(items) + 1}",
-        "idea": f"[{fields['plugin']}] {fields['lesson']}",
-        "evidence": fields["evidence"],
-        "tier": fields["tier"],
-        "date": datetime.date.today().isoformat(),
-        "status": "pending",
+
+    supplied_provenance = all(provenance_values)
+    requested_provenance = (
+        provenance_values if supplied_provenance else None
+    )
+    requested_idea = f"[{fields['plugin']}] {fields['lesson']}"
+    try:
+        with _queue_lock(btw_file):
+            items = _read_learning_queue(btw_file, missing_ok=True)
+            queue_changed = _normalize_learning_queue(items)
+
+            if requested_provenance is not None:
+                existing = next(
+                    (
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                        and _provenance_tuple(item) == requested_provenance
+                        and item.get("idea") == requested_idea
+                    ),
+                    None,
+                )
+                if existing is not None:
+                    if queue_changed:
+                        _atomic_write_json(btw_file, items)
+                    return {
+                        "appended": existing,
+                        "created": False,
+                        "deduplicated": True,
+                        "total_pending": sum(
+                            1 for item in items if _is_pending_learning(item)
+                        ),
+                    }
+
+            used_ids = {
+                item["id"]
+                for item in items
+                if isinstance(item, dict)
+                and isinstance(item.get("id"), str)
+                and item["id"]
+            }
+            if requested_provenance is not None:
+                provenance_key = "\0".join(
+                    (*requested_provenance, requested_idea)
+                ).encode("utf-8")
+                base_id = f"btw-provenance-{hashlib.sha256(provenance_key).hexdigest()[:24]}"
+                entry_id = _unique_id(base_id, used_ids)
+            else:
+                entry_id = f"btw-{datetime.date.today().isoformat()}-{uuid.uuid4().hex}"
+                while entry_id in used_ids:
+                    entry_id = f"btw-{datetime.date.today().isoformat()}-{uuid.uuid4().hex}"
+
+            entry = {
+                "id": entry_id,
+                "idea": requested_idea,
+                "evidence": fields["evidence"],
+                "tier": fields["tier"],
+                "provenance": {
+                    "source_run_id": provenance_values[0],
+                    "source_range": provenance_values[2],
+                    "memory_id": provenance_values[1],
+                },
+                "date": datetime.date.today().isoformat(),
+                "status": "pending",
+            }
+            items.append(entry)
+            _atomic_write_json(btw_file, items)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        return {"error": str(exc)}
+
+    return {
+        "appended": entry,
+        "created": True,
+        "deduplicated": False,
+        "total_pending": sum(1 for item in items if _is_pending_learning(item)),
     }
-    items.append(entry)
-    btw_file.parent.mkdir(parents=True, exist_ok=True)
-    btw_file.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"appended": entry, "total_pending": sum(1 for x in items if x.get("status") == "pending")}
+
+
+def cmd_learn_update_status(argv: list) -> dict:
+    """learn-update-status --id ID --status promoted|pending|rejected [--note "..."].
+
+    cs-end 없이 즉시 승격한 학습도 canonical 큐에서 원자적으로 상태를 바꿔
+    다음 session-digest가 같은 항목을 다시 제안하지 않게 한다.
+    """
+    fields = {"id": "", "status": "", "note": ""}
+    note_provided = False
+    btw_file = HOME / ".claude" / ".experiencing-btw.json"
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        matched = False
+        for key in fields:
+            if a == f"--{key}" and i + 1 < len(argv):
+                i += 1
+                fields[key] = argv[i]
+                note_provided = note_provided or key == "note"
+                matched = True
+                break
+            if a.startswith(f"--{key}="):
+                fields[key] = a[len(f"--{key}=") :]
+                note_provided = note_provided or key == "note"
+                matched = True
+                break
+        if not matched:
+            if a == "--btw-file" and i + 1 < len(argv):
+                i += 1
+                btw_file = Path(argv[i])
+            elif a.startswith("--btw-file="):
+                btw_file = Path(a[len("--btw-file=") :])
+        i += 1
+
+    if not fields["id"] or not fields["status"]:
+        return {"error": "learn-update-status requires --id and --status", "updated": False}
+    allowed_statuses = {"pending", "promoted", "rejected"}
+    if fields["status"] not in allowed_statuses:
+        return {
+            "error": "learn-update-status --status must be pending, promoted, or rejected",
+            "updated": False,
+        }
+    try:
+        with _queue_lock(btw_file):
+            items = _read_learning_queue(btw_file, missing_ok=False)
+            pre_normalization_matches = [
+                item
+                for item in items
+                if isinstance(item, dict) and item.get("id") == fields["id"]
+            ]
+            queue_changed = _normalize_learning_queue(items)
+            matches = [
+                item
+                for item in items
+                if isinstance(item, dict) and item.get("id") == fields["id"]
+            ]
+
+            # Legacy statusless 항목은 정규화 중 ID가 바뀐다. 기존 ID가 정확히
+            # 한 항목만 가리켰다면 같은 객체를 이어서 갱신한다.
+            if len(matches) == 1:
+                target = matches[0]
+            elif not matches and len(pre_normalization_matches) == 1:
+                target = pre_normalization_matches[0]
+            else:
+                if queue_changed:
+                    _atomic_write_json(btw_file, items)
+                if len(matches) > 1 or len(pre_normalization_matches) > 1:
+                    return {
+                        "error": f"learning id is not unique: {fields['id']}",
+                        "updated": False,
+                    }
+                return {
+                    "error": f"learning id not found: {fields['id']}",
+                    "updated": False,
+                }
+
+            target["status"] = fields["status"]
+            if note_provided:
+                target["note"] = fields["note"]
+            _atomic_write_json(btw_file, items)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        return {"error": str(exc), "updated": False}
+
+    return {
+        "updated": target,
+        "updated_count": 1,
+        "total_pending": sum(1 for item in items if _is_pending_learning(item)),
+    }
 
 
 def cmd_version_check(argv: list) -> dict:
-    """version-check <plugin_dir> — VERSION == plugin.json == SKILL frontmatter 단언 (R7).
+    """version-check <plugin_dir> — VERSION == both manifests == SKILL frontmatter 단언 (R7).
 
     불일치 시 ok=false — version-up STEP 4b는 이 결과로 push를 중단해야 한다.
     """
@@ -715,6 +1087,38 @@ def cmd_version_check(argv: list) -> dict:
             sources["plugin.json"] = str(json.loads(pj.read_text(encoding="utf-8")).get("version", ""))
         except Exception as e:
             return {"error": f"plugin.json parse failure: {e}", "ok": False}
+    codex_pj = root / ".codex-plugin" / "plugin.json"
+    if codex_pj.is_file():
+        try:
+            sources[".codex-plugin/plugin.json"] = str(
+                json.loads(codex_pj.read_text(encoding="utf-8")).get("version", "")
+            )
+        except Exception as e:
+            return {"error": f".codex-plugin/plugin.json parse failure: {e}", "ok": False}
+    resolved_root = root.resolve()
+    for ancestor in (resolved_root, *resolved_root.parents):
+        marketplace_file = ancestor / ".claude-plugin" / "marketplace.json"
+        if not marketplace_file.is_file():
+            continue
+        try:
+            marketplace = json.loads(marketplace_file.read_text(encoding="utf-8"))
+        except Exception as e:
+            return {"error": f"marketplace.json parse failure: {e}", "ok": False}
+        entries = marketplace.get("plugins", []) if isinstance(marketplace, dict) else []
+        for entry in entries if isinstance(entries, list) else []:
+            if not isinstance(entry, dict) or not entry.get("source"):
+                continue
+            entry_path = (ancestor / str(entry["source"]).lstrip("./")).resolve()
+            if entry_path == resolved_root and "version" in entry:
+                sources["marketplace.json"] = str(entry.get("version", ""))
+                break
+        if any(
+            (ancestor / str(entry.get("source", "")).lstrip("./")).resolve()
+            == resolved_root
+            for entry in entries
+            if isinstance(entry, dict) and entry.get("source")
+        ):
+            break
     fm_re = re.compile(r"^version:\s*[\"']?([\w.\-]+)[\"']?\s*$", re.MULTILINE)
     for sk in sorted(root.glob("skills/*/SKILL.md")):
         head = sk.read_text(encoding="utf-8")[:2000]
@@ -868,6 +1272,7 @@ COMMANDS = {
     "plugin-versions": lambda rest: cmd_plugin_versions(),
     "session-digest":  lambda rest: cmd_session_digest(rest),
     "learn-append":    lambda rest: cmd_learn_append(rest),
+    "learn-update-status": lambda rest: cmd_learn_update_status(rest),
     "version-check":   lambda rest: cmd_version_check(rest),
     "index-check":     lambda rest: cmd_index_check(rest),
 }
@@ -882,6 +1287,12 @@ def main() -> None:
 
     result = COMMANDS[argv[0]](argv[1:])
     print(json.dumps(result, indent=2))
+    if isinstance(result, dict) and (
+        bool(result.get("error"))
+        or result.get("updated") is False
+        or result.get("ok") is False
+    ):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

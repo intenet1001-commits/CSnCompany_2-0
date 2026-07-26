@@ -18,6 +18,8 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **addendum (2026-07-17)**: 무거운 플러그인/훅이 다수 설치된 OAuth 계정에서는 `claude -p` 서브프로세스 스폰 자체가 CLI 부팅 오버헤드(hooks/plugin sync/CLAUDE.md 자동탐색)로 수십 초가 걸릴 수 있다. `claude --help`의 경량 모드 중 `--bare`는 API 키 인증만 지원해 OAuth 계정에서 즉시 로그인 실패하지만, `--safe-mode`는 OAuth 인증을 유지하면서 동일한 부팅 오버헤드를 스킵한다 — 실측 42~47s → 13~18s. 서브프로세스로 반복 스폰할 때는 인증 방식과 호환되는 경량 모드를 `--help`로 먼저 확인한다 (플래그명은 버전마다 바뀔 수 있어 tactical로 취급). (skeptic verifier: CLI 플래그명 자체는 버전 종속이라 principle 승격 안 함).
 - **addendum (2026-07-17)**: "suggest-batch는 N개를 단일 호출로 묶어 O(N)→O(1) 최적화"라는 위 발견은 배치 크기가 무한정 커질 수 있다는 전제가 빠져 있었다 — 실측 결과 미완료 항목 62개를 단일 호출로 묶으면 응답 생성 시간이 60s 고정 서버 타임아웃을 넘겨 결과 없이 조용히 실패했다(호출부는 "완료: 0개"로 성공처럼 보이는 메시지만 띄움). 가변 크기 입력을 단일 API 호출로 배치 처리할 때는 고정 청크 크기(예: 15개)로 나눠 순차 호출하고, 청크마다 즉시 결과를 저장해 부분 실패에도 진행분을 보존해야 한다 — O(N)→O(1) 최적화는 N이 유계일 때만 안전하다. (skeptic verifier CONFIRM — 숫자를 뺀 일반형 아키텍처 위험 원칙으로 생존, portmanagement commit 6203c1d). <!-- error-ref: ERR-2026-07-17-003 -->
 - **addendum (2026-07-22)**: 이 항목과 같은 부류의 문제(서브프로세스로 외부 CLI를 spawn할 때 어떤 바이너리가 잡힐지 실행 컨텍스트에 따라 달라짐)를 다른 프로젝트(yt-dlp)에서도 겪었다 — 단, 원인이 달랐다. 이번엔 "미탐지"가 아니라 **같은 이름의 바이너리가 pyenv/homebrew/anaconda 등 여러 경로에 동시에 설치돼 있어서**, `spawn('yt-dlp', args)`가 터미널(pyenv shim 우선)과 Electron GUI 런치(다른 PATH) 사이에서 서로 다른 버전을 집었다. 해결은 CLAUDE_PATH처럼 1회 탐지+fallback이 아니라, 후보 경로들을 전부 순회하며 각각 `--version`을 실행해 문자열 비교로 최신 버전을 명시적으로 선택하는 resolver 패턴을 썼다 — "여러 버전이 공존할 수 있는 CLI"는 단일 탐지보다 버전 비교 기반 다중 후보 resolver가 더 안전하다.
+- **addendum (2026-07-26)**: no API key/no GPU는 credential·compute 요구조건이지 실행 locality가 아니다. Learning 프로젝트의 `edge-tts>=7.0.0` 경로는 Microsoft Edge online TTS에 의존하므로 network availability와 당시 적용되는 service terms가 production precondition으로 남는다. 이를 offline이라고 표기하지 말고 배포 전 upstream docs/terms를 다시 확인한다. 이 관찰은 특정 상업 이용의 허용·금지를 판정하지 않는다.
+<!-- provenance: candidate=btw-provenance-a8da9a4ae47759a989bdb167; run=8388c4ae-0c29-40c0-9a9b-849e524ca316; memory=94de0f94-73ec-43df-8dc0-dedf3a1749c9; range=git:4093de09c0d28a4179cade33b33a31d7720e6fef;untracked:69cb1e5d01ff8ab76b809dc2cdce0d9080236890736201386271c01db354138a;linked:042a2dbe011b5e6a24c8b2b043025251ef5ad022..7abbdfb4d96b82c2f65d0103d6d6ea10e9fbeba7;linked-dirty:69e2f0fad485c2aa8ccfa4201492f5059926fe7e1f149c03e50e1cd395cb64c0;linked-untracked:1e2f40714ed05c5164777b4d00acb3de6a88bd9abe8f2055527acaf5a332e160;truncated=true -->
 
 ### 45. 마켓플레이스 플러그인 폴더명 vs 캐노니컬 이름 — 항상 manifest 우선 (2026-05-23)
 <!-- tier: principle -->
@@ -59,12 +61,16 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **교훈**: "프로토콜이 문서에 있다"와 "에이전트가 따른다"는 별개다. 새 프로토콜/규칙을 추가할 때 실행 증거가 되는 표준 아티팩트 문자열(헤더 1줄)을 같은 커밋에서 함께 설계해 검증 가능성을 빌드인한다.
 - **근거**: plugins/shared/LOOP-PROTOCOL.md:4 + commit 01ceddf 13개 캐리어 파일
 - ✅ 반영됨 (2026-06): LOOP-PROTOCOL.md:4 헤더 아티팩트 의무화로 이미 운영 중
+- **추가 (2026-07-26)**: 외부 또는 user-owned 문서에 integration prose를 주입할 때는 paired start/end sentinel로 tool-owned block을 표시한다. 재실행은 그 bounded block만 replace하고 marker가 없을 때만 한 번 append하며, 의미 변경은 block 내부 version marker로 감지한다. 이는 grep 가능한 증거이면서 idempotent ownership boundary다. 단, malformed/duplicate marker recovery는 별도 검증이 필요하다.
+<!-- provenance: candidate=btw-provenance-d676e333c0fd9ba9e5783f67; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
 
 ### 72. 하드코딩 시크릿 제거 ≠ 완료 — provider 측 rotation이 별도 필수 단계 (2026-06-12)
 <!-- tier: principle -->
 - **상황**: ~/.claude/settings.local.json permissions.allow에 Supabase 토큰(`sbp_...`)이 하드코딩되어 있어 harness-diet 후속 작업으로 제거. 파일에서는 삭제했지만 plaintext로 수개월 노출된 상태였음.
 - **발견**: 파일 수정과 시크릿 무효화(rotation)는 독립 작업이다. 파일에서 지워도 토큰 자체는 provider 측에서 여전히 유효하며, 백업·sync 도구가 이미 옛 파일 내용을 복제했을 수 있어 노출은 비가역적.
 - **교훈**: 시크릿 노출 대응의 SUCCESS CRITERIA는 (1) 파일 제거 + (2) provider 대시보드에서 rotation 두 단계 모두를 포함해야 한다. 에이전트는 (1)만 수행 가능하므로 (2)를 사용자 액션으로 명시 전달하기 전에는 완료 선언이 false-complete가 된다.
+- **추가 (2026-07-26)**: 장기기억처럼 로컬 파일·백업·원격 revision/cache로 복제되는 저장소는 최초 write 전에 secrets/credentials, environment values, PII, raw chats/logs를 배제해야 한다(`#103`도 참조). 오염을 발견하면 sync를 먼저 멈추고 통제 가능한 모든 복제본에서 내용을 삭제·재작성한 뒤 credential은 provider에서 별도 rotation한다. purge/rotation 뒤에도 과거 노출 자체가 되돌아갔다고 간주하지 않는다. 이번 project-memory 구현은 이 요구를 prompt로만 지시하고 deterministic scanner/redactor와 replica-purge API는 아직 없으므로 완료 기능이 아니라 보안 계약과 부채다.
+<!-- provenance: candidate=btw-provenance-3d1230ef510844d540d3c2f6; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
 
 ### 73. 컨텍스트 없는 재개 요청 — episodic memory 검색을 첫 단계로 (2026-06-12)
 <!-- tier: principle -->

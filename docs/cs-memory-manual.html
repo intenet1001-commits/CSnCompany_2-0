@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>CS Memory 사용 매뉴얼</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f1ea;
+      --panel: rgba(255, 255, 255, 0.86);
+      --panel-strong: #fff;
+      --ink: #17201d;
+      --muted: #65706b;
+      --line: #d8ddd8;
+      --brand: #0f766e;
+      --brand-soft: #d9efeb;
+      --accent: #d97706;
+      --code: #13231f;
+      --code-ink: #e8fff8;
+      --shadow: 0 18px 55px rgba(31, 48, 42, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(15, 118, 110, 0.11), transparent 32rem),
+        radial-gradient(circle at 92% 14%, rgba(217, 119, 6, 0.09), transparent 27rem),
+        var(--bg);
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+    }
+
+    a { color: inherit; }
+
+    .wrap {
+      width: min(1060px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 64px 0 88px;
+    }
+
+    .hero {
+      padding: 44px;
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      border-radius: 28px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      color: var(--brand);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--brand);
+      content: "";
+      box-shadow: 0 0 0 5px var(--brand-soft);
+    }
+
+    h1, h2, h3 { line-height: 1.18; letter-spacing: -.035em; }
+    h1 { max-width: 760px; margin: 0; font-size: clamp(38px, 6vw, 68px); }
+    h2 { margin: 0 0 10px; font-size: clamp(27px, 4vw, 38px); }
+    h3 { margin: 0 0 8px; font-size: 20px; }
+    p { margin: 0; }
+
+    .lead {
+      max-width: 760px;
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .quick {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 30px;
+    }
+
+    .quick-card, .card, .flow-step {
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+    }
+
+    .quick-card {
+      min-width: 0;
+      padding: 20px;
+      border-radius: 18px;
+    }
+
+    .number {
+      display: grid;
+      width: 31px;
+      height: 31px;
+      margin-bottom: 14px;
+      place-items: center;
+      border-radius: 9px;
+      color: #fff;
+      background: var(--brand);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .quick-card p { color: var(--muted); font-size: 14px; }
+
+    section { margin-top: 64px; }
+    .section-head { margin-bottom: 24px; }
+    .section-head p { color: var(--muted); }
+
+    .command-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      overflow: hidden;
+      border-radius: 20px;
+      box-shadow: 0 8px 28px rgba(35, 52, 46, 0.05);
+    }
+
+    .card-body { padding: 22px; }
+    .card-body > p { min-height: 48px; color: var(--muted); font-size: 14px; }
+
+    .tag {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .snippet {
+      position: relative;
+      margin-top: 18px;
+      padding: 18px 50px 18px 18px;
+      overflow-x: auto;
+      color: var(--code-ink);
+      background: var(--code);
+      border-radius: 14px;
+      font: 600 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .copy {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      padding: 7px 9px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 8px;
+      color: #d9f9ef;
+      background: rgba(255,255,255,.08);
+      cursor: pointer;
+      font: 700 12px/1 sans-serif;
+    }
+
+    .copy:hover, .copy:focus-visible { background: rgba(255,255,255,.16); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      padding: 22px;
+      border-radius: 18px;
+    }
+
+    .flow-step p { color: var(--muted); font-size: 14px; }
+    .arrow { display: grid; place-items: center; color: var(--brand); font-size: 24px; font-weight: 900; }
+
+    .callout {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 16px;
+      margin-top: 20px;
+      padding: 20px;
+      border: 1px solid rgba(217, 119, 6, .25);
+      border-radius: 18px;
+      background: #fff8e9;
+    }
+
+    .callout-icon {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border-radius: 13px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 900;
+    }
+
+    .callout p { color: #6d5a35; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .list-card {
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--panel);
+    }
+
+    ul { margin: 14px 0 0; padding-left: 20px; }
+    li + li { margin-top: 8px; }
+    li::marker { color: var(--brand); }
+    code {
+      padding: .12em .38em;
+      border-radius: 6px;
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .9em;
+    }
+
+    .install {
+      padding: 26px;
+      border-radius: 22px;
+      color: #edfdf8;
+      background: linear-gradient(145deg, #0d3933, #112923);
+      box-shadow: var(--shadow);
+    }
+
+    .install p { color: #b7d7ce; }
+    .install .snippet { border: 1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.2); }
+
+    footer {
+      margin-top: 64px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      padding: 12px 16px;
+      border-radius: 12px;
+      color: #fff;
+      background: #0d3933;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: .2s ease;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 820px) {
+      .quick, .command-grid, .two-col { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); min-height: 24px; }
+      .card-body > p { min-height: 0; }
+    }
+
+    @media (max-width: 520px) {
+      .wrap { width: min(100% - 20px, 1060px); padding-top: 20px; }
+      .hero { padding: 28px 22px; border-radius: 22px; }
+      section { margin-top: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div class="eyebrow">CS Memory 2.0</div>
+      <h1>기억은 모으고,<br>에이전트는 필요한 만큼만 성장시킵니다.</h1>
+      <p class="lead">
+        사용자가 기억할 것은 세 가지입니다. 프로젝트 변경을 장기기억에 학습하고,
+        누적된 교훈으로 관련 에이전트만 업그레이드하고, 현재 상태를 확인합니다.
+      </p>
+
+      <div class="quick">
+        <article class="quick-card">
+          <span class="number">1</span>
+          <h3>장기기억 학습</h3>
+          <p>이전 커서 이후 변경된 프로젝트만 찾아 기억과 후보 큐를 갱신합니다.</p>
+        </article>
+        <article class="quick-card">
+          <span class="number">2</span>
+          <h3>에이전트 업그레이드</h3>
+          <p>검증된 후보를 담당 CS 도메인에만 반영하고 실제 변경된 버전만 올립니다.</p>
+        </article>
+        <article class="quick-card">
+          <span class="number">3</span>
+          <h3>상태 확인</h3>
+          <p>마지막 학습, 미처리 후보, 관련 에이전트 버전을 한 번에 확인합니다.</p>
+        </article>
+      </div>
+    </header>
+
+    <section>
+      <div class="section-head">
+        <h2>평소에는 이 세 명령만</h2>
+        <p>버튼을 누르면 명령어가 그대로 복사됩니다. 자연어 문장으로 말해도 같은 스킬이 작동합니다.</p>
+      </div>
+
+      <div class="command-grid">
+        <article class="card">
+          <div class="card-body">
+            <span class="tag">자주 사용</span>
+            <h3>모든 프로젝트 학습</h3>
+            <p>등록된 프로젝트 중 변경된 곳만 증분 학습합니다.</p>
+            <div class="snippet"><span>/cs-memory:learn</span><button class="copy" type="button">복사</button></div>
+            <div class="snippet"><span>장기기억 학습</span><button class="copy" type="button">복사</button></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-body">
+            <span class="tag">주기적으로</span>
+            <h3>에이전트 업그레이드</h3>
+            <p>누적 후보를 검토해 관련 에이전트만 개선합니다.</p>
+            <div class="snippet"><span>/cs-memory:upgrade</span><button class="copy" type="button">복사</button></div>
+            <div class="snippet"><span>에이전트 업그레이드</span><button class="copy" type="button">복사</button></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-body">
+            <span class="tag">필요할 때</span>
+            <h3>통합 상태 확인</h3>
+            <p>학습 커서, 후보 수, 도메인 버전을 읽기 전용으로 확인합니다.</p>
+            <div class="snippet"><span>/cs-memory:status</span><button class="copy" type="button">복사</button></div>
+            <div class="snippet"><span>장기기억 상태</span><button class="copy" type="button">복사</button></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>작동 흐름</h2>
+        <p>수집과 업그레이드를 분리해 평소 토큰 사용량을 줄이고, 불필요한 전체 버전업을 막습니다.</p>
+      </div>
+
+      <div class="flow">
+        <article class="flow-step">
+          <h3>Learn</h3>
+          <p>프로젝트 기억 갱신<br>재사용 후보 큐 저장</p>
+        </article>
+        <div class="arrow" aria-hidden="true">→</div>
+        <article class="flow-step">
+          <h3>Evidence queue</h3>
+          <p>프로젝트 학습과 cs-end 경험을 한곳에 누적</p>
+        </article>
+        <div class="arrow" aria-hidden="true">→</div>
+        <article class="flow-step">
+          <h3>Upgrade</h3>
+          <p>중복·근거 검토<br>관련 에이전트만 개선</p>
+        </article>
+      </div>
+
+      <div class="callout">
+        <div class="callout-icon">!</div>
+        <div>
+          <h3>자동 학습이 놓친 세션 판단은 `/cs-end`</h3>
+          <p>파일이나 Git 변경으로 알 수 없는 사용자 피드백, 시행착오, 의사결정만 세션 종료 시 보충합니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>상황별 복사용 문장</h2>
+        <p>명령어를 기억하기 싫다면 아래 문장을 그대로 붙여 넣으세요.</p>
+      </div>
+
+      <div class="two-col">
+        <article class="list-card">
+          <h3>현재 프로젝트만 학습</h3>
+          <div class="snippet"><span>/cs-memory:learn here</span><button class="copy" type="button">복사</button></div>
+          <div class="snippet"><span>현재 프로젝트만 장기기억 학습해줘</span><button class="copy" type="button">복사</button></div>
+        </article>
+
+        <article class="list-card">
+          <h3>학습 후 개선할 것이 있는지 확인</h3>
+          <div class="snippet"><span>미처리 장기기억 후보가 있으면 관련 에이전트만 업그레이드해줘</span><button class="copy" type="button">복사</button></div>
+        </article>
+
+        <article class="list-card">
+          <h3>세션에서만 알 수 있는 내용 저장</h3>
+          <div class="snippet"><span>/cs-end</span><button class="copy" type="button">복사</button></div>
+          <p style="margin-top:12px;color:var(--muted)">장기기억 학습을 정상 실행했다면 매번 호출할 필요는 없습니다.</p>
+        </article>
+
+        <article class="list-card">
+          <h3>아무것도 바꾸지 않고 확인</h3>
+          <div class="snippet"><span>장기기억 학습 상태와 미처리 에이전트 업그레이드 후보를 보여줘</span><button class="copy" type="button">복사</button></div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>무엇이 달라졌나요?</h2>
+      </div>
+
+      <div class="two-col">
+        <article class="list-card">
+          <h3>사용자에게 남긴 것</h3>
+          <ul>
+            <li><code>learn</code>: 변경된 프로젝트 기억과 후보 큐</li>
+            <li><code>upgrade</code>: 근거 기반 선택적 에이전트 개선</li>
+            <li><code>status</code>: 통합 읽기 전용 상태</li>
+            <li><code>cs-end</code>: 자동 수집이 불가능한 세션 경험 보충</li>
+          </ul>
+        </article>
+
+        <article class="list-card">
+          <h3>공개 메뉴에서 제거한 것</h3>
+          <ul>
+            <li><code>long-term-memory-training train-local</code> 같은 긴 명령</li>
+            <li><code>cs-experiencing test/plan/review/design</code> 중복 래퍼</li>
+            <li><code>update</code>와 <code>version-up all</code> 무조건 전체 버전업</li>
+            <li><code>checkpoint</code>, <code>pipeline</code> 등 다른 도메인의 역할</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="install">
+        <div class="section-head">
+          <h2>Claude Code 설치·전환</h2>
+          <p>기존 `cs-core-memory`가 설치되어 있다면 제거한 뒤 새 이름으로 설치합니다.</p>
+        </div>
+        <div class="snippet"><span>/plugin uninstall cs-core-memory@CSnCompany_2-0
+/plugin install cs-memory@CSnCompany_2-0
+/reload-plugins</span><button class="copy" type="button">전체 복사</button></div>
+        <p style="margin-top:16px">
+          기존 플러그인이 설치되지 않았다면 첫 줄은 생략하세요.
+          Codex에만 Git 변경이 있고 Claude Code에는 아직 반영되지 않았다면,
+          <code>csn-sync</code>로 Codex의 변경을 Claude Code 쪽에 동기화한 뒤 설치합니다.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      CSnCompany_2-0 · CS Memory 2.0 · 생성일 2026-07-26<br>
+      이 매뉴얼은 외부 폰트·스크립트 없이 단일 HTML 파일로 작동합니다.
+    </footer>
+  </main>
+
+  <div class="toast" role="status" aria-live="polite">복사했습니다</div>
+
+  <script>
+    const toast = document.querySelector(".toast");
+    let toastTimer;
+
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+
+    document.querySelectorAll(".copy").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const text = button.parentElement.querySelector("span").textContent.trim();
+        try {
+          await copyText(text);
+          button.textContent = "완료";
+          toast.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => toast.classList.remove("show"), 1500);
+          setTimeout(() => {
+            button.textContent = button.dataset.original || "복사";
+          }, 1200);
+        } catch {
+          toast.textContent = "복사하지 못했습니다";
+          toast.classList.add("show");
+        }
+      });
+      button.dataset.original = button.textContent;
+    });
+  </script>
+</body>
+</html>

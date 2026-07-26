@@ -22,6 +22,9 @@ Key routing rules:
 - "목표", complex multi-step task, unsure which domain, /goal → invoke cs-ceo
 - Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
 - Error capture, error note, 에러노트, 에러 기록, 오류 정리 → invoke cs-error-notes
+- 프로젝트 장기기억 학습, 장기기억 학습 → invoke learn
+- 장기기억 기반 에이전트 개선, 에이전트 업그레이드 → invoke upgrade
+- 장기기억 상태, 학습 상태 → invoke status
 - Create hook, block behavior, prevent pattern, 훅 생성, 동작 차단, 이 패턴 막아줘 → invoke hookify
 - Code navigation, find symbol, go to definition, 코드 탐색, 심볼 검색, 정의 찾기, 참조 분석 → use serena (mcp__serena__* tools or /serena skill)
 
@@ -73,8 +76,9 @@ Key routing rules:
 | CS-codebase-review | `./plugins/CS-codebase-review-v29` | 🔍 Code Reviewer |
 | cs-ship | `./plugins/cs-ship-v1` | 🚢 DevOps |
 | cs-smart-run | `./plugins/cs-smart-run` | ⚡ Team Lead |
-| cs-experiencing | `./plugins/cs-experiencing-v8` | 📚 Knowledge Keeper |
-| cs-core-memory | `./plugins/cs-core-memory-v1` | 🧠 Long-term Core Memory |
+| cs-experiencing | `./plugins/cs-experiencing-v9` | 📚 Knowledge Backend |
 | convo-maker | `./plugins/convo-maker` | 🗣️ Language Coach |
+| cs-memory | `./plugins/cs-core-memory-v1` | 🧠 Memory Trainer |
+| csn-sync | `./plugins/csn-sync` | 🔄 Marketplace Sync |
 
 <!-- AUTO-PLUGIN-INVENTORY:END -->

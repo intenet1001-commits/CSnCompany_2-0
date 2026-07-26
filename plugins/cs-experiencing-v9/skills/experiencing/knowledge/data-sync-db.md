@@ -8,13 +8,17 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 <!-- tier: principle -->
 - **상황**: Supabase Pull 시 같은 폴더가 여러 행으로 중복 나타남. `mergePorts`는 `id` 기준 dedup만 수행.
 - **발견**: 기기/마이그레이션 경로에 따라 같은 폴더가 다른 ID로 저장되어 있었음. 두 가지 동시 적용으로 해결: (a) port가 없는 항목은 `folderPath`를 dedup 보조키로 추가, (b) 마이그레이션 시 ID를 `path hash`로 결정적으로 생성 → 모든 기기가 동일 폴더에 대해 동일 ID 산출.
-- **교훈**: 분산/멀티기기 동기화에서 "natural key"(folderPath 등)는 dedup 보조키로 항상 사용. 마이그레이션이 새 row 생성할 때는 random UUID 대신 deterministic hash(path) 사용해야 idempotent.
+- **교훈**: 분산/멀티기기 동기화에서 경로가 동일 identity namespace 안에서 안정적일 때는 `folderPath` 같은 natural key를 dedup 보조키로 사용하고, 마이그레이션의 deterministic hash(path)로 idempotency를 확보할 수 있다. 경로 자체가 기기마다 달라지는 객체에는 이 규칙을 그대로 적용하지 않는다.
+- **추가 (2026-07-26, 범위 수정)**: 기기마다 path/port가 달라질 수 있는 논리 객체는 portable config에 opaque stable UUID를 보존하고 path/port는 mutable locator로 취급한다. Pull/restore는 원격 lineage의 UUID를 채택해야 한다. 다만 현재 관찰된 구현은 로컬에서 먼저 새 UUID로 초기화하면 기존 원격 lineage 탐색을 막을 수 있어, 이 원칙이 모든 신규 기기 경로에서 완결됐다고 보지는 않는다.
+<!-- provenance: candidate=btw-provenance-c62accb589be42fa4d21d469; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
 
 ### 21. Merge 전략: 사용자 직접 편집 필드는 local-first (2026-05-17)
 <!-- tier: principle -->
 - **상황**: Pull 직후 방금 편집한 `deployUrl`이 stale 원격 값으로 덮어써짐. `mergePorts`가 `{ ...local, ...remote }` 단순 스프레드 사용.
 - **발견**: `folderPath`/`commandPath`는 이미 local-first였으나 사용자 직접 입력 필드(`deployUrl`, `githubUrl`, `description`)는 누락. 같은 local-first 규칙 적용으로 해결.
 - **교훈**: 동기화 merge에서 "사용자가 UI로 직접 입력하는 필드"와 "시스템 자동 계산 필드"를 구분. 전자는 항상 local-first(원격이 빈 값일 때만 채움). 새 사용자 편집 필드 추가할 때마다 merge 정책 재검토 필수.
+- **추가 (2026-07-26)**: local-first는 merge precedence와 durability write-order를 구분한다. 전자는 사용자 편집값을 로컬 우선으로 유지하고, 후자는 authoritative local copy를 먼저 원자적으로 저장한 뒤 remote revision을 best-effort로 시도한다. 두 결과를 따로 보고하며 remote 실패·충돌은 local 성공을 rollback하지 않는다. divergence는 conflict로 반환하고, 별도의 명시적 force에서만 덮어쓴다.
+<!-- provenance: candidate=btw-provenance-462aa8508e41bd0114f3b510; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
 
 ### 33. 단일 레코드 반복 태스크의 done 리셋 패턴 (2026-05-22)
 <!-- tier: principle -->
@@ -68,3 +72,5 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: `localStorage`는 브라우저 오리진/Tauri webview별로 완전히 분리된 저장소라 웹에서 기록한 값이 앱에서 보이지 않고 그 반대도 마찬가지다. 이 프로젝트가 주 데이터(`ports.json`)에 이미 쓰던 패턴 — 앱 데이터 디렉토리의 공유 JSON 파일을 웹은 HTTP 엔드포인트(Bun api-server)로, 데스크톱 앱은 Tauri `invoke` 커맨드로 각각 읽고 쓰는 이중 접근 경로 — 를 그대로 적용해 해결했다. 동시 기록 충돌은 "더 최신 타임스탬프만 반영"으로 단순 해결 가능.
 - **교훈**: 웹+데스크톱을 동시 지원하는 앱에서 여러 실행 표면(브라우저 탭, 웹뷰)이 공유해야 하는 새 상태를 추가할 때는 `localStorage`를 기본값으로 쓰지 말고, 처음부터 "공유 파일 + (HTTP 엔드포인트, 네이티브 invoke 커맨드) 이중 접근" 패턴을 채택한다. 이는 이 앱만의 관례가 아니라 하나의 머신에서 여러 JS 런타임(브라우저 vs 웹뷰)이 상태를 공유해야 하는 모든 dual-surface 앱에 적용되는 일반 원칙이다 — 구체적 저장 형식(JSON 파일 vs sqlite vs IPC)은 프로젝트마다 다를 수 있다 (skeptic verifier: 저장 형식 자체는 project-specific이라 tactical로 판정, 다만 "동일 머신 내 분리된 JS 런타임은 localStorage를 공유하지 않는다"는 근본 사실 자체는 안정적).
 - **근거**: `last-visits.json`을 `~/Library/Application Support/com.portmanager.portmanager/`에 신설, `POST /api/last-visits`(웹) + `save_last_visit` Tauri invoke(앱) 양쪽 구현 → 브라우저에서 실행한 포트가 앱에서도 동일한 "마지막 실행" 시각으로 표시됨 확인 (2026-07-09 세션, PR #4)
+- **추가 (2026-07-26)**: 여러 runtime/agent가 소비하지만 host `PortInfo` lifecycle과 독립적인 project-scoped state는 host mega DTO에 편입하기보다 project-local canonical document와 작은 config로 둘 수 있다. runtime별 adapter/bridge는 projection이며 authority가 아니고 marker/version과 idempotent upgrader로 갱신한다. 이번 관찰의 localhost bridge는 local dev/API-server에서만 검증됐고 packaged Tauri에는 backend 번들·기동이 빠져 있으므로 cross-runtime 완성으로 일반화하지 않는다.
+<!-- provenance: candidate=btw-provenance-085ef3d96d757c84af6e55fd; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->

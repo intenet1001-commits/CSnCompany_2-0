@@ -1,484 +1,75 @@
 ---
 name: cs-experiencing
-user-invocable: true
 description: |
-  경험 지식 저장소 오케스트레이터.
-  도메인별 누적 학습 조회, 실행, 버전 관리.
-  Use when invoked via /cs-experiencing, or when user says "경험", "학습 실행", "버전업".
-version: 9.0.3
+  CS 에이전트가 참조하는 내부 경험 지식 저장소.
+  Use for relevant prior-lesson recall or when invoked internally by cs-memory upgrade.
+  Do not use it as a public test/plan/review/design wrapper or unconditional version-up command.
+version: 9.1.0
 allowed-tools:
   - Read
   - Write
   - Edit
   - Bash
-  - Agent
-  - AskUserQuestion
 ---
 
-# Experiencing - 경험 지식 저장소
+# Experiencing Knowledge Backend
 
-## 도메인 위치
+공통 경험지식의 조회·검증·저장만 담당한다. 사용자용 실행 명령은 제공하지 않는다.
 
-도메인들은 cs-experiencing-v*과 같은 레벨의 plugins/ 디렉토리에 위치합니다:
+## 공개 진입점
 
-```
-plugins/
-├── cs-experiencing-v*/      ← 이 플러그인 (오케스트레이터)
-├── CS-test-v*/              ← 멀티 에이전트 웹 테스트 도메인 (에이전트 구성·개수의 단일 진실은 해당 디렉토리의 commands/CS-test.md 로스터)
-├── CS-plan-v*/              ← TDD+CleanArch 4-agent 플랜 도메인
-├── CS-codebase-review-v*/   ← 5-agent 코드 리뷰 도메인
-├── cs-design-v*/            ← 5-agent 디자인 리뷰 도메인
-├── cs-clarify-v*/           ← 4-agent 요구사항 명료화 도메인
-├── cs-smart-run/            ← Opus 플랜 + 병렬 Sonnet 실행 (디렉토리 버전 suffix 없음, VERSION 파일만)
-└── cs-ceo-v*/               ← CEO 오케스트레이터 도메인
-```
+- 장기기억 수집: `/cs-memory:learn`
+- 관련 에이전트 개선: `/cs-memory:upgrade`
+- 통합 상태: `/cs-memory:status`
+- 세션에서만 알 수 있는 경험 보충: `/cs-end`
 
-**버전은 디렉토리명이 단일 진실** — 항상 `ls -d "$BASE/<도메인>-v"* | sort -V | tail -1`로 최신을 해석한다.
-문서에 버전 숫자를 하드코딩하지 않는다.
+테스트·플랜·리뷰·디자인은 각각의 도메인 스킬을 직접 호출한다. `update`,
+`version-up all`, `checkpoint`, `pipeline`을 이 백엔드에서 실행하지 않는다.
 
-마켓플레이스 절대 경로: `~/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/`
+## 저장소 위치
 
-## 사용법
-
-```
-/cs-experiencing                                          # 도메인 목록 + 버전 현황 표시
-/cs-experiencing test [URL]                               # CS-test 실행 (멀티 에이전트 웹 테스트)
-/cs-experiencing plan [task]                              # CS-plan 실행
-/cs-experiencing review [path] [--focus aspect]           # CS-codebase-review 실행 (5-관점 코드 리뷰)
-/cs-experiencing design [path] [--focus aspect] [--fix]  # CS-design 실행 (5-관점 디자인 리뷰)
-/cs-experiencing update                                   # 모든 도메인 버전업 (version-up all 단축키)
-/cs-experiencing version-up [domain]                      # 도메인 버전 증가 (test/plan/review/design/clarify/smart-run/ceo)
-/cs-experiencing version-up all                           # 7개 도메인 한번에 버전 증가 (test→plan→review→design→clarify→smart-run→ceo)
-/cs-experiencing status                                   # 모든 도메인 VERSION 파일 읽기
-/cs-experiencing btw [idea]                               # [v4 신규] 세션 중 개선 아이디어 즉시 캡처
-/cs-experiencing checkpoint                               # [v4 신규] WIP 체크포인트 커밋 생성
-/cs-experiencing pipeline [project]                       # 전체 파이프라인 실행 (review→design→test)
+```text
+plugins/cs-experiencing-v*/skills/experiencing/
+├── SKILL.md              # INDEX와 소수의 오케스트레이터 원칙
+└── knowledge/*.md        # 주제별 경험 본문
 ```
 
----
+최신 디렉터리는 `ls -d plugins/cs-experiencing-v* | sort -V | tail -1`로 찾는다.
+후보 큐의 단일 위치는 `~/.claude/.experiencing-btw.json`이다.
 
-## 실행 프로토콜
+## 조회 프로토콜
 
-### 공통: 학습 회상 (read-side) — fan-out 디스패치 전 필수
+1. 현재 태스크의 기술 스택과 도메인 명사를 추출한다.
+2. 아래 학습 INDEX에서 키워드가 맞는 상위 2~3건만 고른다.
+3. INDEX의 위치 포인터가 가리키는 본문만 읽는다.
+4. 관련 항목이 없으면 질문이나 추가 분석 없이 생략한다.
+5. 전체 SKILL 또는 모든 `knowledge/*.md`를 한 번에 로드하지 않는다.
 
-test/plan/review/design/pipeline 프로토콜은 에이전트 디스패치 직전에 아래를 수행한다:
+## 업그레이드 쓰기 계약
 
-1. 현재 태스크에서 키워드 추출 (기술 스택·도메인 명사, 예: `worktree`, `vercel`, `supabase`)
-2. 이 SKILL.md의 **학습 INDEX** 테이블을 키워드로 grep → 매칭 상위 2-3건 선별
-3. 선별 항목의 본문을 위치 컬럼(인라인 또는 `knowledge/<topic>.md`)에서 읽어
-   디스패치 프롬프트에 그대로 주입 ("과거 학습: ..." 블록)
-4. 매칭 없으면 주입 생략 — 사용자에게 묻거나 지연하지 않는다
+`cs-memory:upgrade`만 후보를 소비한다.
 
-### `/experiencing` (인수 없음)
+1. novelty·impact·reuse를 각각 0~2점으로 평가한다.
+2. 0~1점은 reject, 2~3점은 pending, 4~6점은 promote 또는 기존 항목에 병합한다.
+3. `principle` 후보는 배치당 한 번의 skeptic pass를 거친다.
+4. 프로젝트 특화 내용은 프로젝트 기억에 남기고 공통 INDEX에 넣지 않는다.
+5. 새 본문은 관련 `knowledge/<topic>.md`에 저장하고 INDEX 행은 정확히 하나만 추가한다.
+6. 에이전트 행동이 달라지는 교훈만 담당 도메인의 SKILL·command·agent 규칙에 반영한다.
+7. 영향받지 않은 도메인은 수정하거나 버전업하지 않는다.
+8. 성공 후에만 `learn-update-status`로 후보 상태를 바꾼다.
 
-도메인 목록과 현재 버전을 표시:
+## 필수 게이트
+
+쓰기 전후에 다음을 실행한다.
 
 ```bash
-BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-# 7개 도메인 (test→plan→review→design→clarify→smart-run→ceo)
-for domain in CS-test CS-plan CS-codebase-review cs-design cs-clarify cs-ceo; do
-  LATEST=$(ls -d "$BASE/${domain}-v"* 2>/dev/null | sort -V | tail -1)
-  VERSION=$(cat "$LATEST/VERSION" 2>/dev/null || echo "?")
-  echo "📦 $domain | 현재 콘텐츠 버전: $VERSION"
-done
-# cs-smart-run은 버전 접미사 없는 단일 디렉토리 — 직접 경로
-VERSION=$(cat "$BASE/cs-smart-run/VERSION" 2>/dev/null || echo "?")
-echo "📦 cs-smart-run | 현재 콘텐츠 버전: $VERSION"
+bash plugins/shared/run_prepass.sh index-check
+bash plugins/shared/run_prepass.sh version-check "<changed-plugin-dir>"
 ```
 
-### `/cs-experiencing test [URL]`
-
-1. 최신 CS-test 도메인 경로 찾기:
-   ```bash
-   BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-   LATEST_TEST=$(ls -d "$BASE/CS-test-v"* 2>/dev/null | sort -V | tail -1)
-   if [ -z "$LATEST_TEST" ]; then echo "❌ CS-test 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
-   ```
-2. `$LATEST_TEST/VERSION` 읽기 → 현재 버전 확인
-3. `$LATEST_TEST/skills/CS-test/SKILL.md` 프로토콜 실행
-4. **학습 회상**(공통 read-side 단계) 수행 후 URL을 대상으로 멀티 에이전트 팀 가동 (에이전트 구성·개수는 `$LATEST_TEST/commands/CS-test.md` 로스터가 단일 진실)
-
-### `/cs-experiencing plan [task]`
-
-1. 최신 CS-plan 도메인 경로 찾기:
-   ```bash
-   BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-   LATEST_PLAN=$(ls -d "$BASE/CS-plan-v"* 2>/dev/null | sort -V | tail -1)
-   if [ -z "$LATEST_PLAN" ]; then echo "❌ CS-plan 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
-   ```
-2. `$LATEST_PLAN/VERSION` 읽기 → 현재 버전 확인
-3. **학습 회상**(공통 read-side 단계) 수행 후 `$LATEST_PLAN/skills/CS-plan/SKILL.md` 프로토콜 실행
-
-### `/cs-experiencing review [path] [--focus aspect]`
-
-1. 최신 CS-codebase-review 도메인 경로 찾기:
-   ```bash
-   BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-   LATEST_REVIEW=$(ls -d "$BASE/CS-codebase-review-v"* 2>/dev/null | sort -V | tail -1)
-   if [ -z "$LATEST_REVIEW" ]; then echo "❌ CS-codebase-review 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
-   ```
-2. `$LATEST_REVIEW/VERSION` 읽기 → 현재 버전 확인
-3. `$LATEST_REVIEW/skills/CS-codebase-review/SKILL.md` 프로토콜 실행
-3. 인수 파싱:
-   - `[path]` 없음 → 현재 작업 디렉토리 전체 분석
-   - `[path]` 있음 → 해당 경로만 분석
-   - `--focus [aspect]` 있음 → 해당 관점만 집중 분석 (architecture/quality/security/performance/maintainability)
-4. **학습 회상**(공통 read-side 단계) 수행 후 5개 에이전트(Architecture/Quality/Security/Performance/Maintainability)를 병렬 실행
-5. 결과 종합 → 등급(A/B/C/D) + 우선순위별 권장 조치사항 리포트 출력
-
-### `/cs-experiencing update`
-
-`version-up all`의 단축 명령어. 아래 `version-up all` 프로토콜의 캐노니컬 도메인 목록
-(`test → plan → review → design → clarify → smart-run → ceo`)과 동일하게 실행.
-도메인 개수는 이 목록이 단일 진실 — 다른 문서의 "N개 도메인" 표현은 이 목록을 참조한다.
-
----
-
-### `/cs-experiencing design [path] [--focus aspect] [--fix]`
-
-1. 최신 CS-design 도메인 경로 찾기:
-   ```bash
-   BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-   LATEST_DESIGN=$(ls -d "$BASE/cs-design-v"* 2>/dev/null | sort -V | tail -1)
-   if [ -z "$LATEST_DESIGN" ]; then echo "❌ cs-design 디렉토리 없음 — marketplace.json 확인 필요"; exit 1; fi
-   ```
-2. `$LATEST_DESIGN/VERSION` 읽기 → 현재 버전 확인
-3. `$LATEST_DESIGN/skills/cs-design/SKILL.md` 프로토콜 실행
-4. 인수 파싱:
-   - `[path]` 없음 → 현재 작업 디렉토리
-   - `--focus [aspect]` 있음 → 해당 관점만 집중 분석 (visual/interaction/consistency/responsive/antipatterns)
-   - `--fix` 있음 → 발견된 안티패턴 자동 수정 활성화
-5. **학습 회상**(공통 read-side 단계) 수행 후 design-lead 에이전트를 스폰하여 5개 에이전트(visual-hierarchy/interaction-quality/design-system-consistency/responsive-accessibility/anti-pattern-detector) 병렬 실행
-6. 결과 종합 → 관점별 점수(0-10) + 등급(A~F) + 우선순위별 수정사항 DESIGN-REVIEW.md 출력
-
----
-
-### `/cs-experiencing version-up [domain|all]`
-
-**정책: 직전 버전 + 현재 버전 2개만 유지. 더 오래된 버전은 자동 삭제.**
-
-**`all` 키워드 (캐노니컬 도메인 목록)**: `test → plan → review → design → clarify → smart-run → ceo` 7개 도메인 순차 처리.
-
-**각 도메인마다 아래 순서로 실행:**
-
----
-
-#### STEP 1: 학습 캡처 (AI 자동 추출 우선)
-
-**AI가 먼저 세션 컨텍스트를 분석해서 핵심 노하우를 추출한다. 발견 시 제안 → 사용자 확인. 없으면 직접 질문.**
-
-**1-A. AI 자동 분석**
-
-현재 세션 대화에서 해당 도메인과 관련된 다음 항목을 탐색:
-- 예상과 달랐던 동작 (버그, 엣지케이스, 특이 동작)
-- 문제 해결 과정에서 발견한 패턴 또는 원인
-- 반복 적용 가능한 팁, 설정, 명령어
-- 공식 문서/가정과 실제 동작의 차이
-
-각 발견에는 근거(세션 내 실제 command 출력, 파일 경로, 또는 에러 메시지 인용) 1건을 첨부한다
-(plugins/shared/LOOP-PROTOCOL.md [a] EVIDENCE 준용). 근거를 제시할 수 없는 항목은 tier를
-자동으로 `tactical`로 강등하고, 1-B 확인 문구에 `[근거없음]` 경고를 함께 노출한다.
-
-**1-B. 발견사항이 있으면 → 제안 후 확인 (AskUserQuestion 1회)**
-
-```
-💡 CS-[DOMAIN] — AI가 분석한 이번 세션 핵심 학습:
-
-"[AI가 추출한 학습 제목]: [구체적 발견 내용 1-2줄]"
-근거: [command 출력/파일:줄/에러 메시지 인용]  ← 없으면 "[근거없음] tier: tactical로 강등"
-
-이대로 저장할까요?
-```
-옵션:
-- "저장" → 그대로 SKILL.md에 추가
-- "직접 수정" → Other 선택 후 수정 내용 입력
-- "스킵" → 학습 없이 버전만 증가
-
-**1-C. 발견사항이 없으면 → 자동 스킵 (질문 없음)**
-
-AskUserQuestion 호출하지 않음. 그냥 "📝 학습 스킵 (이번 세션 발견사항 없음)" 출력 후 STEP 3으로 진행.
-
-#### STEP 2: 학습 내용 저장 (입력이 있을 경우)
-
-1. 최신 도메인 디렉토리의 SKILL.md 읽기
-2. **반박 패스 (refutation pass) — 저장 전 필수 체크리스트** (SKILL.md를 이미 열어둔 상태에서 오케스트레이터가 직접 수행, 별도 에이전트 금지):
-   - (a) 학습 INDEX(또는 해당 도메인 노하우 섹션)를 동일 키워드/도메인으로 grep → 중복·모순 항목 발견 시
-     표면화: "#[N]이 이미 이 내용을 다룸 — 병합 또는 스킵?"
-   - (b) 절대어(항상/절대/always/never/불가능) 포함 시 제목 또는 상황 줄에 범위 한정자 요구
-     (예: "auto-mode 기준 2026-05", "Tauri v1 WebKit")
-   - (c) 외부 서비스·도구 동작에 대한 **1회 관찰** 주장은 무조건 `tier: tactical` (principle 금지)
-   - (d) 다음 항목 번호가 실제로 학습 INDEX의 max+1인지 검증 (번호 드리프트 방지)
-   - 반박 결과는 STEP 1-B의 동일한 AskUserQuestion(저장/수정/스킵) 안에 함께 제시 — 사용자 클릭은 1회 유지
-3. 다음 번호 결정: **학습 INDEX의 max+1** (마지막 인라인 항목 번호가 아님)
-4. 오늘 날짜 확인: `date +%Y-%m-%d`
-5. 학습의 **tier** 결정:
-   - `principle` — 플랫폼 동작·언어 특성·아키텍처 패턴 등 시간이 지나도 안정적인 지식
-   - `tactical` — 특정 버전·설정·워크어라운드 등 변경 가능성이 있는 전술적 지식 (기본값)
-6. **저장 위치 라우팅**:
-   - 오케스트레이터 자체 도메인 학습(version-up/파이프라인/학습 캡처) → cs-experiencing SKILL.md 인라인 섹션 끝
-   - 해당 도메인 고유 학습 → 그 도메인 SKILL.md 노하우 섹션 끝
-   - 프로젝트-특화 학습 → 매칭되는 `skills/experiencing/knowledge/<topic>.md` 끝에 append (주제 파일 없으면 새로 생성)
-   - 어느 경우든 **cs-experiencing 학습 INDEX 테이블에 1줄 추가** (번호, 제목, tier, 태그, 위치)
-   - 인라인 본문은 오케스트레이터 자체 도메인 학습에만 허용 — index-check 게이트가 인라인 개수 상한(15)을 강제하므로 프로젝트-특화 본문은 반드시 knowledge/로 라우팅한다
-7. Edit 도구로 아래 포맷으로 추가:
-
-```markdown
-### [N]. [학습 제목] ([YYYY-MM-DD])
-<!-- tier: principle|tactical -->
-- **상황**: [어떤 작업 중에 발견했는지]
-- **발견**: [구체적으로 무엇을 배웠는지]
-- **교훈**: [다음에 어떻게 적용할지]
-```
-
-**tier 분류 가이드:**
-- `principle` 예시: "/compact는 스킬에서 직접 호출 불가 (Claude Code 내장)", "훅 non-zero exit code는 UI 블로킹"
-- `tactical` 예시: "osascript choose folder 특정 파라미터 금지", "bun --watch 파일변경 미감지"
-
-**Knowledge Decay 정책:** `tactical` 항목은 cs-end의 Forget Gate가 30일 경과 시 자동으로 재검토를 권장한다. `principle` 항목은 decay 검토 대상에서 제외된다.
-
-8. **무결성 게이트 (결정론적, 저장 직후 필수)**:
-   ```bash
-   bash "$BASE_PATH/shared/run_prepass.sh" index-check
-   ```
-   INDEX↔본문 정합성(C1 INDEX 누락 / C2 위치 포인터 / C3·C4 번호 유일성 / C5 연속성 / C6 인라인 상한 15)을
-   기계 검증한다. `"ok": false`면 위반 항목을 수정한 뒤 재실행 — ok가 될 때까지 STEP 3으로 진행하지 않는다.
-   (LLM 반박 패스 (a)~(d)는 내용 품질용이고, 구조 불변식은 이 게이트가 단일 진실.)
-
-#### STEP 3: 버전 디렉토리 생성
-
-```bash
-BASE_PATH="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-ALL_DIRS=($(ls -d "$BASE_PATH/CS-${DOMAIN}-v"* 2>/dev/null | sort -V))
-LATEST_DIR="${ALL_DIRS[-1]}"
-CURRENT_VERSION=$(cat "$LATEST_DIR/VERSION" 2>/dev/null || echo "1")
-NEXT_VERSION=$((CURRENT_VERSION + 1))
-NEW_DIR="$BASE_PATH/CS-${DOMAIN}-v${NEXT_VERSION}"
-
-cp -r "$LATEST_DIR" "$NEW_DIR"
-echo "$NEXT_VERSION" > "$NEW_DIR/VERSION"
-```
-
-#### STEP 4: marketplace.json 업데이트
-
-파일: `~/.claude/plugins/marketplaces/CSnCompany_2-0/.claude-plugin/marketplace.json`
-
-Edit 도구로:
-- `"./plugins/CS-[DOMAIN]-v[CURRENT]"` → `"./plugins/CS-[DOMAIN]-v[NEXT]"`
-
-#### STEP 4b: 버전 메타데이터 정합성 검증 (push 차단 게이트)
-
-```bash
-bash "$BASE_PATH/shared/run_prepass.sh" version-check "$NEW_DIR"
-```
-
-(`plugins/CLAUDE.md`의 Python 실행 규칙 준수 — `shared/scripts/*.py`를 `python3`로 직접 호출하지
-않고 항상 이 진입점을 통해 python3 → uv run → uv install 순 자동 폴백을 태운다.)
-
-`"ok": false`이거나 스크립트가 non-zero로 종료하면, 불일치 소스(plugin.json / SKILL frontmatter)를
-VERSION 파일 값으로 맞춘 뒤 재실행한다. ok가 될 때까지 commit/push 단계로 진행하지 않는다 —
-자가 업그레이드가 낡은 자기 서술을 배포하는 것을 막는 게이트.
-(숫자 정규화 비교: `1` == `1.0.0`)
-
-cs-experiencing 학습 INDEX 무결성도 같은 게이트에서 검증한다:
-
-```bash
-bash "$BASE_PATH/shared/run_prepass.sh" index-check
-```
-
-`"ok": false`면 commit/push로 진행하지 않는다.
-
-#### STEP 5: 오래된 버전 정리
-
-```bash
-TOTAL=${#ALL_DIRS[@]}
-DELETE_COUNT=$((TOTAL - 1))
-if [ $DELETE_COUNT -gt 0 ]; then
-  for dir in "${ALL_DIRS[@]:0:$DELETE_COUNT}"; do
-    echo "🗑️ 삭제: $(basename $dir)"
-    rm -rf "$dir"
-  done
-fi
-```
-
-#### STEP 6: 완료 안내
-
-```
-✅ CS-[DOMAIN] 버전업 완료
-📦 현재 버전: CS-[DOMAIN]-v[NEXT] (VERSION=[NEXT])
-📦 보관 버전: CS-[DOMAIN]-v[CURRENT] (직전)
-🗑️ 삭제됨: [삭제된 버전들]
-📝 학습 추가: "[제목]" (노하우 #[N])   ← 입력 있을 경우
-📝 학습 스킵                           ← 입력 없을 경우
-```
-
----
-
-**`version-up all` 실행 순서**: `test → plan → review → design → clarify → smart-run → ceo` (7개 순차)
-
-**`clarify` 도메인**: 최신 `cs-clarify-v*` 디렉토리 대상. 학습은
-`skills/cs-clarify/SKILL.md`의 `## cs-clarify 노하우` 섹션 끝에 추가
-(형식 동일: `### [N]. [제목] ([YYYY-MM-DD])`).
-
-**`smart-run` 도메인**: `cs-smart-run`은 디렉토리 버전 suffix가 없다 —
-디렉토리 복사/삭제(STEP 3, 5) 및 marketplace.json 경로 변경 없이
-`plugins/cs-smart-run/VERSION` 파일만 +1 하고, 학습은 `plugins/cs-smart-run/skills/` 하위
-SKILL.md 노하우 섹션 끝에 추가한다.
-
-**`version-up ceo` 프로토콜** (6-step):
-
-CEO 버전업은 다른 6개 도메인과 동일한 구조이나 학습 캡처 내용이 다르다.
-
-**STEP 1: 학습 분석 (CEO 특화)**
-
-이번 세션에서 CEO가 내린 배분 결정을 회고한다:
-- smart-run을 선택한/안 한 결정이 올바랐는가?
-- 어떤 요청 패턴에서 공수 추정이 틀렸는가?
-- 새로 발견한 효과적인 도메인 조합은?
-- 어떤 상황에서 모드 C(smart-run)가 효과적이었는가?
-
-발견사항이 있으면 AskUserQuestion으로 1회 확인. 없으면 자동 스킵.
-
-**STEP 2: 학습 추가** (입력 있을 경우)
-
-**⚠️ 두 파일 동시 업데이트 필수** — 에이전트(ceo.md)와 스킬(SKILL.md)이 항상 동기화되어야 한다.
-
-1. `$LATEST_CEO/agents/ceo.md`의 `## CEO 노하우` 섹션 끝에 추가
-2. `$LATEST_CEO/skills/cs-ceo/SKILL.md`의 `## CEO 노하우` 섹션 끝에 추가
-
-두 파일 모두 동일한 내용을 추가한다:
-
-```markdown
-### [N]. [학습 제목] ([YYYY-MM-DD])
-- **상황**: [어떤 요청이었는가]
-- **판단**: [CEO가 내린 결정]
-- **결과**: [효과적이었는가]
-- **교훈**: [다음에 유사 상황에서 어떻게 판단할 것인가]
-```
-
-**STEP 3: 버전 디렉토리 생성**
-
-```bash
-BASE_PATH="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-ALL_DIRS=($(ls -d "$BASE_PATH/cs-ceo-v"* 2>/dev/null | sort -V))
-LATEST_DIR="${ALL_DIRS[-1]}"
-CURRENT_VERSION=$(cat "$LATEST_DIR/VERSION" 2>/dev/null || echo "1")
-NEXT_VERSION=$((CURRENT_VERSION + 1))
-NEW_DIR="$BASE_PATH/cs-ceo-v${NEXT_VERSION}"
-
-cp -r "$LATEST_DIR" "$NEW_DIR"
-echo "$NEXT_VERSION" > "$NEW_DIR/VERSION"
-```
-
-**STEP 4: marketplace.json 업데이트**
-
-Edit 도구로: `"./plugins/cs-ceo-v[CURRENT]"` → `"./plugins/cs-ceo-v[NEXT]"`
-
-이후 STEP 4b(버전 메타데이터 정합성 검증)를 도메인 공통 프로토콜과 동일하게 수행한다.
-
-**STEP 5: 오래된 버전 정리** (2개 유지)
-
-```bash
-TOTAL=${#ALL_DIRS[@]}
-DELETE_COUNT=$((TOTAL - 1))
-if [ $DELETE_COUNT -gt 0 ]; then
-  for dir in "${ALL_DIRS[@]:0:$DELETE_COUNT}"; do
-    rm -rf "$dir"
-  done
-fi
-```
-
-**STEP 6: 완료 안내**
-
-```
-✅ cs-ceo 버전업 완료
-📦 현재 버전: cs-ceo-v[NEXT] (VERSION=[NEXT])
-📦 보관 버전: cs-ceo-v[CURRENT] (직전)
-📝 학습 추가: "[제목]" (노하우 #[N])  또는  📝 학습 스킵
-```
-
----
-
-**`all` 완료 후 종합 안내:**
-```
-✅ 전체 버전업 완료
-📦 CS-test: v[N] → v[N+1]  (학습 추가/스킵)
-📦 CS-plan: v[N] → v[N+1]  (학습 추가/스킵)
-📦 CS-codebase-review: v[N] → v[N+1]  (학습 추가/스킵)
-📦 cs-design: v[N] → v[N+1]  (학습 추가/스킵)
-📦 cs-clarify: v[N] → v[N+1]  (학습 추가/스킵)
-📦 cs-smart-run: VERSION [N] → [N+1]  (학습 추가/스킵)
-📦 cs-ceo: v[N] → v[N+1]  (학습 추가/스킵)
-```
-
-### `/cs-experiencing pipeline [project]`
-
-전체 파이프라인을 순서대로 실행합니다. experiencing-lead 에이전트가 오케스트레이션을 담당합니다.
-
-1. **Preflight** (preflight-checker 에이전트 호출): 성공 기준 정의 + 범위 확인 + 도메인별 재실행 버짓 1회 질문 (기본 2회)
-2. **Checkpoint**: 파이프라인 시퀀스 확인 (AskUserQuestion)
-3. **학습 회상**: 공통 read-side 단계 수행 (INDEX grep → 상위 2-3건 디스패치 프롬프트 주입)
-4. **실행 순서**: `review → design → test` (순차, 각 단계 후 체크포인트 + Grounding Gate)
-5. **Evaluator-Optimizer (bounded loop)**: 등급 < B이면 실패 원인 에이전트만 범위 한정 재실행 —
-   도메인당 최대 2라운드, 등급 ≥ B 또는 라운드가 새 발견을 못 만들면 즉시 종료,
-   상한 도달 시 STUCK 리포트 (상세: `agents/experiencing-lead.md` Phase 2)
-6. **최종 요약**: 3개 도메인 결과(아티팩트 검증 여부 포함) + 우선순위 액션 3개
-
-```
-경험 lead 에이전트 스폰:
-BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-LEAD_DIR=$(ls -d "$BASE/cs-experiencing-v"* 2>/dev/null | sort -V | tail -1)
-```
-
-에이전트 파일: `$LEAD_DIR/agents/experiencing-lead.md`
-
----
-
-### `/cs-experiencing btw [idea]` ← v4 신규 (bkit btw 패턴)
-
-세션 중 발견한 개선 아이디어를 즉시 캡처합니다.
-
-```bash
-BTW_FILE="$(dirname $(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0" 2>/dev/null || echo "/tmp"))/.experiencing-btw.json"
-# {id, idea, date, status: "pending"} 형태로 JSON 배열에 추가
-```
-
-저장 후: `💡 BTW #[N] 캡처됨: "[아이디어]"` 출력. version-up 시 pending 항목 자동 제안.
-
----
-
-### `/cs-experiencing checkpoint` ← v4 신규 (gstack 패턴)
-
-현재 작업 상태를 WIP 커밋으로 보존합니다.
-
-```bash
-DATE=$(date +%Y-%m-%d-%H%M)
-git -C "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0" add -A
-git -C "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0" commit -m "wip: cs-experiencing checkpoint $DATE"
-```
-
-완료 후: `✅ 체크포인트 저장됨 (${DATE})` 출력.
-
----
-
-### `/cs-experiencing status`
-
-모든 도메인의 VERSION 파일 표시:
-
-```bash
-BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
-# 7개 도메인 (test→plan→review→design→clarify→smart-run→ceo)
-for PATTERN in "CS-test-v" "CS-plan-v" "CS-codebase-review-v" "cs-design-v" "cs-clarify-v" "cs-ceo-v"; do
-  LATEST=$(ls -d "$BASE/${PATTERN}"* 2>/dev/null | sort -V | tail -1)
-  if [ -n "$LATEST" ]; then
-    VER=$(cat "$LATEST/VERSION" 2>/dev/null || echo "?")
-    DOMAIN=$(basename "$LATEST")
-    echo "📋 $DOMAIN: v$VER"
-  fi
-done
-# cs-smart-run은 버전 접미사 없는 단일 디렉토리 — 직접 경로
-VER=$(cat "$BASE/cs-smart-run/VERSION" 2>/dev/null || echo "?")
-echo "📋 cs-smart-run: v$VER"
-```
+게이트가 실패하면 이번 업그레이드의 편집만 되돌리고 후보는 pending으로 유지한다.
+학습만 추가된 경우 기존 디렉터리에서 patch 버전을 올린다. 새 `-vN` 디렉터리는
+실제 스키마·구조 세대가 바뀔 때만 만든다.
 
 ---
 
@@ -496,8 +87,8 @@ echo "📋 cs-smart-run: v$VER"
 
 ### 학습 INDEX (1줄/항목, 단일 진실)
 
-**검색 프로토콜 (read-side, 디스패치 전 필수):** fan-out을 수행하는 모든 프로토콜(test/plan/review/design/pipeline)은
-에이전트 디스패치 전에 이 INDEX를 현재 태스크의 키워드(기술 스택·도메인 명사)로 grep하고,
+**검색 프로토콜 (read-side):** 과거 경험을 소비하는 도메인 스킬은 실행 전에 이 INDEX를
+현재 태스크의 키워드(기술 스택·도메인 명사)로 grep하고,
 매칭된 상위 2-3건의 본문을 해당 위치(인라인 또는 `knowledge/<topic>.md`)에서 읽어
 **디스패치 프롬프트에 그대로 주입**한다. 매칭 없으면 주입 생략 (질문/지연 금지).
 
@@ -507,7 +98,7 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 ```
 
 신규 학습 추가 시: INDEX에 1줄 추가(번호 = 현재 max+1) + 본문은 매칭되는 `knowledge/<topic>.md`에 append
-(주제 파일이 없으면 새로 생성). 오케스트레이터 자체(version-up/파이프라인/학습 캡처) 도메인 학습만 아래 인라인 섹션에 둔다.
+(주제 파일이 없으면 새로 생성). 백엔드 자체 무결성·라우팅 원칙만 아래 인라인 섹션에 둔다.
 
 | # | 제목 | tier | 태그 | 위치 |
 |---|------|------|------|------|
@@ -668,6 +259,14 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 155 | 여러 항목에 동일 패턴의 오차가 의심되면 먼저 read-only로 전수 진단해 상수-델타 여부를 확인한 뒤 단일 배치 연산으로 고친다 (2026-07-21) | principle | debugging, diagnose-fix-verify, multi-agent, batch-shift | knowledge/multi-agent-orchestration.md |
 | 156 | 그럴듯한 원인을 고쳤다고 끝내지 말고, 사용자가 최초에 보고한 정확한 증상과 대조해 진짜 원인을 특정했는지 재확인한다 (2026-07-21) | principle | debugging, root-cause, symptom-match, verification | knowledge/debugging.md |
 | 157 | Claude Artifact 안에서 외부 라이브러리 없이 PDF 다운로드 구현 — print-media CSS + window.print() (2026-07-21) | tactical | claude-artifact, pdf, print-css, window.print | knowledge/misc-tooling.md |
+| 158 | yt-dlp --cookies-from-browser는 프로필 미지정 시 여러 Chrome 프로필 중 무작위로 선택한다 — Local State JSON으로 폴더명↔표시이름 매핑 필요 (2026-07-22) | tactical | yt-dlp, cookies, chrome-profile, local-state | knowledge/download-pipeline.md |
+| 159 | yt-dlp 쿠키 인증 시 로그인 가능한 클라이언트(tv/web)로 전환되며 JS 런타임 + --remote-components ejs:github 둘 다 필요 (2026-07-22) | tactical | yt-dlp, cookies, youtube, deno, ejs | knowledge/download-pipeline.md |
+| 160 | Radix ScrollArea의 display:table 내부 래퍼는 자식의 truncate를 무력화한다 — w-px min-w-full로 강제 필요 (2026-07-22) | tactical | radix, scrollarea, truncate, display-table, css | knowledge/download-pipeline.md |
+| 161 | 파일명에 '#' 포함 시 인코딩 없이 URL에 넣으면 브라우저가 프래그먼트로 해석해 요청 경로가 잘려 404 (2026-07-22) | tactical | url, filename, encodeURIComponent, fragment, 404 | knowledge/download-pipeline.md |
+| 162 | for 루프 순차 처리에서 아이템별 try/catch 없으면 하나만 실패해도 나머지 전체가 스킵된다 (2026-07-22) | tactical | batch, for-loop, try-catch, partial-failure | knowledge/download-pipeline.md |
+| 163 | Electron fetch+blob 다운로드에서 revokeObjectURL을 너무 빨리 호출하면 큰 파일에서 실패 — 서버가 이미 로컬 저장한 파일은 blob 재다운로드 자체가 불필요 (2026-07-22) | tactical | electron, blob, revokeObjectURL, filesystem, download | knowledge/download-pipeline.md |
+| 164 | `.git`을 재귀 삭제·재초기화하는 엔드포인트는 절대 경로와 호출별 확인만으로 부족하다 — canonical root와 no-follow entry 분류가 필요 (2026-07-26) | principle | git, destructive-action, worktree, symlink, lstat | knowledge/git-worktree.md |
+| 165 | 배치 TTS 자막 경계는 글자수 추정이 아니라 문장별 합성 오디오의 실측 길이를 누적해 생성한다 (2026-07-26) | tactical | tts, ffprobe, subtitles, srt, vtt | knowledge/download-pipeline.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.
@@ -740,6 +339,8 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: `LEADER.md`가 ~36–45k 토큰까지 커져 단일 Read가 컨텍스트 캡을 초과했다 — 학습 파일이 하나 늘 때마다 단조 악화되는 구조였다(= 학습할수록 못 쓰게 되는 anti-scaling). 이를 `LEADER.md`(모드 전용) + 상시 로드 베이스(`CORE.md`/`COMMON.md`) + `INDEX.md`(노트당 1줄) + `LEDGER.md`(쟁점, 해결되며 축소) + `sources/*.md`(빌드 시 비로드)로 **읽는 목적별로** 재분할하자, N번째 학습 파일이 새 행을 추가하기보다 기존 행을 corroborate만 하게 되어 읽기 비용은 유계로 유지되면서 신뢰도만 올라갔다.
 - **교훈**: 지식이 계속 쌓이는 스킬을 설계할 때 "이 항목을 **어떤 목적으로** 읽는가(빌드 vs 감사 vs 포렌식)"로 파일을 나눈다. 주제별 분류는 항목 수에 비례해 읽기 비용이 선형 증가하지만, 읽기 경로별 분류는 유계로 만든다. 단, 균일성을 위해 전 도메인에 일괄 적용하지 말고(작은 도메인 2개는 의도적으로 미분할 유지) **측정된 트리거**(~25k 토큰, 또는 레지스트리가 더 이상 스캔되지 않는 시점)를 문서에 남겨 조건 충족 시에만 적용한다.
 - **근거**: 실측 — nds BUILD 읽기 비용 36,201 → 12,098 토큰, asset 20,742 → 1,859. (skeptic verifier CONFIRM — "아키텍처 수준 주장이며 캐시 지역성/점진적 공개와 같은 논리, 특정 수치나 캡이 바뀌어도 원칙은 생존". 함께 제출된 "토큰 캡 초과" 후보는 이 항목의 근거일 뿐 독립 원칙이 아니라는 이유로 REJECT되어 여기 병합됨.)
+- **추가 (2026-07-26)**: 읽기 경로는 파일을 나누는 데서 끝나지 않는다. 런타임/에이전트 입력으로 선언한 저장소는 실제 소비 쿼리와, 부하를 지탱하는 각 검색 방식에 대한 현실적인 golden-query 회귀 검증을 함께 가져야 한다. `231e4bf` 직전 nhdesign4 proposal 경로에는 topic/component SELECT가 없었고 ledger는 홈페이지 anchor 1곳만 소비했다. 이후 preamble이 topic/component/conflict 소비자를 추가하고 golden set이 page/component anchor 12개와 memory recall을 검증했다. 다만 topic-array lookup과 ledger sweep golden은 아직 부채이므로 모든 구조화 저장소가 완전히 검증됐다고 과장하지 않는다. 런타임 입력으로 선언되지 않은 순수 archive는 이 요구에서 제외한다.
+<!-- provenance: candidate=btw-provenance-1e54b2646acd3c7e9d831164; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=1eb621cd-79c2-46fa-bf38-dd6c2a9a9657; range=git:231e4bfd61d91ceb623edfbe62055fa7b55106e9..51e68d3b5a5639b6cb90d0ecfc7cab94d0315b19;truncated=true -->
 
 ### 123. 지식베이스 감사에서 row-presence는 콘텐츠 깊이를 은폐한다 — row-count 커버리지만으로는 거짓 확신이 생긴다 (2026-07-17)
 <!-- tier: principle -->
@@ -766,52 +367,3 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 - **발견**: Claude Code 플러그인 로더는 skills/agents/commands를 plugin.json에 문자열 배열로 선언하는 방식이 아니라, 플러그인 폴더 내 실제 디렉토리 구조(`agents/*.md`, `skills/*/SKILL.md`, `commands/*.md`)를 스캔해 자동 발견(auto-discovery)한다. plugin.json에 이 키들을 배열로 넣으면 installer의 스키마 검증에 걸려 "Invalid input" 에러가 난다. 추가로 cs-core-memory-v1은 `.claude-plugin/plugin.json` 외에 플러그인 루트에도 중복 `plugin.json`이 있었고(다른 모든 플러그인 중 유일), 이것도 같은 무효 필드를 갖고 있어 별도 커밋으로 삭제함 — 표준 위치(`.claude-plugin/plugin.json`) 하나만 유지.
 - **교훈**: 새 Claude Code 플러그인(특히 마켓플레이스 배포용) plugin.json을 작성/디버깅할 때, skills/agents/commands 키를 수동으로 선언하지 말 것 — 디렉토리 구조만으로 충분하다. "Invalid input" 검증 에러가 나면 같은 레포의 이미 설치 가능한 plugin.json들과 필드 셋을 diff하여 스키마 불일치를 확인한다.
 - **근거**: `cs-core-memory-v1/.claude-plugin/plugin.json`: `"skills": ["cs-core-memory"], "agents": ["memory-keeper"], "commands": []` → 설치 에러 "Plugin ... has an invalid manifest file ... Validation errors: agents: Invalid input, skills: Invalid input". `cs-end-v3/.claude-plugin/plugin.json`에는 해당 필드들이 전혀 없이 author/repository/license/keywords만 존재 (정상 설치됨). 수정: 커밋 d4dfac7 (필드 제거) + 6741a11 (중복 루트 plugin.json 삭제), PR #4.
-
-### 158. yt-dlp --cookies-from-browser는 프로필 미지정 시 여러 Chrome 프로필 중 무작위로 선택한다 — Local State JSON으로 폴더명↔표시이름 매핑 필요 (2026-07-22)
-<!-- tier: tactical -->
-
-- **상황**: 외부 프로젝트(easyconversion_web1)의 YouTube 다운로드 탭에 쿠키 인증 기능을 추가하던 중, 같은 코드·같은 요청인데도 실행마다 성공/실패가 들쭉날쭉한 버그를 디버깅했다.
-- **발견**: yt-dlp에 `--cookies-from-browser <browser>`만 주면(프로필 미지정) 여러 Chrome 프로필이 동시에 열려있을 때 매 실행마다 다른 프로필을 무작위로 골랐다. 원인 중 하나는 `chrome://version` 표시 이름("chunsung")과 yt-dlp가 요구하는 실제 폴더명("Profile 1")이 달라 사용자가 표시 이름을 그대로 입력한 것. Chrome의 `Local State` JSON(`profile.info_cache`)을 읽으면 폴더명↔표시이름 매핑을 정확히 얻을 수 있어, UI를 자유입력 대신 드롭다운으로 바꿔 해결했다.
-- **교훈**: 브라우저 프로필을 이름으로 지정하는 CLI 옵션은 반드시 프로필까지 명시해야 하며, 표시 이름이 아니라 브라우저의 내부 상태 파일(Local State 등)에서 얻은 실제 폴더명을 써야 한다. 자유입력 필드는 이런 이름 불일치 버그의 근원이므로 검증된 값만 고를 수 있는 드롭다운으로 대체하는 게 안전하다.
-- **근거**: 실측 — `/Users/gwanli/Library/Application Support/Google/Chrome/Local State`의 `profile.info_cache["Profile 1"].name == "chunsung"`, 폴더명은 `Profile 1`. 프로필 비워두고 반복 실행 시 쿠키 개수가 2930개(다른 프로필)와 3189개(Profile 1)로 왔다갔다 함을 확인.
-
-### 159. yt-dlp 쿠키 인증 시 로그인 가능한 클라이언트(tv/web)로 전환되며 JS 런타임 + --remote-components ejs:github 둘 다 필요 (2026-07-22)
-<!-- tier: tactical -->
-
-- **상황**: yt-dlp 쿠키 인증 다운로드가 계속 "Requested format is not available"로 실패하는 것을 디버깅했다 (일반 공개 영상까지 실패).
-- **발견**: yt-dlp가 쿠키를 붙이면 로그인 미지원 클라이언트(android_vr 등, 서명챌린지 불필요)를 건너뛰고 로그인 가능한 tv/web 클라이언트로 전환하는데, 이 클라이언트들은 YouTube의 n-challenge(서명 해독)를 풀 JS 런타임이 필요했다. `deno` 설치만으로는 부족했고 `--remote-components ejs:github` 옵션까지 줘야 실제 챌린지 솔버 스크립트를 받아와서 동작했다.
-- **교훈**: 도구가 인증 상태에 따라 내부적으로 다른 실행 경로(클라이언트)로 전환할 수 있으며, 그 경로는 별도의 숨은 의존성(JS 런타임 + 원격 컴포넌트)을 요구할 수 있다. 인증 관련 실패는 단일 원인이 아니라 복수 전제조건의 조합으로 봐야 한다.
-- **근거**: `deno --version` 설치 확인 후에도 동일 에러 재현 → `-v --list-formats`로 `WARNING: [youtube] [jsc] Remote components challenge solver script (deno) and NPM package (deno) were skipped... --remote-components ejs:github` 확인 → 해당 플래그 추가 후 포맷 목록 정상 반환.
-
-### 160. Radix ScrollArea의 display:table 내부 래퍼는 자식의 truncate를 무력화한다 — w-px min-w-full로 강제 필요 (2026-07-22)
-<!-- tier: tactical -->
-<!-- skeptic verifier DOWNGRADE from principle: "Radix 내부 구현(display:table)에 의존하는 지식이라 공개 API 계약이 아님. min-width>width CSS 스펙 자체는 안정적이나 실측이 특정 버전 조합에서만 검증됨" -->
-
-- **상황**: Radix UI ScrollArea 안에서 파일명 텍스트가 truncate(ellipsis) 돼야 하는데 오른쪽이 잘려 보이는 레이아웃 버그를 디버깅했다.
-- **발견**: ScrollArea는 내부적으로 `display: table` 래퍼 div(`min-width: 100%; display: table;`)를 쓰는데, 이 레이아웃은 자식의 "줄바꿈 없는 원본 크기" 기준으로 폭을 계산해 truncate(overflow:hidden+ellipsis+nowrap)를 무력화시켰다. `w-full`만으로는 해결이 안 됐고, `w-px min-w-full`(width:1px + min-width:100%, CSS 스펙상 min-width가 width보다 우선순위 높음을 이용) 조합을 자식 콘텐츠 div에 줘야 정확히 부모 폭으로 강제됐다.
-- **교훈**: display:table 기반 레이아웃(Radix ScrollArea 포함)에서 truncate가 안 먹히면, w-full이 아니라 width:1px + min-width:100% 트릭이 필요할 수 있다. 또한 이런 레이아웃 버그는 육안 스크린샷 추측(스크롤바 겹침, padding 부족 등 이번에도 두 차례 오판)보다, 브라우저 자동화 도구로 `getBoundingClientRect()`/`scrollWidth`를 직접 측정해 확인하는 것이 훨씬 빠르고 정확했다.
-- **근거**: 실측 — 수정 전 `{"vpWidth": 582, "wrapperWidth": 757.3, "mineScrollWidth": 757}`, `w-px min-w-full` 적용 후 `{"vpWidth": 582, "wrapperWidth": 582, "mineScrollWidth": 582}`.
-
-### 161. 파일명에 '#' 포함 시 인코딩 없이 URL에 넣으면 브라우저가 프래그먼트로 해석해 요청 경로가 잘려 404 (2026-07-22)
-<!-- tier: tactical -->
-
-- **상황**: 강좌 회차 번호("#23." 등)가 포함된 파일명만 골라서 다운로드가 404로 실패하는 버그를 디버깅했다.
-- **발견**: 파일명에 `#`이 포함된 상태로 서버가 만든 URL을 인코딩 없이 `/downloads/{session}/{filename}`에 넣어 내려주면, 브라우저의 fetch/URL 파서가 `#` 이후를 URL 프래그먼트로 해석해 요청 경로에서 잘라버려 실제 존재하는 파일도 404가 났다. `#`이 없는 파일명은 정상 동작하고 `#` 포함 파일명만 실패하는 패턴이 특징적 시그니처였다. 서버에서 `encodeURIComponent`로 경로를 인코딩해서 내려주고, 삭제 등 그 경로를 다시 받는 API에서는 `decodeURIComponent`로 되돌려 해결했다.
-- **교훈**: 사용자 생성 파일명을 그대로 URL 경로에 넣을 때는 반드시 `encodeURIComponent`를 거쳐야 하며, 특히 `#`(프래그먼트)·`?`(쿼리) 같은 URL 예약 문자가 포함될 수 있는 입력은 특별히 취약하다. "특정 문자를 포함한 항목만 골라서 실패"하는 패턴은 URL 예약 문자 인코딩 누락을 의심하는 신호다.
-- **근거**: `#` 없는 파일명은 "선택 다운로드"가 전부 성공, `#` 포함 파일명만 `HTTP 404` (lib/download.ts:4 `throw new Error('HTTP ' + response.status)`) → `encodeURIComponent`/`decodeURIComponent` 왕복 추가 후 전부 성공.
-
-### 162. for 루프 순차 처리에서 아이템별 try/catch 없으면 하나만 실패해도 나머지 전체가 스킵된다 (2026-07-22)
-<!-- tier: tactical -->
-
-- **상황**: 재생목록 일괄 다운로드/저장 기능에서 "N개 중 일부만 처리됐다"는 애매한 사용자 보고를 두 차례(다른 기능에서) 조사했다.
-- **발견**: `for (const item of items) { await doSomething(item) }` 형태에서 개별 아이템에 try/catch가 없으면, 42개 중 하나만 실패해도 그 지점에서 루프 전체가 멈춰버려 나머지가 통째로 스킵된다.
-- **교훈**: 일괄 처리 루프에서 await를 쓸 때는 각 아이템을 try/catch로 감싸 개별 실패가 나머지 처리를 막지 않도록 해야 한다. "N개 중 일부만 처리됨" 버그 보고를 받으면 루프 중단 여부부터 의심한다.
-- **근거**: `ProjectFilesDialog.tsx`의 `downloadSelected` 반복문에 try/catch 없음 확인 → 개별 try/catch + 성공/실패 카운트 추가 후 "몇 개 중 몇 개 성공" 정상 보고로 재현 종료.
-
-### 163. Electron fetch+blob 다운로드에서 revokeObjectURL을 너무 빨리 호출하면 큰 파일에서 실패 — 서버가 이미 로컬 저장한 파일은 blob 재다운로드 자체가 불필요 (2026-07-22)
-<!-- tier: tactical -->
-
-- **상황**: Electron 데스크톱 앱에서 서버가 다운로드한 결과 파일을 사용자에게 전달하는 기능을 구현/디버깅했다.
-- **발견**: 브라우저 fetch+blob(`URL.createObjectURL` → 앵커 클릭 → `URL.revokeObjectURL`) 방식으로 파일을 "다운로드"시킬 때, revoke를 너무 빨리(1초) 하면 큰 파일(수십MB 영상)에서 다운로드 매니저가 blob을 다 읽어가기 전에 참조가 사라져 "File wasn't available on site" 에러가 났다. 더 근본적으로는, 서버(Node)가 이미 로컬 디스크에 파일을 저장해둔 Electron 앱에서는 이 브라우저 blob "재다운로드" 단계 자체가 불필요했다 — `exec('open', folderPath)` 같은 네이티브 폴더 열기가 훨씬 안정적이었다.
-- **교훈**: blob URL을 즉시 revoke하면 큰 파일일수록 레이스 컨디션으로 실패할 수 있다(임시방편이면 지연을 넉넉히 늘릴 것). 더 근본적으로, Electron처럼 서버와 클라이언트가 같은 파일시스템을 공유하는 데스크톱 앱에서는 브라우저의 blob "재다운로드" 우회 자체를 없애고 네이티브 파일시스템 API(폴더 열기 등)로 대체하는 게 더 안정적인 설계다.
-- **근거**: revoke 지연 1000ms → 60000ms로 늘려도 재발 가능성 있어, 결국 fetch+blob 호출 자체를 제거하고 `/api/open-folder`(기존에 다른 다이얼로그가 쓰던 `exec('open', ...)` 방식)로 대체 후 문제 재발 없음.

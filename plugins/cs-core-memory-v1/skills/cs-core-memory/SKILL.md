@@ -5,15 +5,15 @@ description: |
   Cross-session strategic memory recall. Reads ~/.claude/core-memory/CORE.md and
   surfaces patterns, decisions, and historical warnings relevant to the current task.
   Used by cs-ceo at session start after GOAL_STATEMENT is confirmed.
-  Use when invoked via /cs-core-memory, or when user says "과거 패턴", "이전에 어떻게 했지", "historical context".
-version: 1.0.0
+  Use for internal strategic recall, or when user says "과거 패턴", "이전에 어떻게 했지", "historical context".
+version: 2.0.0
 allowed-tools:
   - Read
   - Bash
   - Grep
 ---
 
-# /cs-core-memory — Cross-Session Strategic Memory Recall
+# Cross-Session Strategic Memory Recall
 
 ## Purpose
 
@@ -23,12 +23,12 @@ This is NOT a log reader — it is a pattern matcher that answers: "What does ou
 ## Usage
 
 ```
-/cs-core-memory recall [topic]       # Surface patterns relevant to [topic]
-/cs-core-memory status               # Show CORE.md summary stats
-/cs-core-memory warnings             # List all Recurring Issues with hit_count >= 2
-/cs-core-memory decisions            # List all Key Decisions
-/cs-core-memory contested            # List all Contested Entries, oldest-unresolved first
-/cs-core-memory full                 # Dump entire CORE.md (for deep review)
+recall [topic]       # Surface patterns relevant to [topic]
+status               # Show CORE.md summary stats
+warnings             # List all Recurring Issues with hit_count >= 2
+decisions            # List all Key Decisions
+contested            # List all Contested Entries, oldest-unresolved first
+full                 # Dump entire CORE.md (for deep review)
 ```
 
 ## Storage Location
@@ -41,7 +41,7 @@ CORE_MEMORY="$HOME/.claude/core-memory/CORE.md"
 
 ## Execution Protocol
 
-### `/cs-core-memory recall [topic]`
+### `recall [topic]`
 
 **Step 1 — Existence check**
 
@@ -121,7 +121,7 @@ Entries accumulate automatically as sessions close via /cs-end.
 
 ---
 
-### `/cs-core-memory status`
+### `status`
 
 Read CORE.md header and section counts:
 
@@ -142,7 +142,7 @@ Output a one-line health summary:
 
 ---
 
-### `/cs-core-memory warnings`
+### `warnings`
 
 List all Recurring Issues sorted by hit_count descending:
 
@@ -154,7 +154,7 @@ Highlight any with `hit_count >= 3` as CRITICAL (promoted to Strategic Patterns 
 
 ---
 
-### `/cs-core-memory decisions`
+### `decisions`
 
 List all Key Decisions with constraint status:
 
@@ -168,7 +168,7 @@ Separate output into:
 
 ---
 
-### `/cs-core-memory contested`
+### `contested`
 
 List all Contested Entries, sorted by `sessions_unresolved` descending:
 
@@ -182,7 +182,7 @@ both) rather than continuing to accumulate silently.
 
 ---
 
-### `/cs-core-memory full`
+### `full`
 
 Read and output entire CORE.md verbatim. Prepend:
 ```
@@ -204,7 +204,7 @@ session start) but must be kept in sync manually: any change to the recall/ranki
 should be mirrored in `cs-ceo-v15/agents/ceo.md` Phase G.5, and vice versa.
 
 The `recall`/`status`/`warnings`/`decisions`/`full` subcommands above remain the canonical,
-user-invocable entry points (`/cs-core-memory recall [topic]`, etc.) and use the full scoring
+internal entry points (`recall [topic]`, etc.) and use the full scoring
 algorithm. Phase G.5's output convention mirrors this file's Step 5 format:
 ```
 📚 Core Memory: [relevant insight]

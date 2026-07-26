@@ -2,7 +2,7 @@
 
 **Target file:** `plugins/cs-ceo-v*/agents/ceo.md`
 **Insert position:** In Phase G, after GOAL_STATEMENT is confirmed (after Step 3), before Phase -3
-**Depends on:** cs-core-memory-v1 installed
+**Depends on:** `cs-memory` installed (source directory: `cs-core-memory-v1`)
 
 ---
 

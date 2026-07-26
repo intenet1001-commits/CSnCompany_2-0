@@ -1,7 +1,7 @@
 {
   "name": "cs-experiencing",
-  "version": "9.0.3",
-  "description": "Accumulated knowledge repository — CS-test, CS-plan, CS-codebase-review, cs-design domain learnings. Integrated: bkit btw capture, Karpathy guidelines, gstack Iron Law + atomic commits.",
+  "version": "9.1.0",
+  "description": "Internal accumulated knowledge backend for targeted CS agent upgrades and lesson recall.",
   "author": {
     "name": "gwanli",
     "url": "https://github.com/intenet1001-commits"
