@@ -29,6 +29,17 @@ You don't need to remember which command does what — type `/cs-ceo "your goal"
 
 ---
 
+## 🎨 Design Reference Samples
+
+Two captured design languages you can `--audit` or `--apply` to your own Next.js/Tailwind pages.
+
+| `cs-design-sample1` — CS Archive (paper ↔ dark tokens) | `cs-design-sample2` — Dark editorial/terminal |
+|:---:|:---:|
+| ![cs-design-sample1 preview](plugins/cs-design-sample1/preview/preview.png) | ![cs-design-sample2 preview](plugins/cs-design-sample2/preview/preview.png) |
+| Warm paper (`#F4EFE3`) background + deep teal accent by default, near-black + cyan dark toggle — one `--cs-accent` token re-skins everything. Ghost numerals, IBM Plex Mono + Noto Serif KR | Near-black navy (`#05070d`) background, cyan accent, IBM Plex Mono + Noto Serif KR, grid-overlay + glow decor — dark content/editorial sites |
+
+---
+
 ## 👥 The Team
 
 | Member | Plugin | Slash Command | What it does |
@@ -37,7 +48,8 @@ You don't need to remember which command does what — type `/cs-ceo "your goal"
 | 💬 **PM** | `cs-clarify` | `/cs-clarify` | Asks Socratic questions, surfaces hidden assumptions, prevents over-engineering |
 | 🏗️ **Architect** | `CS-plan` | `/CS-plan "feature"` | TDD + Clean Architecture plan: domain analysis, architecture, test strategy, checklist |
 | 🎨 **Designer** | `cs-design` | `/cs-design <url>` | 5-agent design review: hierarchy, interaction, design system, a11y, anti-patterns |
-| 🎨 **Design Reference** | `cs-design-sample1` | `/cs-design-sample1` | Crextio-style design guide for Tailwind/Next.js dashboards |
+| 🎨 **Design Reference** | `cs-design-sample1` | `/cs-design-sample1` | CS Archive token system (paper default / dark toggle) for Next.js study/content apps |
+| 🎨 **Design Reference** | `cs-design-sample2` | `/cs-design-sample2` | Dark editorial/terminal design guide for Next.js dark content sites |
 | 🧪 **QA Engineer** | `CS-test` | `/CS-test <url>` | 14-agent web test: security, SEO, perf, a11y, DB, PWA, touch, image |
 | 🔍 **Code Reviewer** | `CS-codebase-review` | `/CS-codebase-review ./src` | 5-agent review: architecture, quality, security, perf, maintainability |
 | 🚢 **DevOps** | `cs-ship` | `/cs-ship` | Pre-PR validation: spec compliance, coverage, commit messages |
@@ -81,6 +93,7 @@ Pick à la carte, or install everything:
 /plugin install CS-plan@CSnCompany_2-0
 /plugin install cs-design@CSnCompany_2-0
 /plugin install cs-design-sample1@CSnCompany_2-0
+/plugin install cs-design-sample2@CSnCompany_2-0
 /plugin install CS-test@CSnCompany_2-0
 /plugin install CS-codebase-review@CSnCompany_2-0
 /plugin install cs-ship@CSnCompany_2-0
@@ -201,7 +214,8 @@ CSnCompany_2-0/
 │   ├── cs-clarify-v1/             # 💬 PM
 │   ├── CS-plan-v21/               # 🏗️ Architect
 │   ├── cs-design-v19/             # 🎨 Designer
-│   ├── cs-design-sample1/         # 🎨 Design reference
+│   ├── cs-design-sample1/         # 🎨 Design reference (CS Archive tokens, paper/dark)
+│   ├── cs-design-sample2/         # 🎨 Design reference (dark editorial)
 │   ├── CS-test-v26/               # 🧪 QA
 │   ├── CS-codebase-review-v29/    # 🔍 Reviewer (Python pre-pass enabled)
 │   ├── cs-ship-v1/                # 🚢 DevOps

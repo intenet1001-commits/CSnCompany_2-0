@@ -1,327 +1,318 @@
 # cs-design-sample1 Design Guide
 
-Crextio HR Dashboard에서 영감을 받은 내부 대시보드 디자인 시스템.
-Tailwind CSS + Next.js 기반 데이터 집약적 내부 도구(Internal Tool)에 최적화.
+토큰 기반 "CS Archive" 디자인 시스템 — paper(기본) ↔ dark 듀얼 테마, 단일 파생 액센트로
+전체 사이트를 재스킨하는 구조. Next.js(App Router) 모바일 스터디 앱에 최적화.
+(원본: `/Users/gwanli/product_2026/designguide for cs`의 `tokens.css`+`system.css` —
+기계학습과포트폴리오최적화 기말고사 스터디 앱 `final-study-web/`에 그대로 복사되어 적용됨)
+
+> 한 문단 요약: 근흑색(또는 누런 종이) 위에 인쇄된 계기판. 넓은 자간의 대문자 모노스페이스가
+> 기계 라벨처럼 동작하고, 무거운 세리프가 모든 헤드라인을 담당하며, 본문은 둘 중 어느 쪽과도
+> 경쟁하지 않는 차분한 중간 회색에 앉는다. 표면은 8% 화이트 그라디언트 + 헤어라인으로만
+> 구분되어 층이 아니라 새겨진 것처럼 읽힌다. 액센트는 하나, 모션은 느리고 항상 같은 방향
+> (콘텐츠는 위로 떠오른다).
 
 ---
 
-## 1. 색상 시스템 (Color System)
+## 1. 색상 시스템 (Color System) — 토큰
 
-### 배경 (Background)
+**단일 소스**: `--cs-accent` 하나만 바꾸면 글로우·호버 섀도·하이라이트·LED·포커스가 전부
+`color-mix(in oklab, var(--ac) N%, transparent)`로 파생되어 함께 움직인다. 두 번째 액센트
+색상을 하드코딩하는 것이 시스템이 무너지는 가장 흔한 방식이다.
+
 ```css
-/* globals.css body */
-background: #F5F3EE;  /* warm cream */
-```
-```tsx
-// Tailwind
-<div className="bg-[#F5F3EE]">
+--cs-accent: #67e8f9;         /* dark 테마 기본 — cyan */
+--ac: var(--cs-accent);       /* color-mix() 안에서 쓰는 짧은 별칭 */
 ```
 
-### 주요 액센트 (Primary Accent) — Yellow/Amber
-| 용도 | 클래스 |
-|------|--------|
-| 강조 배지, KPI 카드, FOCUS 뱃지 | `bg-amber-400` |
-| 액센트 카드 위 텍스트 | `text-amber-900` |
-| 필터 활성 상태 | `bg-amber-400 text-amber-900 border-amber-400` |
-| 필터 아이템 idle | `bg-amber-50 border-amber-200 text-amber-700` |
-| 폼 카드 좌측 보더 | `border-l-4 border-amber-400` |
-| 진행 바 fill | `bg-amber-400` |
-| 세그먼트 FOCUS 카드 테두리 | `border-amber-300 bg-amber-50/60 ring-1 ring-amber-200` |
+### 표면 (Surfaces) — dark (alt 테마)
+| 토큰 | 값 |
+|------|-----|
+| `--cs-bg` | `#05070d` 근흑색, 옅은 블루 틴트 |
+| `--cs-bg-raised` | `#0a0d14` |
+| `--cs-bg-device` | `#12161f` |
 
-### 보조 액센트 (Secondary Accent) — Dark Slate
-| 용도 | 클래스 |
-|------|--------|
-| 테이블 헤더 배경 | `bg-slate-900` |
-| KPI 다크 카드 배경 | `bg-slate-900` |
-| Primary 버튼 | `bg-slate-900 hover:bg-slate-800` |
-| 그룹 헤더 (KR, 섹션 타이틀) | `bg-slate-900 text-white` |
-| 필터 "전체" 버튼 활성 | `bg-slate-900 text-white border-slate-900` |
-| 2위 순위 뱃지 | `bg-slate-800 text-white` |
-| 테이블 헤더 텍스트 | `text-slate-400` |
-| 활성 스코어러 컬럼 헤더 | `text-amber-400` (슬레이트 배경 위) |
+### 표면 (Surfaces) — paper (기본 테마, `[data-theme="paper"]`)
+긴 논술형 답안을 어두운 배경에서 읽기 힘들다는 요청으로 재스킨한 실제 적용 사례.
+가이드의 "밝은 면은 종이에만"(원칙 9)을 의도적으로 뒤집되, 나머지 원칙은 그대로 지킨다 —
+**토큰만 교체하고 컴포넌트 클래스는 건드리지 않는 것**이 이 시스템의 재스킨 방식.
 
-### 중립 (Neutral) — Stone palette
-| 용도 | 클래스 |
-|------|--------|
-| 레이블, 서브텍스트 | `text-stone-400` |
-| 섹션 구분선 | `bg-stone-100`, `border-stone-100` |
-| 섹션 토글 배경 | `bg-stone-50 hover:bg-stone-100` |
-| 스코어러 선택 트랙 | `bg-stone-100 rounded-full p-1` |
-| Secondary 버튼 | `bg-stone-100 text-stone-600 hover:bg-stone-200` |
-| 링크 버튼 | `bg-white shadow-sm border border-stone-200 text-stone-600` |
-| 셀렉트 박스 보더 | `border-stone-200` |
-| 3위 순위 뱃지 | `bg-stone-200 text-stone-600` |
-| "노션필요" 등 비활성 뱃지 | `bg-stone-100 text-stone-400` |
+```css
+:root[data-theme="paper"] {
+  --cs-accent: #146b74;        /* 딥 틸 — 크림 배경 위 대비 5.41:1 */
+  --cs-bg: #f4efe3;            /* 누런 종이 */
+  --cs-bg-raised: #fbf8f0;
+  --cs-bg-device: #e9e2d2;
+}
+```
+사이언(`#67e8f9`)은 크림 배경에서 대비 1.3:1로 사실상 안 보이므로, 재스킨 시 액센트도
+반드시 함께 교체한다 — 파생 틴트가 전부 따라오도록.
 
-### 기능성 색상 (유지)
-| 용도 | 클래스 |
-|------|--------|
-| 에러 배너 | `bg-red-50 border border-red-200 text-red-700` |
-| ICE 연동 뱃지 | `bg-green-100 text-green-600` |
-| 하이라이트 행 | `bg-green-50 ring-2 ring-inset ring-green-300` |
-| 스테이터스 배지 | 각 상태별 시맨틱 색상 유지 |
+### 텍스트 사다리 (Text Ladder) — 9단계, 용도로 고른다 (취향 아님)
+| 토큰 | dark 값 | paper 값 | 용도 |
+|------|---------|----------|------|
+| `--cs-text` | `#e6eaf2` | `#2b2721` | 기본 본문 |
+| `--cs-text-strong` | `#f1f5fb` | `#17140f` | `<strong>`, 강조 |
+| `--cs-text-card` | `#d7dee9` | `#332e26` | 카드 타이틀, 리스트 타이틀 |
+| `--cs-text-body` | `#aeb7c7` | `#464036` | 장문 문단 (본문은 흰색이 **아니다**) |
+| `--cs-text-muted` | `#8b94a6` | `#5c5648` | 리드 문단, 보조 내비 |
+| `--cs-text-label` | `#5b6577` | `#6f6757` | 모노 eyebrow, 메타, 비활성 탭 — 방향성 표시 전용, 읽기용 아님 |
+| `--cs-text-ghost` | `#4a5364` | `#7d7565` | 티커 텍스트 |
+| `--cs-text-faint` | `#414b5c` | `#857c6c` | 풋터 |
+| `--cs-text-disabled` | `#39414f` | `#a89f8e` | 비활성 컨트롤 |
+
+**규칙**: paper 테마의 사다리 아래쪽(label 이하)은 dark보다 한 단계씩 진하게 잡는다 — 크림
+배경은 흰 배경보다 밝기가 낮아 같은 회색이 더 흐리게 보이기 때문. `label`(4.88:1)은 비활성
+탭에도 쓰이므로 장식 기준이 아니라 AA 기준으로 잡아야 한다.
+
+### 헤어라인 & 표면 채움
+| 토큰 | dark 값 | paper 값 |
+|------|---------|----------|
+| `--cs-line` (기본 보더) | `rgba(255,255,255,.08)` | `rgba(74,58,30,.18)` (따뜻한 갈색) |
+| `--cs-line-soft` (풋터 룰) | `rgba(255,255,255,.06)` | `rgba(74,58,30,.11)` |
+| `--cs-line-strong` (고스트 버튼) | `rgba(255,255,255,.14)` | `rgba(74,58,30,.32)` |
+| `--cs-line-grid` (배경 그리드) | `rgba(255,255,255,.028)` | `rgba(90,72,40,.055)` |
+| `--cs-fill-card` | `linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.012))` | `linear-gradient(160deg, rgba(255,253,247,.95), rgba(255,253,247,.55))` |
+| `--cs-ghost-num` (초대형 배경 숫자) | `rgba(235,240,250,.05)` | `rgba(74,58,30,.08)` |
+
+**160° 그라디언트 각도는 테마와 무관하게 항상 고정** — 암시된 광원 방향이 카드마다 달라지면
+안 되기 때문. paper 테마의 그림자는 훨씬 옅어야 한다 (검정 60% 그림자는 종이 위에서 얼룩처럼
+보인다) — `--cs-shadow-panel`을 `rgba(74,58,30,.35)` 기준으로 재정의.
+
+### 라이트 인셋 (Light Insets)
+`--cs-paper` (`#f5f2ea`) / `--cs-paper-warm` (`#f7f5f0`) — dark 테마에서 **종이 그 자체인
+콘텐츠**(다이어그램, 스캔, 만화 페이지)에만 쓰는 유일한 밝은 표면. 카드·모달·섹션에 쓰면 안
+된다 — 레이아웃 속 밝은 패널은 버그처럼 읽힌다.
 
 ---
 
-## 2. 컴포넌트 패턴 (Component Patterns)
+## 2. 테마 시스템 (Paper ↔ Dark 토글)
 
-### 페이지 레이아웃
-```tsx
-<div className="min-h-screen bg-[#F5F3EE] p-6">
-  <div className="max-w-7xl mx-auto space-y-5">
-    {/* header */}
-    {/* KPI cards */}
-    {/* content */}
-  </div>
-</div>
-```
-
-### 페이지 헤더
-```tsx
-<div className="flex items-start justify-between">
-  <div>
-    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">페이지 제목</h1>
-    <p className="text-sm text-stone-400 mt-0.5">부제목 설명</p>
-  </div>
-  <div className="flex items-center gap-2">
-    {/* FontSizeControl */}
-    <Link className="px-3 py-1.5 text-xs bg-white shadow-sm border border-stone-200 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors">
-      다른 탭 →
-    </Link>
-  </div>
-</div>
-```
-
-### KPI 카드 4종 세트
-```tsx
-<div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-  {/* White card */}
-  <div className="bg-white rounded-2xl shadow-sm p-4">
-    <p className="text-xs text-stone-400 font-medium mb-1">라벨</p>
-    <p className="text-3xl font-bold text-slate-900 tabular-nums">{value}</p>
-    <p className="text-xs text-stone-400 mt-1">보조 설명</p>
-  </div>
-
-  {/* White card with progress bar */}
-  <div className="bg-white rounded-2xl shadow-sm p-4">
-    <p className="text-xs text-stone-400 font-medium mb-1">진행률</p>
-    <p className="text-3xl font-bold text-slate-900 tabular-nums">{count}</p>
-    <div className="mt-2 h-1.5 rounded-full bg-stone-100 overflow-hidden">
-      <div className="h-full rounded-full bg-amber-400 transition-all" style={{ width: `${pct}%` }} />
-    </div>
-  </div>
-
-  {/* Dark card */}
-  <div className="bg-slate-900 rounded-2xl shadow-sm p-4">
-    <p className="text-xs text-slate-400 font-medium mb-1">라벨</p>
-    <p className="text-3xl font-bold text-white tabular-nums">{value}</p>
-    <p className="text-xs text-slate-400 mt-1 truncate">부제</p>
-  </div>
-
-  {/* Amber accent card */}
-  <div className="bg-amber-400 rounded-2xl shadow-sm p-4">
-    <p className="text-xs text-amber-900/70 font-medium mb-1">라벨</p>
-    <p className="text-3xl font-bold text-amber-900 tabular-nums">{value}</p>
-    <p className="text-xs text-amber-900/70 mt-1">보조 설명</p>
-  </div>
-</div>
-```
-
-### 일반 카드
-```tsx
-<div className="bg-white rounded-2xl shadow-sm p-4">
-  {/* 내용 */}
-</div>
-```
-
-### 폼 카드 (amber 좌측 보더)
-```tsx
-<div className="bg-white rounded-2xl shadow-md p-4 space-y-3 border-l-4 border-amber-400">
-  {/* 폼 필드 */}
-</div>
-```
-
-### 데이터 테이블
-```tsx
-<div className="bg-white rounded-2xl shadow-md overflow-hidden">
-  <div className="overflow-x-auto">
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="bg-slate-900">
-          <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-400">컬럼</th>
-          {/* 활성 스코어러 컬럼: text-amber-400 */}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-stone-100">
-        <tr className="hover:bg-stone-50/60 transition-colors">
-          {/* 활성 컬럼 셀: bg-amber-50/50 */}
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-```
-
-### 순위 뱃지
-```tsx
-{/* 1위 */}
-<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-400 text-amber-900 font-bold text-xs shadow-sm">1</span>
-{/* 2위 */}
-<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-800 text-white font-bold text-xs">2</span>
-{/* 3위 */}
-<span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-stone-200 text-stone-600 font-bold text-xs">3</span>
-{/* 4위+ */}
-<span className="text-stone-400 text-xs font-medium tabular-nums">{rank}</span>
-```
-
-### 최고 점수 셀 뱃지
-```tsx
-<span className="inline-block px-2.5 py-1 rounded-lg bg-amber-400 text-amber-900 font-bold text-sm tabular-nums shadow-sm">{score}</span>
-```
-
-### 버튼
-```tsx
-{/* Primary */}
-<button className="px-4 py-2 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium disabled:opacity-50">
-  저장
-</button>
-
-{/* Secondary */}
-<button className="px-4 py-2 text-sm bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-colors">
-  취소
-</button>
-
-{/* Small primary */}
-<button className="px-3 py-1.5 text-xs bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium">
-  + 추가
-</button>
-
-{/* Link-style (탭 이동) */}
-<Link className="px-3 py-1.5 text-xs bg-white shadow-sm border border-stone-200 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors">
-  다른 탭 →
-</Link>
-```
-
-### 스코어러 선택 네비게이션 (Pill-nav)
-```tsx
-<div className="inline-flex gap-1 bg-stone-100 rounded-full p-1 flex-wrap">
-  {items.map((s) => (
-    <button
-      key={s}
-      onClick={() => setActive(s)}
-      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-        active === s ? "bg-white shadow-sm text-slate-900" : "text-stone-500 hover:text-slate-700"
-      }`}
-    >
-      {s}
-    </button>
-  ))}
-</div>
-```
-
-### 필터 (문제영역/세그먼트)
-```tsx
-{/* "전체" 버튼 */}
-<button className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-  isAll ? "bg-slate-900 text-white border-slate-900" : "bg-white text-stone-500 border-stone-300 hover:border-stone-400"
-}`}>
-  전체
-</button>
-
-{/* 필터 아이템 */}
-<button className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-  active ? "bg-amber-400 text-amber-900 border-amber-400 font-semibold" : "bg-amber-50 border-amber-200 text-amber-700 hover:border-amber-400"
-}`}>
-  {active && <span className="mr-1">✓</span>}{label}
-</button>
-```
-
-### 그룹 헤더 (KR, 섹션 타이틀)
-```tsx
-<div className="bg-white rounded-2xl shadow-md overflow-hidden">
-  <div className="bg-slate-900 px-5 py-3">
-    <h3 className="text-sm font-bold text-white">그룹 제목</h3>
-  </div>
-  {/* 내용 */}
-</div>
-```
-
-### 섹션 토글 (접기/펼치기)
-```tsx
-<button className="w-full flex items-center gap-2 px-5 py-2.5 bg-stone-50 hover:bg-stone-100 transition-colors text-left">
-  <span className="text-xs text-stone-400">{collapsed ? "▶" : "▼"}</span>
-  <span className="text-xs font-semibold text-stone-600">섹션 이름</span>
-  <span className="text-xs text-stone-400 ml-2">({count}개)</span>
-</button>
-```
-
-### FOCUS 뱃지 (집중 세그먼트 표시)
-```tsx
-<span className="text-[9px] bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded-full font-bold">FOCUS</span>
-```
-
-### 진행 바 (집중도, 달성률)
-```tsx
-<div className="w-full h-1.5 bg-stone-200 rounded-full overflow-hidden">
-  <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
-</div>
-```
+- 기본 테마는 **paper** (`data-theme="paper"`, 또는 속성 없음). `dark`는 `<html
+  data-theme="dark">`로 전환.
+- **FOUC 방지**: `<head>` 인라인 스크립트로 첫 페인트 전에 저장된 테마를 `<html>`에 칠한다
+  (`layout.tsx`의 `NO_FLASH` 스크립트 참고) — 없으면 종이 테마 사용자가 로드마다 검은 화면을
+  한 프레임 본다.
+- 토글 버튼 클래스 `.themetoggle` — pill 보더, 현재 테마의 반대쪽 라벨("DARK"/"PAPER")을
+  표시. 전환 시 `<meta name="theme-color">`도 함께 갱신 (`paper` → `#f4efe3`, `dark` →
+  `#05070d`).
+- 하드코딩된 흰색/검정 값(예: `a:hover`의 `#fff` 방향)은 토큰이 아니므로 자동으로 따라오지
+  않는다 — `:root[data-theme="paper"] a:hover { color: color-mix(in oklab, var(--ac) 70%,
+  #000); }`처럼 테마별로 되돌려야 한다. 글로우(`.cs-glow`)와 LED 섀도도 paper에서는 각각
+  옅게/제거해야 한다 (밝은 배경 위 블룸은 얼룉처럼 보임).
+- **재스킨 규칙**: 새 테마를 추가할 때 컴포넌트 클래스(`system.css`)는 절대 건드리지 않는다.
+  `tokens.css`의 `:root[data-theme="..."]` 블록 안에서 토큰 값만 재정의한다.
 
 ---
 
-## 3. 타이포그래피 (Typography)
+## 3. 컴포넌트 패턴 (Component Patterns)
 
-| 역할 | 클래스 |
-|------|--------|
-| 페이지 제목 | `text-2xl font-bold text-slate-900 tracking-tight` |
-| 페이지 부제목 | `text-sm text-stone-400` |
-| 섹션 헤딩 | `text-sm font-semibold text-slate-700` |
-| 카드 레이블 | `text-xs text-stone-400 font-medium` |
-| 필터 레이블 | `text-xs font-semibold text-stone-400 whitespace-nowrap` |
-| 테이블 헤더 | `text-xs font-semibold text-slate-400` |
-| KPI 숫자 (white card) | `text-3xl font-bold text-slate-900 tabular-nums` |
-| KPI 숫자 (dark card) | `text-3xl font-bold text-white tabular-nums` |
-| KPI 숫자 (amber card) | `text-3xl font-bold text-amber-900 tabular-nums` |
-| 바디 텍스트 | `text-sm text-slate-900` |
-| Muted 텍스트 | `text-xs text-stone-400` |
-| 숫자 (테이블 내) | `font-bold text-sm text-slate-700 tabular-nums` |
+### 씬 래퍼 (모든 풀페이지 화면의 시작점)
+```html
+<div class="cs-scene">
+  <div class="cs-grid-overlay"></div>
+  <div class="cs-glow cs-glow--tl"></div>   <!-- 랜딩만: 드리프팅. 내부 페이지는 cs-glow--tr(고정, 더 옅음) -->
+  <div class="cs-wrap"><!-- 또는 cs-wrap--read --></div>
+</div>
+```
+
+### 헤더 (LED + 우측 테마 토글)
+```html
+<header class="cs-header cs-fade-up">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="cs-led"></span>
+    <span>ML × PORTFOLIO OPT</span>
+  </div>
+  <ThemeToggle />
+</header>
+```
+
+### 히어로 — 라인 리빌
+마스크 래퍼(`cs-reveal__line`)는 반드시 `overflow:hidden`, 안쪽 `<span>`이 애니메이션 대상.
+래퍼당 한 줄만 — 마스크가 곧 효과.
+```html
+<p class="cs-eyebrow cs-eyebrow--accent cs-fade-up" style="--cs-d:.1s">기말시험 — 생각해볼 점</p>
+<h1 class="cs-display">
+  <span class="cs-reveal__line"><span style="--cs-d:.15s">추정오차와 상관구조가</span></span>
+  <span class="cs-reveal__line"><span style="--cs-d:.28s"><em>최적화</em>를 무너뜨릴 때</span></span>
+</h1>
+<p class="cs-lede cs-fade-up" style="--cs-d:.5s">11문항을 두 판본과 짜집기 특강으로 합쳤습니다.</p>
+```
+`<em>`은 `.cs-display` 안에서 이탤릭 해제 + 액센트 컬러 — 헤드라인 한 단어 강조 방법.
+
+### 스탯 로우
+```html
+<div class="cs-stats cs-fade-up" style="--cs-d:.62s">
+  <div><div class="cs-stat__value">11</div><div class="cs-stat__label">QUESTIONS</div></div>
+  <div><div class="cs-stat__value cs-stat__value--accent">74′</div><div class="cs-stat__label">LISTEN TIME</div></div>
+</div>
+```
+숫자는 두 자리 zero-pad. 마지막 스탯만 액센트로 마침표처럼 강조 가능.
+
+### 티커
+트랙은 콘텐츠를 **반드시 두 번** 포함 — marquee 키프레임이 정확히 -50% 이동하므로 한 번만
+넣으면 빈 구간이 보인다.
+```html
+<div class="cs-ticker cs-fade-up" style="--cs-d:.75s">
+  <div class="cs-ticker__track"><span>키워드 · 키워드 ·&nbsp;</span><span>키워드 · 키워드 ·&nbsp;</span></div>
+</div>
+```
+
+### 카드 그리드 + 고스트 넘버 (`cs-card` / `q-card`)
+```html
+<div class="cs-card-grid cs-stagger" style="--cs-d0:.85s">
+  <a class="cs-card" href="/week/1">
+    <div class="cs-ghost-num cs-card__num">01</div>
+    <div class="cs-card__label">WEEK 01</div>
+    <div class="cs-card__title">카드 제목</div>
+    <div class="cs-card__meta"><span>■ 요약</span><span>▶ 쇼츠</span></div>
+  </a>
+</div>
+```
+제목 길이가 다양하면 `.cs-card__title`에 `min-height`를 줘 메타 행이 그리드 전체에서 같은
+베이스라인에 오도록 한다. 스터디 앱 변형(`q-card`)은 문제 번호/유형 배지 + 축 라벨 + 재생
+시간을 카드 메타에 추가한다.
+
+### 섹션 헤딩 (accent tick)
+```html
+<div class="cs-section-head"><span class="cs-tick"></span><h2 class="cs-display cs-display--sub">제목</h2></div>
+```
+
+### 프로즈 (신뢰되지 않은/생성된 HTML 래퍼)
+```html
+<div class="cs-prose"><p>본문은 <strong>강조</strong>와 <mark>하이라이트</mark>를 지원합니다.</p></div>
+```
+마크다운/CMS 출력물을 감쌀 때 사용 — 내부 노드에 클래스를 달 필요 없이 `p/ul/ol/li/strong/mark`를 스타일링.
+
+### 탭
+```html
+<div class="cs-tabs">
+  <button class="cs-tab is-active" aria-selected="true"><span class="cs-tab__sub">DIGEST</span>요약</button>
+  <button class="cs-tab"><span class="cs-tab__sub">ON AIR</span>쇼츠</button>
+</div>
+```
+모노 서브라벨(영문, 대문자, 1~2단어)이 있어야 "계기판 스위치"처럼 읽힌다.
+
+### 디바이스 프레임 (비디오/데모)
+```html
+<div class="cs-device">
+  <div class="cs-device__screen">
+    <video controls src="..."></video>
+    <div class="cs-device__scanlines"></div>
+    <div class="cs-device__sheen"></div>
+  </div>
+  <div class="cs-device__bar"><span>CHANNEL</span><span class="cs-led cs-led--live"></span><span>CH 01</span></div>
+</div>
+<div class="cs-device__stand"><div class="cs-device__neck"></div><div class="cs-device__foot"></div><div class="cs-device__pool"></div></div>
+```
+
+### 페이지 헤더 (대형 고스트 넘버)
+```html
+<div style="position:relative;padding:64px 0 8px">
+  <div class="cs-ghost-num" style="top:-10px;right:-14px;font-size:230px">01</div>
+  <p class="cs-eyebrow cs-eyebrow--accent">WEEK 01</p>
+  <h1 class="cs-display cs-display--title" style="max-width:780px">제목</h1>
+</div>
+```
+
+### 풋터
+```html
+<footer class="cs-footer"><span>PROJECT NAME</span><span>PART / PART / PART</span></footer>
+```
+
+### 스터디 앱 전용 확장 (app 레이어 — `globals.css`)
+- **수식 (`.fx` 블록 / `.fi` 인라인)**: KaTeX 대신 유니코드로 조합한 모노 텍스트. `.fx--boxed`는
+  문제의 핵심 결과값을 액센트 보더로 강조. 긴 수식은 자체 박스 안에서만 스크롤 — 페이지가
+  가로로 스크롤되면 안 된다.
+- **독(dock) 오디오 플레이어 (`.player`)**: 화면 하단 고정, `backdrop-filter: blur(18px)`,
+  엄지로 누르기 쉬운 46px 재생 버튼, 3px 시크바에 ±11px 보이지 않는 히트 영역을 더해 실제
+  터치 타깃 확보.
+- **메모리 카드 (`.memory-card`)**: 암기 코드(세리프 900, 42px) + 의미 + 배경 우상단 대형
+  워터마크(`V2` 등) — 고스트 넘버 패턴의 변형.
+- **티어 선택 (`.tier-pick` / `.tier`)**: 3열 선택형 카드, 선택 시 액센트 보더+배경 틴트로
+  전환.
+- **체크리스트 (`.checklist`)**: 좌측 `✓`(또는 가산점 행은 `+`) 글리프, 액센트 색.
+- **표 (`.cs-table` / `.tablewrap`)**: 360px에서 유일하게 리플로우 불가능한 요소 — 항상
+  `.tablewrap`으로 감싸 가로 스크롤, 페이지 자체는 절대 가로 스크롤되지 않게.
 
 ---
 
-## 4. 간격 / 레이아웃 (Spacing & Layout)
+## 4. 타이포그래피 (Typography) — 세 서체, 세 역할, 절대 교차 금지
+
+| 서체 | 역할 | 절대 쓰지 말 것 |
+|------|------|----------------|
+| **Noto Serif KR, weight 900** | 헤딩, 숫자, 스탯 값 | 본문, 라벨 |
+| **IBM Plex Sans KR** | 문단, 카드 타이틀, 탭, UI | 헤딩, eyebrow |
+| **IBM Plex Mono** | eyebrow, 메타, 풋터, 티커, 상태 | 8단어 넘는 어떤 것도 |
+
+```css
+--cs-font-display: "Noto Serif KR", serif;
+--cs-font-body: "IBM Plex Sans KR", sans-serif;
+--cs-font-mono: "IBM Plex Mono", monospace;
+```
+
+### 모노는 항상 대문자 + 항상 넓은 자간
+합법적 tracking 값은 이 넷뿐: `.3em`(히어로 eyebrow) · `.24em`(섹션 메타, 탭 서브라벨) ·
+`.2em`(풋터, 티커) · `.14em`(밀도 높은 카드 메타). 모노를 좁게, 소문자로, 문장 안에 쓰는 것이
+스타일을 깨는 가장 빠른 방법.
+
+### 타입 스케일 토큰
+| 토큰 | 값 | 용도 |
+|------|-----|------|
+| `--cs-size-hero` | `clamp(44px,7.2vw,86px)` (모바일: `clamp(30px,8.6vw,44px)`) | 랜딩 H1 |
+| `--cs-size-title` | `clamp(28px,4.4vw,44px)` (모바일: `clamp(21px,6vw,28px)`) | 상세 페이지 H1 |
+| `--cs-size-h2` / `--cs-size-h3` | `26px` / `23px` (모바일 `21px`/`18px`) | 섹션/서브 헤딩 |
+| `--cs-size-lede` | `17px` | 히어로 설명 |
+| `--cs-size-prose` | `16.5px` | 본문 |
+| `--cs-size-card` | `15.5px` | 카드 타이틀 |
+| `--cs-size-eyebrow` / `--cs-size-meta` | `11.5px` / `10.5px` | eyebrow / 메타 |
+
+---
+
+## 5. 간격 / 레이아웃 (Spacing & Layout)
+
+너비는 **딱 두 가지**만 쓴다: `--cs-w-wide`(1160px, 인덱스/랜딩) / `--cs-w-read`(960px, 지속
+읽기용 — 내부 prose는 780px로 추가 제한). 미디어는 `--cs-w-media`(820px).
 
 | 항목 | 값 |
 |------|-----|
-| 페이지 패딩 | `p-6` |
-| 최대 너비 | `max-w-7xl mx-auto` |
-| 컨텐츠 수직 간격 | `space-y-5` |
-| KPI 카드 그리드 | `grid grid-cols-2 sm:grid-cols-4 gap-3` |
-| 카드 내부 패딩 | `p-4` |
-| 테이블 셀 패딩 | `px-4 py-3` (일반) / `px-4 py-3.5` (헤더) |
-| 버튼 간격 | `gap-2` |
+| 섹션 리듬 | 아티클 섹션 간 64px, 풋터 앞 90px, 리드 아래 52px |
+| 카드 그리드 | `repeat(auto-fill, minmax(310px,1fr))`, gap 14px |
+| 반경 | 카드 16px · 패널 14px · 디바이스 22px · 스크린 11px · 필 999px |
+| 모바일 패딩 | `--cs-pad-wide: 20px`(≥720px에서 32px), `--cs-pad-read: 20px`(≥720px에서 28px) |
 
 ---
 
-## 5. 적용하지 말아야 할 것 (Anti-patterns)
+## 6. 안티패턴 — 10 Laws 위반 여부로 감사
 
-- ❌ `border border-gray-200` 카드 테두리 → `shadow-sm` 사용
-- ❌ `bg-gradient-to-br from-slate-50 ...` 배경 → `bg-[#F5F3EE]` 단색 사용
-- ❌ `rounded-xl` 카드 → `rounded-2xl` 사용
-- ❌ Primary 버튼에 `bg-blue-600` → `bg-slate-900` 사용
-- ❌ 필터 active에 `bg-gray-800` → `bg-slate-900` 사용
-- ❌ 테이블 헤더 `bg-gray-50 border-b` → `bg-slate-900` 사용
-- ❌ 액센트 컬러에 `bg-orange-*` / `bg-blue-*` 혼재 → amber/slate 통일
-- ❌ `space-y-6` 페이지 간격 → `space-y-5` 사용
+클래스를 재사용하는 것보다 이 10개 법칙을 지키는 것이 더 중요하다 — 클래스를 하나도 안 써도
+법칙만 지키면 이 패밀리에 속한다.
+
+1. ❌ 세 서체의 역할을 교차 — 헤딩에 sans, 본문에 serif, 라벨에 body 폰트 사용
+2. ❌ 모노를 좁은 자간/소문자/문장형으로 사용 — 항상 위 4개 tracking 값 + 대문자만
+3. ❌ 취향으로 텍스트 컬러 선택 — 9단계 사다리에서 **역할**로만 고른다 (본문은 흰색이 아니라 `--cs-text-body`)
+4. ❌ 두 번째 액센트 색 하드코딩 — 모든 틴트는 `color-mix(in oklab, var(--ac) N%, transparent)`로만 파생
+5. ❌ 카드/패널에 단색 배경 — 항상 `linear-gradient(160deg, ...)` + 1px 헤어라인, 160° 각도 고정
+6. ❌ 고스트 넘버에 `pointer-events`/`user-select` 누락 — 항상 `none`
+7. ❌ 진입 애니메이션을 옆에서 슬라이드/스케일/바운스로 — 오직 `fadeUp`(26px) / `lineUp`(마스크), 카드 0.06s·섹션 0.1s stagger
+8. ❌ 화면에 LED 펄스 2개 이상 — 화면당 정확히 하나 (사이언 or 라이브 상태는 red)
+9. ❌ 카드·모달·섹션에 라이트 표면 사용 — `--cs-paper`는 다이어그램/스캔/만화 페이지 전용
+10. ❌ 정적 패널에 hover 애니메이션 부여, 또는 인터랙티브 요소에 hover 없음 — lift(`translateY(-6px)` + accent 보더 + accent 섀도, 0.35s)는 클릭 가능한 것에만
+11. ❌ (테마 추가 시) 컴포넌트 클래스를 직접 수정 — 재스킨은 `tokens.css`의 토큰 재정의로만
 
 ---
 
-## 6. 실제 적용 사례
+## 7. 실제 적용 사례
 
-### 적용된 페이지
-- `/Users/gwanli/.../dash1/app/ice/page.tsx` — ICE 스코어링
-- `/Users/gwanli/.../dash1/app/problems/page.tsx` — 문제정의 관리
-- `/Users/gwanli/.../dash1/app/globals.css` — 전역 배경색
+### 적용된 프로젝트
+- `/Users/gwanli/product_2026/designguide for cs/` — 캐노니컬 배포본 (`tokens.css`,
+  `system.css`, `preview.html`, `PATTERNS.md`, `react/`)
+- `기계학습과포트폴리오최적화/기말/final-study-web/` — 실사용처. `app/design/`에 토큰·시스템을
+  수정 없이 복사, `app/globals.css`에서 모바일 우선 app 레이어(수식/표/플레이어/paper 테마)를
+  추가. 기본 테마를 **paper**로 재정의(긴 논술 답안 가독성 요청), dark는 토글로 유지.
+- 원본 디자인 언어의 최초 출처: AI 신용평가 강의 아카이브 (`class-delta-blond.vercel.app`,
+  `cs-design-sample2` 참고 — 두 샘플은 같은 계보의 dark 변형/paper 재스킨 관계)
 
-### 참고 디자인
-- Crextio HR Management Dashboard (Dribbble shot #25121521)
-- 핵심 요소: 따뜻한 크림 배경, 황금 amber 액센트, 차콜 다크 패널, 화이트 카드 + 소프트 섀도
+### 재스킨 예시
+```css
+:root { --cs-accent: #a3e635; }   /* lime으로 전체 사이트 재스킨 */
+```

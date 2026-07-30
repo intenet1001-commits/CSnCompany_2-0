@@ -29,6 +29,17 @@
 
 ---
 
+## 🎨 디자인 레퍼런스 샘플
+
+내 Next.js/Tailwind 페이지에 그대로 `--audit` / `--apply` 할 수 있는, 실제로 캡처된 디자인 언어 두 가지입니다.
+
+| `cs-design-sample1` — CS Archive (paper↔dark 토큰) | `cs-design-sample2` — 다크 에디토리얼/터미널 |
+|:---:|:---:|
+| ![cs-design-sample1 미리보기](plugins/cs-design-sample1/preview/preview.png) | ![cs-design-sample2 미리보기](plugins/cs-design-sample2/preview/preview.png) |
+| 기본은 누런 종이(`#F4EFE3`) + 딥 틸 액센트, dark 토글은 근흑색 + 사이언 — `--cs-accent` 토큰 하나로 전체 재스킨. 고스트 넘버, IBM Plex Mono + Noto Serif KR | 근흑색 네이비(`#05070d`) 배경, 사이언 액센트, IBM Plex Mono + Noto Serif KR, 그리드 오버레이 + 글로우 장식 — 다크 콘텐츠/에디토리얼 사이트 |
+
+---
+
 ## 👥 팀 멤버
 
 | 멤버 | 플러그인 | 슬래시 명령 | 하는 일 |
@@ -37,7 +48,8 @@
 | 💬 **PM** | `cs-clarify` | `/cs-clarify` | 소크라테스식 질문으로 숨겨진 가정을 드러내고 과잉 설계 방지 |
 | 🏗️ **아키텍트** | `CS-plan` | `/CS-plan "기능"` | TDD + Clean Architecture 플랜: 도메인 분석, 아키텍처, 테스트 전략, 체크리스트 |
 | 🎨 **디자이너** | `cs-design` | `/cs-design <url>` | 5-에이전트 디자인 리뷰: 비주얼 계층, 인터랙션, 디자인 시스템, 반응형/접근성, 안티 패턴 |
-| 🎨 **디자인 레퍼런스** | `cs-design-sample1` | `/cs-design-sample1` | Crextio 스타일 가이드 (Tailwind/Next.js 대시보드) |
+| 🎨 **디자인 레퍼런스** | `cs-design-sample1` | `/cs-design-sample1` | CS Archive 토큰 시스템 (paper 기본/dark 토글), Next.js 스터디·콘텐츠 앱용 |
+| 🎨 **디자인 레퍼런스** | `cs-design-sample2` | `/cs-design-sample2` | 다크 에디토리얼/터미널 스타일 가이드 (Next.js 다크 콘텐츠 사이트) |
 | 🧪 **QA 엔지니어** | `CS-test` | `/CS-test <url>` | 14-에이전트 웹 테스트: 보안, SEO, 성능, 접근성, DB, PWA, 터치, 이미지 |
 | 🔍 **코드 리뷰어** | `CS-codebase-review` | `/CS-codebase-review ./src` | 5-에이전트 리뷰: 아키텍처, 품질, 보안, 성능, 유지보수성 |
 | 🚢 **DevOps** | `cs-ship` | `/cs-ship` | PR 직전 검증: 스펙 준수, 커버리지, 커밋 메시지 |
@@ -81,6 +93,7 @@ Claude Code 안에서 입력:
 /plugin install CS-plan@CSnCompany_2-0
 /plugin install cs-design@CSnCompany_2-0
 /plugin install cs-design-sample1@CSnCompany_2-0
+/plugin install cs-design-sample2@CSnCompany_2-0
 /plugin install CS-test@CSnCompany_2-0
 /plugin install CS-codebase-review@CSnCompany_2-0
 /plugin install cs-ship@CSnCompany_2-0
@@ -203,7 +216,8 @@ CSnCompany_2-0/
 │   ├── cs-clarify-v1/             # 💬 PM
 │   ├── CS-plan-v21/               # 🏗️ 아키텍트
 │   ├── cs-design-v19/             # 🎨 디자이너
-│   ├── cs-design-sample1/         # 🎨 디자인 레퍼런스
+│   ├── cs-design-sample1/         # 🎨 디자인 레퍼런스 (CS Archive 토큰, paper/dark)
+│   ├── cs-design-sample2/         # 🎨 디자인 레퍼런스 (다크 에디토리얼)
 │   ├── CS-test-v26/               # 🧪 QA
 │   ├── CS-codebase-review-v29/    # 🔍 리뷰어 (Python pre-pass 지원)
 │   ├── cs-ship-v1/                # 🚢 DevOps

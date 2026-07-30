@@ -48,8 +48,13 @@
     },
     {
       "name": "cs-design-sample1",
-      "description": "🎨 Design Reference — Crextio-inspired warm cream palette + amber/slate accents. Audit & apply to Tailwind/Next.js dashboards.",
+      "description": "🎨 Design Reference — CS Archive token system: paper (warm cream + deep teal, default) ↔ dark (near-black + cyan) re-skin. Audit & apply to Next.js study/content apps.",
       "source": "./plugins/cs-design-sample1"
+    },
+    {
+      "name": "cs-design-sample2",
+      "description": "🎨 Design Reference — Dark editorial/terminal style: near-black navy + cyan accent, mono/serif pairing. Audit & apply to Next.js dark content sites.",
+      "source": "./plugins/cs-design-sample2"
     },
     {
       "name": "CS-test",

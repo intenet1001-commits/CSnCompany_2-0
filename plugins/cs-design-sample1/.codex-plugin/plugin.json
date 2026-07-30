@@ -1,7 +1,7 @@
 {
   "name": "cs-design-sample1",
-  "version": "1.0.0",
-  "description": "Crextio-inspired design guide: warm cream palette, amber/slate accents, dark table headers, KPI cards — for Tailwind/Next.js dashboard UIs",
+  "version": "2.0.0",
+  "description": "CS Archive token-based design system: paper (warm cream + deep teal, default) and dark (near-black + cyan) themes, single --cs-accent re-skin. Audit & apply to Next.js study/content apps",
   "author": {
     "name": "intenet1001-commits",
     "url": "https://github.com/intenet1001-commits"
@@ -11,17 +11,17 @@
   "keywords": [
     "design",
     "ui",
-    "tailwind",
-    "crextio",
-    "dashboard",
+    "nextjs",
+    "design-tokens",
     "design-system",
-    "amber",
-    "slate"
+    "paper-theme",
+    "dark-mode",
+    "teal"
   ],
   "interface": {
     "displayName": "Cs Design Sample1",
-    "shortDescription": "Crextio-inspired design guide: warm cream palette, amber/slate accents, dark table headers, KPI cards — for Ta",
-    "longDescription": "Crextio-inspired design guide: warm cream palette, amber/slate accents, dark table headers, KPI cards — for Tailwind/Next.js dashboard UIs",
+    "shortDescription": "CS Archive token-based design system: paper (warm cream + deep teal, default) and dark (near-black",
+    "longDescription": "CS Archive token-based design system: paper (warm cream + deep teal, default) and dark (near-black + cyan) themes, single --cs-accent re-skin. Audit & apply to Next.js study/content apps",
     "developerName": "intenet1001-commits",
     "category": "Engineering",
     "capabilities": [
@@ -31,7 +31,7 @@
     ],
     "websiteURL": "https://github.com/intenet1001-commits/CSnCompany_2-0",
     "defaultPrompt": [],
-    "brandColor": "#0F766E"
+    "brandColor": "#146B74"
   },
   "skills": "./skills/"
 }

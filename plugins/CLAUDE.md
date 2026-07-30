@@ -72,6 +72,7 @@ Key routing rules:
 | CS-plan | `./plugins/CS-plan-v21` | 🏗️ Architect |
 | cs-design | `./plugins/cs-design-v20` | 🎨 Designer |
 | cs-design-sample1 | `./plugins/cs-design-sample1` | 🎨 Design Reference |
+| cs-design-sample2 | `./plugins/cs-design-sample2` | 🎨 Design Reference |
 | CS-test | `./plugins/CS-test-v26` | 🧪 QA Engineer |
 | CS-codebase-review | `./plugins/CS-codebase-review-v29` | 🔍 Code Reviewer |
 | cs-ship | `./plugins/cs-ship-v1` | 🚢 DevOps |

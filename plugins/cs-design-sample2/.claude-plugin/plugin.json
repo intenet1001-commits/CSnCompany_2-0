@@ -1,0 +1,12 @@
+{
+  "name": "cs-design-sample2",
+  "version": "1.0.0",
+  "description": "Dark editorial/terminal design guide: near-black navy background, cyan accent, mono/serif type pairing, grid-overlay + glow decor — for Next.js dark content sites",
+  "author": {
+    "name": "intenet1001-commits",
+    "url": "https://github.com/intenet1001-commits"
+  },
+  "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+  "license": "MIT",
+  "keywords": ["design", "ui", "tailwind", "nextjs", "dark-mode", "editorial", "design-system", "cyan"]
+}
