@@ -1,0 +1,51 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - heading "ICE 스코어링" [level=1] [ref=e5]
+      - paragraph [ref=e6]: 문제정의 우선순위 대시보드
+    - generic [ref=e7]: 다른 탭 →
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - paragraph [ref=e11]: 전체 문제
+      - paragraph [ref=e12]: "128"
+      - paragraph [ref=e13]: 이번 스프린트
+    - generic [ref=e14]:
+      - paragraph [ref=e15]: 진행률
+      - paragraph [ref=e16]: 74%
+    - generic [ref=e19]:
+      - paragraph [ref=e20]: 평균 ICE
+      - paragraph [ref=e21]: "7.8"
+      - paragraph [ref=e22]: Impact·Confidence·Ease
+    - generic [ref=e23]:
+      - paragraph [ref=e24]: FOCUS
+      - paragraph [ref=e25]: "12"
+      - paragraph [ref=e26]: 집중 세그먼트
+  - generic [ref=e27]:
+    - button "전체" [ref=e28] [cursor=pointer]
+    - button "✓ 온보딩" [ref=e29] [cursor=pointer]
+    - button "결제" [ref=e30] [cursor=pointer]
+    - button "리텐션" [ref=e31] [cursor=pointer]
+  - generic [ref=e32]:
+    - heading "문제정의 순위" [level=3] [ref=e34]
+    - table [ref=e35]:
+      - rowgroup [ref=e36]:
+        - row [ref=e37]:
+          - columnheader "#" [ref=e38]
+          - columnheader "문제" [ref=e39]
+          - columnheader "ICE" [ref=e40]
+      - rowgroup [ref=e41]:
+        - row [ref=e42]:
+          - cell "1" [ref=e43]
+          - cell "온보딩 이탈률 개선" [ref=e45]
+          - cell "9.2" [ref=e46]
+        - row [ref=e48]:
+          - cell "2" [ref=e49]
+          - cell "결제 실패 재시도 플로우" [ref=e51]
+          - cell "8.1" [ref=e52]
+        - row [ref=e53]:
+          - cell "3" [ref=e54]
+          - cell "주간 리텐션 알림" [ref=e56]
+          - cell "7.4" [ref=e57]
+  - generic [ref=e58]:
+    - button "저장" [ref=e59] [cursor=pointer]
+    - button "취소" [ref=e60] [cursor=pointer]

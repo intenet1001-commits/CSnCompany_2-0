@@ -2,7 +2,7 @@
 
 > 🇺🇸 English · [🇰🇷 한국어](./README.ko.md)
 
-**TL;DR — One marketplace, eleven AI teammates.** Install it once, and you can call a CEO, PM, Architect, Designer, QA Engineer, Code Reviewer, and DevOps engineer from inside Claude Code with simple slash commands like `/cs-ceo` or `/CS-test`.
+**TL;DR — One marketplace, thirteen AI teammates.** Install it once, and you can call a CEO, PM, Architect, Designer, QA Engineer, Code Reviewer, and DevOps engineer from inside Claude Code with simple slash commands like `/cs-ceo` or `/CS-test`.
 
 > ⚡ **Optional: Install [uv](https://docs.astral.sh/uv/) for 70%+ token savings on code analysis** — `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`. Works without it too (automatic fallback).
 
@@ -12,7 +12,7 @@
 
 [Claude Code](https://docs.claude.com/en/docs/claude-code) is Anthropic's official AI coding CLI. It supports **plugins** — bundles of slash commands, agents, and skills you install on top of it.
 
-**CSnCompany_2-0** is a marketplace that bundles **11 plugins**, each one a specialist on a virtual AI team:
+**CSnCompany_2-0** is a marketplace that bundles **13 plugins**, each one a specialist on a virtual AI team:
 
 ```
 You ──▶ /cs-ceo "build a dashboard"
@@ -55,6 +55,7 @@ Two captured design languages you can `--audit` or `--apply` to your own Next.js
 | 🚢 **DevOps** | `cs-ship` | `/cs-ship` | Pre-PR validation: spec compliance, coverage, commit messages |
 | ⚡ **Team Lead** | `cs-smart-run` | `/cs-smart-run "task"` | Plan with Opus → execute with Sonnet agents in parallel |
 | 📚 **Knowledge Keeper** | `cs-experiencing` | `/cs-experiencing` | Versioned learnings + `/cs-end` session-wrap *(author-only push)* |
+| 🧠 **Memory Trainer** | `cs-memory` | `/cs-memory:learn` | Learns long-term memory from changed projects, upgrades only the agents with validated lessons (`/cs-memory:upgrade`), read-only status check (`/cs-memory:status`) |
 | 🗣️ **Language Coach** | `convo-maker` | `/convo-maker` | Turns session Q&A into natural American English conversations |
 
 ---
@@ -99,8 +100,16 @@ Pick à la carte, or install everything:
 /plugin install cs-ship@CSnCompany_2-0
 /plugin install cs-smart-run@CSnCompany_2-0
 /plugin install cs-experiencing@CSnCompany_2-0
+/plugin install cs-memory@CSnCompany_2-0
 /plugin install convo-maker@CSnCompany_2-0
 ```
+
+> Upgrading from the old `cs-core-memory` plugin? Uninstall it first — `cs-memory` replaces it with three slim commands (`learn` / `upgrade` / `status`) instead of the old verbose ones:
+> ```
+> /plugin uninstall cs-core-memory@CSnCompany_2-0
+> /plugin install cs-memory@CSnCompany_2-0
+> /reload-plugins
+> ```
 
 ### Step 3 — Restart Claude Code
 
@@ -220,7 +229,8 @@ CSnCompany_2-0/
 │   ├── CS-codebase-review-v29/    # 🔍 Reviewer (Python pre-pass enabled)
 │   ├── cs-ship-v1/                # 🚢 DevOps
 │   ├── cs-smart-run/              # ⚡ Team Lead
-│   ├── cs-experiencing-v8/        # 📚 Knowledge keeper
+│   ├── cs-experiencing-v9/        # 📚 Knowledge keeper
+│   ├── cs-core-memory-v1/         # 🧠 Memory trainer (cs-memory)
 │   └── convo-maker/               # 🗣️ Language coach
 ├── docs/                          # extra documentation
 ├── README.md                      # this file
@@ -261,7 +271,7 @@ A 10-agent analysis (2026-07) confirmed a relational DB would make recall *slowe
 
 ## ❓ FAQ
 
-**Q: Do I need to install all 11 plugins?**
+**Q: Do I need to install all 13 plugins?**
 A: No. Install only what you need. `cs-ceo` alone covers most cases since it dispatches others on demand (you'll need them installed for the CEO to call them).
 
 **Q: Does this cost extra?**

@@ -41,11 +41,13 @@ Sync = `git pull` / `git push` of the one repo, then each tool refreshes its own
 
 ## How to run it
 
-The helper is `scripts/sync.sh` next to this file (`${CLAUDE_PLUGIN_ROOT}/skills/csn-sync/scripts`
-in Claude Code; the script self-locates the repo if that variable isn't set, e.g. under Codex).
+The helpers live in the plugin root's `scripts/` directory. From this `SKILL.md`, that is
+`../../scripts/` (or `${CLAUDE_PLUGIN_ROOT}/scripts/` when the runtime exposes
+`CLAUDE_PLUGIN_ROOT`). The scripts self-locate the real marketplace repo even when invoked
+from a Codex cache copy.
 
 ```bash
-bash "<this-skill-dir>/scripts/sync.sh" <mode> [commit-message]
+bash "<this-skill-dir>/../../scripts/sync.sh" <mode> [commit-message]
 ```
 
 ### Modes
@@ -60,8 +62,8 @@ bash "<this-skill-dir>/scripts/sync.sh" <mode> [commit-message]
 ### Regenerating Codex manifests on their own
 
 ```bash
-bash "<this-skill-dir>/scripts/build-codex-manifests.sh"          # write/refresh all
-bash "<this-skill-dir>/scripts/build-codex-manifests.sh" --check  # dry-run, exit 1 on drift
+bash "<this-skill-dir>/../../scripts/build-codex-manifests.sh"          # write/refresh all
+bash "<this-skill-dir>/../../scripts/build-codex-manifests.sh" --check  # dry-run, exit 1 on drift
 ```
 
 ## Decision flow
@@ -80,9 +82,10 @@ bash "<this-skill-dir>/scripts/build-codex-manifests.sh" --check  # dry-run, exi
 ## Guardrails
 
 - **Never force-push.** If the remote is ahead, reconcile with `auto` (rebase), never `push -f`.
-- The script touches two things only: the one real git repo (commit/push/pull), and — best-effort
-  on `pull`/`push`/`auto` — Codex's versioned cache dirs, which it *populates* with an exact copy of
-  each plugin's source. It never deletes other version dirs and never edits Codex's config.
+- The script touches the one real git repo and — best-effort on `pull`/`push`/`auto` — Codex's
+  versioned cache dirs. It populates the current version with an exact copy of each plugin's
+  source, then moves stale versions into `~/.codex/plugins/archive/CSnCompany_2-0/<date>/`.
+  Nothing is deleted, and Codex's config is never edited.
 - `push`/`auto` commit **all** working-tree changes and bump **every** plugin's version. Before
   pushing, glance at `git -C <repo> status` and confirm the pending changes are ones the user
   intends to publish (a version-only bump on unrelated plugins is expected and harmless).

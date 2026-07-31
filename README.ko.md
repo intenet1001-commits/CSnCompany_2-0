@@ -2,7 +2,7 @@
 
 > 🇰🇷 한국어 · [🇺🇸 English](./README.md)
 
-**한 줄 요약 — 마켓플레이스 하나에 AI 팀원 11명.** 한 번만 설치하면 Claude Code 안에서 CEO, PM, 아키텍트, 디자이너, QA, 코드 리뷰어, DevOps를 슬래시 명령(`/cs-ceo`, `/CS-test` 등) 하나로 호출할 수 있습니다.
+**한 줄 요약 — 마켓플레이스 하나에 AI 팀원 13명.** 한 번만 설치하면 Claude Code 안에서 CEO, PM, 아키텍트, 디자이너, QA, 코드 리뷰어, DevOps를 슬래시 명령(`/cs-ceo`, `/CS-test` 등) 하나로 호출할 수 있습니다.
 
 > ⚡ **선택 사항: [uv](https://docs.astral.sh/uv/) 설치 시 코드 분석 토큰 70%+ 절감** — `brew install uv` 또는 `curl -LsSf https://astral.sh/uv/install.sh | sh`. 없어도 동작합니다 (자동 fallback).
 
@@ -12,7 +12,7 @@
 
 [Claude Code](https://docs.claude.com/en/docs/claude-code)는 Anthropic이 만든 공식 AI 코딩 CLI입니다. 여기에는 **플러그인** 시스템이 있어서, 슬래시 명령·에이전트·스킬을 묶어서 추가로 설치할 수 있어요.
 
-**CSnCompany_2-0**은 **11개 플러그인**을 한 번에 묶어둔 마켓플레이스입니다. 각 플러그인은 가상의 AI 회사 안에서 한 명의 전문가 역할을 합니다:
+**CSnCompany_2-0**은 **13개 플러그인**을 한 번에 묶어둔 마켓플레이스입니다. 각 플러그인은 가상의 AI 회사 안에서 한 명의 전문가 역할을 합니다:
 
 ```
 사용자 ──▶ /cs-ceo "대시보드 만들고 싶어"
@@ -55,6 +55,7 @@
 | 🚢 **DevOps** | `cs-ship` | `/cs-ship` | PR 직전 검증: 스펙 준수, 커버리지, 커밋 메시지 |
 | ⚡ **팀 리더** | `cs-smart-run` | `/cs-smart-run "작업"` | Opus로 계획 → Sonnet 에이전트로 병렬 실행 |
 | 📚 **지식 저장소** | `cs-experiencing` | `/cs-experiencing` | 버전별 학습 관리 + `/cs-end` 세션 마무리 *(GitHub push는 플러그인 작성자 전용)* |
+| 🧠 **메모리 트레이너** | `cs-memory` | `/cs-memory:learn` | 변경된 프로젝트를 장기기억에 학습, 검증된 교훈이 있는 에이전트만 업그레이드(`/cs-memory:upgrade`), 읽기 전용 상태 확인(`/cs-memory:status`) |
 | 🗣️ **언어 코치** | `convo-maker` | `/convo-maker` | 세션 Q&A를 자연스러운 미국식 영어 대화로 변환 |
 
 ---
@@ -99,8 +100,16 @@ Claude Code 안에서 입력:
 /plugin install cs-ship@CSnCompany_2-0
 /plugin install cs-smart-run@CSnCompany_2-0
 /plugin install cs-experiencing@CSnCompany_2-0
+/plugin install cs-memory@CSnCompany_2-0
 /plugin install convo-maker@CSnCompany_2-0
 ```
+
+> 기존 `cs-core-memory` 플러그인을 쓰고 있었다면 먼저 제거하세요 — `cs-memory`가 예전의 장황한 명령어들을 세 개(`learn`/`upgrade`/`status`)로 대체합니다:
+> ```
+> /plugin uninstall cs-core-memory@CSnCompany_2-0
+> /plugin install cs-memory@CSnCompany_2-0
+> /reload-plugins
+> ```
 
 ### 3단계 — Claude Code 재시작
 
@@ -222,7 +231,8 @@ CSnCompany_2-0/
 │   ├── CS-codebase-review-v29/    # 🔍 리뷰어 (Python pre-pass 지원)
 │   ├── cs-ship-v1/                # 🚢 DevOps
 │   ├── cs-smart-run/              # ⚡ 팀 리더
-│   ├── cs-experiencing-v8/        # 📚 지식 저장소
+│   ├── cs-experiencing-v9/        # 📚 지식 저장소
+│   ├── cs-core-memory-v1/         # 🧠 메모리 트레이너 (cs-memory)
 │   └── convo-maker/               # 🗣️ 언어 코치
 ├── docs/                          # 추가 문서
 ├── README.md                      # 영문 README
@@ -263,7 +273,7 @@ CSnCompany_2-0/
 
 ## ❓ 자주 묻는 질문
 
-**Q. 11개 다 설치해야 하나요?**
+**Q. 13개 다 설치해야 하나요?**
 A. 아니요. 필요한 것만 설치하세요. `cs-ceo` 하나만 있어도 대부분 처리되지만, CEO가 다른 팀원을 호출하려면 그 팀원이 설치돼 있어야 합니다.
 
 **Q. 추가 비용이 드나요?**

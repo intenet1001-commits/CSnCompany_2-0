@@ -1,0 +1,117 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - banner [ref=f1e4]:
+        - generic [ref=f1e5]: CREDIT SCORING × AI
+        - generic [ref=f1e8]: GRADUATE SEMINAR — 2026
+      - generic [ref=f1e9]:
+        - paragraph [ref=f1e10]: 신용평가모델 — 한 학기 아카이브
+        - heading "AI 기반 신용평가모형 개발" [level=1] [ref=f1e11]:
+          - generic [ref=f1e12]: AI 기반
+          - generic [ref=f1e15]:
+            - text: 신용평가모형
+            - emphasis [ref=f1e16]: 개발
+        - paragraph [ref=f1e17]: 아홉 번의 강의를 요약 노트, 쇼츠 영상, 웹툰 세 가지 형식으로 다시 담았습니다. 주차를 골라 원하는 방식으로 복습하세요.
+        - generic [ref=f1e18]:
+          - generic [ref=f1e19]:
+            - generic [ref=f1e20]: "09"
+            - generic [ref=f1e21]: WEEKS
+          - generic [ref=f1e22]:
+            - generic [ref=f1e23]: "03"
+            - generic [ref=f1e24]: FORMATS
+          - generic [ref=f1e25]:
+            - generic [ref=f1e26]: AI
+            - generic [ref=f1e27]: × FINTECH
+    - generic [ref=f1e29]:
+      - generic [ref=f1e30]: 정보 비대칭 · 역선택 · 도덕적 해이 · 크레딧 뷰로 · 스코어카드 · 로지스틱 회귀 · SVM · WOE · IV · 파인 클래싱 · 대안 데이터 · 설명가능성 · 공정성 · 바젤 규제 · AI 거버넌스 ·
+      - generic [ref=f1e31]: 정보 비대칭 · 역선택 · 도덕적 해이 · 크레딧 뷰로 · 스코어카드 · 로지스틱 회귀 · SVM · WOE · IV · 파인 클래싱 · 대안 데이터 · 설명가능성 · 공정성 · 바젤 규제 · AI 거버넌스 ·
+    - generic [ref=f1e32]:
+      - generic [ref=f1e33]:
+        - heading "주차별 커리큘럼" [level=2] [ref=f1e34]
+        - generic [ref=f1e35]: INDEX 01—09
+      - generic [ref=f1e36]:
+        - 'link "01 WEEK 01 AI와 신용평가: 개념, 역사, 모델 개발 및 기업 도입 전략 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e37] [cursor=pointer]':
+          - /url: /week/1
+          - generic: "01"
+          - generic [ref=f1e38]: WEEK 01
+          - generic [ref=f1e39]: "AI와 신용평가: 개념, 역사, 모델 개발 및 기업 도입 전략"
+          - generic [ref=f1e40]:
+            - generic [ref=f1e41]: ■ 요약
+            - generic [ref=f1e42]: ▶ 쇼츠
+            - generic [ref=f1e43]: ◧ 웹툰
+        - 'link "02 WEEK 02 AI와 신용평가모형: 개인/기업 신용평가, 전통/대안 비교, 진화와 적용 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e44] [cursor=pointer]':
+          - /url: /week/2
+          - generic: "02"
+          - generic [ref=f1e45]: WEEK 02
+          - generic [ref=f1e46]: "AI와 신용평가모형: 개인/기업 신용평가, 전통/대안 비교, 진화와 적용"
+          - generic [ref=f1e47]:
+            - generic [ref=f1e48]: ■ 요약
+            - generic [ref=f1e49]: ▶ 쇼츠
+            - generic [ref=f1e50]: ◧ 웹툰
+        - 'link "03 WEEK 03 AI 기반 개인 신용평가 모형 개발 및 활용: 데이터, 기법, 동향 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e51] [cursor=pointer]':
+          - /url: /week/3
+          - generic: "03"
+          - generic [ref=f1e52]: WEEK 03
+          - generic [ref=f1e53]: "AI 기반 개인 신용평가 모형 개발 및 활용: 데이터, 기법, 동향"
+          - generic [ref=f1e54]:
+            - generic [ref=f1e55]: ■ 요약
+            - generic [ref=f1e56]: ▶ 쇼츠
+            - generic [ref=f1e57]: ◧ 웹툰
+        - 'link "04 WEEK 04 AI 기반 신용평가모형 개발: SVM, 로지스틱 회귀, 스코어카드 스케일링 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e58] [cursor=pointer]':
+          - /url: /week/4
+          - generic: "04"
+          - generic [ref=f1e59]: WEEK 04
+          - generic [ref=f1e60]: "AI 기반 신용평가모형 개발: SVM, 로지스틱 회귀, 스코어카드 스케일링"
+          - generic [ref=f1e61]:
+            - generic [ref=f1e62]: ■ 요약
+            - generic [ref=f1e63]: ▶ 쇼츠
+            - generic [ref=f1e64]: ◧ 웹툰
+        - 'link "05 WEEK 05 신용평가모형 진화와 AI: 방법론, 금융 AI 동향 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e65] [cursor=pointer]':
+          - /url: /week/5
+          - generic: "05"
+          - generic [ref=f1e66]: WEEK 05
+          - generic [ref=f1e67]: "신용평가모형 진화와 AI: 방법론, 금융 AI 동향"
+          - generic [ref=f1e68]:
+            - generic [ref=f1e69]: ■ 요약
+            - generic [ref=f1e70]: ▶ 쇼츠
+            - generic [ref=f1e71]: ◧ 웹툰
+        - 'link "06 WEEK 06 기업 신용평가모형: AI 방법론, 데이터 파이프라인, 등급 결합 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e72] [cursor=pointer]':
+          - /url: /week/6
+          - generic: "06"
+          - generic [ref=f1e73]: WEEK 06
+          - generic [ref=f1e74]: "기업 신용평가모형: AI 방법론, 데이터 파이프라인, 등급 결합"
+          - generic [ref=f1e75]:
+            - generic [ref=f1e76]: ■ 요약
+            - generic [ref=f1e77]: ▶ 쇼츠
+            - generic [ref=f1e78]: ◧ 웹툰
+        - 'link "07 WEEK 07 AI 신용평가 모형: 성능 검증, 공정성 및 규제 동향 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e79] [cursor=pointer]':
+          - /url: /week/7
+          - generic: "07"
+          - generic [ref=f1e80]: WEEK 07
+          - generic [ref=f1e81]: "AI 신용평가 모형: 성능 검증, 공정성 및 규제 동향"
+          - generic [ref=f1e82]:
+            - generic [ref=f1e83]: ■ 요약
+            - generic [ref=f1e84]: ▶ 쇼츠
+            - generic [ref=f1e85]: ◧ 웹툰
+        - 'link "08 WEEK 08 개인 및 기업 AI 생산성 향상: 전략, 도구, 실천 방안 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e86] [cursor=pointer]':
+          - /url: /week/8
+          - generic: "08"
+          - generic [ref=f1e87]: WEEK 08
+          - generic [ref=f1e88]: "개인 및 기업 AI 생산성 향상: 전략, 도구, 실천 방안"
+          - generic [ref=f1e89]:
+            - generic [ref=f1e90]: ■ 요약
+            - generic [ref=f1e91]: ▶ 쇼츠
+            - generic [ref=f1e92]: ◧ 웹툰
+        - 'link "09 WEEK 09 AI 신용평가 규제 동향: 미국, 유럽, 한국 금융 분야 가이드라인 ■ 요약 ▶ 쇼츠 ◧ 웹툰" [ref=f1e93] [cursor=pointer]':
+          - /url: /week/9
+          - generic: "09"
+          - generic [ref=f1e94]: WEEK 09
+          - generic [ref=f1e95]: "AI 신용평가 규제 동향: 미국, 유럽, 한국 금융 분야 가이드라인"
+          - generic [ref=f1e96]:
+            - generic [ref=f1e97]: ■ 요약
+            - generic [ref=f1e98]: ▶ 쇼츠
+            - generic [ref=f1e99]: ◧ 웹툰
+      - contentinfo [ref=f1e100]:
+        - generic [ref=f1e101]: CREDIT SCORING MODEL — LECTURE ARCHIVE
+        - generic [ref=f1e102]: SUMMARY / SHORTS / WEBTOON
+  - button "Open Next.js Dev Tools" [ref=f1e108] [cursor=pointer]

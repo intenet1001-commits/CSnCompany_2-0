@@ -68,7 +68,11 @@ plugin_dirs() {
 }
 
 # --- Gather state -------------------------------------------------------------
-git -C "$REPO" fetch origin --quiet 2>/dev/null || { err "git fetch failed (offline?)"; exit 1; }
+FETCHED=1
+if ! git -C "$REPO" fetch origin --quiet 2>/dev/null; then
+  FETCHED=0
+  say "warn: git fetch failed; reporting against the last cached upstream ref"
+fi
 
 UPSTREAM=$(git -C "$REPO" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
 if [ -z "$UPSTREAM" ]; then
@@ -82,6 +86,7 @@ read -r BEHIND AHEAD < <(git -C "$REPO" rev-list --left-right --count "$UPSTREAM
 
 report_state() {
   say "branch: $BRANCH  ->  $UPSTREAM"
+  say "remote check: $([ "$FETCHED" = 1 ] && echo fetched || echo cached)"
   say "ahead:  $AHEAD   behind: $BEHIND   uncommitted: $([ "$DIRTY" = 1 ] && echo yes || echo no)"
 }
 
@@ -135,6 +140,35 @@ mirror_codex_cache() {
   say "codex cache: mirrored $n plugin(s) -> $cache_root/<name>/<version>"
 }
 
+# Keep only active versions in Codex's live cache. Old versions remain recoverable.
+archive_stale_codex_cache() {
+  local cache_root="$HOME/.codex/plugins/cache/CSnCompany_2-0"
+  [ -d "$cache_root" ] || return 0
+  local archive_root="$HOME/.codex/plugins/archive/CSnCompany_2-0/$(date +%F)"
+  local dir name current plugin_root candidate version target n=0
+  while read -r dir; do
+    local cfile="$dir/.codex-plugin/plugin.json"
+    [ -f "$cfile" ] || continue
+    name=$(jq -r '.name // empty' "$cfile")
+    current=$(jq -r '.version // empty' "$cfile")
+    plugin_root="$cache_root/$name"
+    [ -d "$plugin_root" ] || continue
+    for candidate in "$plugin_root"/*; do
+      [ -d "$candidate" ] || continue
+      version=$(basename "$candidate")
+      [ "$version" = "$current" ] && continue
+      target="$archive_root/$name/$version"
+      if [ -e "$target" ]; then
+        target="$archive_root/$name/${version}-$(date +%H%M%S)"
+      fi
+      mkdir -p "$(dirname "$target")"
+      mv "$candidate" "$target"
+      n=$((n + 1))
+    done
+  done < <(plugin_dirs)
+  say "codex cache: archived $n stale version(s) -> $archive_root"
+}
+
 commit_all() {
   regen_manifests                    # keep codex manifests in step BEFORE bumping/staging
   bump_all_versions
@@ -166,9 +200,15 @@ case "$MODE" in
   pull)
     if [ "$DIRTY" = 1 ]; then err "uncommitted changes present; commit or use 'auto' before pulling"; report_state; exit 1; fi
     if [ "$AHEAD" -gt 0 ] && [ "$BEHIND" -gt 0 ]; then err "branch has diverged; use 'auto' (rebase) instead of 'pull'"; exit 1; fi
-    if [ "$BEHIND" -eq 0 ]; then say "already up to date"; mirror_codex_cache; exit 0; fi
+    if [ "$BEHIND" -eq 0 ]; then
+      say "already up to date"
+      mirror_codex_cache
+      archive_stale_codex_cache
+      exit 0
+    fi
     git -C "$REPO" merge --ff-only "$UPSTREAM" && say "pulled $BEHIND commit(s)"
     mirror_codex_cache
+    archive_stale_codex_cache
     refresh_hint
     ;;
 
@@ -177,6 +217,7 @@ case "$MODE" in
     if [ "$BEHIND" -gt 0 ]; then err "remote is ahead by $BEHIND; use 'auto' to rebase then push"; exit 1; fi
     git -C "$REPO" push origin "$BRANCH" && say "pushed to $UPSTREAM"
     mirror_codex_cache
+    archive_stale_codex_cache
     refresh_hint
     ;;
 
@@ -192,6 +233,7 @@ case "$MODE" in
     read -r BEHIND AHEAD < <(git -C "$REPO" rev-list --left-right --count "$UPSTREAM"...HEAD 2>/dev/null || echo "0 0")
     [ "$AHEAD" -gt 0 ] && { git -C "$REPO" push origin "$BRANCH" && say "pushed to $UPSTREAM"; }
     mirror_codex_cache
+    archive_stale_codex_cache
     say "done — in sync"
     refresh_hint
     ;;

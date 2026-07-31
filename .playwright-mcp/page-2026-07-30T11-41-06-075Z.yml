@@ -1,0 +1,303 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e3]:
+    - banner [ref=f3e4]:
+      - generic [ref=f3e5]: ML × PORTFOLIO OPT
+      - button "어두운 배경으로 전환" [ref=f3e8] [cursor=pointer]: DARK
+    - generic [ref=f3e11]:
+      - paragraph [ref=f3e12]: 기말시험 — 생각해볼 점
+      - heading "추정오차와 상관구조가 최적화를 무너뜨릴 때" [level=1] [ref=f3e13]:
+        - generic [ref=f3e14]: 추정오차와 상관구조가
+        - generic [ref=f3e17]:
+          - emphasis [ref=f3e18]: 최적화
+          - text: 를 무너뜨릴 때
+      - paragraph [ref=f3e19]: 11문항을 두 판본(김덕기·전병하)과 짜집기 특강으로 합쳤습니다. 모범답안과 해제, 채점 포인트, 슬라이드 근거를 한 화면에서 보고 — 걸으면서 들으세요.
+      - generic [ref=f3e20]:
+        - generic [ref=f3e21]:
+          - generic [ref=f3e22]: "11"
+          - generic [ref=f3e23]: QUESTIONS
+        - generic [ref=f3e24]:
+          - generic [ref=f3e25]: "11"
+          - generic [ref=f3e26]: NARRATED
+        - generic [ref=f3e27]:
+          - generic [ref=f3e28]: 74′
+          - generic [ref=f3e29]: LISTEN TIME
+    - generic [ref=f3e31]:
+      - generic [ref=f3e32]: 추정오차 · error maximization · 조건수 · Marcenko–Pastur · denoising · 1/N · Ledoit–Wolf · NCO · HRP · 마코위츠의 저주 ·
+      - generic [ref=f3e33]: 추정오차 · error maximization · 조건수 · Marcenko–Pastur · denoising · 1/N · Ledoit–Wolf · NCO · HRP · 마코위츠의 저주 ·
+    - generic [ref=f3e34]:
+      - heading "11문항" [level=2] [ref=f3e37]
+      - generic [ref=f3e38]:
+        - link "01 문제 01 계산형 2자산 최소분산 포트폴리오 계산 100만원을 A·B에 어떻게 나눌 것인가 — GMV 비중의 유도와 대입 계산·유도 ‣ 02, 04 ▶ 4:46" [ref=f3e39] [cursor=pointer]:
+          - /url: /q/q01
+          - generic: "01"
+          - generic [ref=f3e40]:
+            - generic [ref=f3e41]: 문제 01
+            - generic [ref=f3e42]: 계산형
+          - generic [ref=f3e43]: 2자산 최소분산 포트폴리오 계산
+          - generic [ref=f3e44]: 100만원을 A·B에 어떻게 나눌 것인가 — GMV 비중의 유도와 대입
+          - generic [ref=f3e45]:
+            - generic [ref=f3e46]: 계산·유도
+            - generic [ref=f3e47]: ‣ 02, 04
+            - generic [ref=f3e48]: ▶ 4:46
+        - link "02 문제 02 논술형 Markowitz 평균-분산 접근법의 설명과 문제점 이론은 아름답고 재료를 재는 저울은 고장 나 있다 — 추정오차부터 OOS 저성과까지 이론과 균열 ‣ 02, 03, 09 ▶ 6:30" [ref=f3e49] [cursor=pointer]:
+          - /url: /q/q02
+          - generic: "02"
+          - generic [ref=f3e50]:
+            - generic [ref=f3e51]: 문제 02
+            - generic [ref=f3e52]: 논술형
+          - generic [ref=f3e53]: Markowitz 평균-분산 접근법의 설명과 문제점
+          - generic [ref=f3e54]: 이론은 아름답고 재료를 재는 저울은 고장 나 있다 — 추정오차부터 OOS 저성과까지
+          - generic [ref=f3e55]:
+            - generic [ref=f3e56]: 이론과 균열
+            - generic [ref=f3e57]: ‣ 02, 03, 09
+            - generic [ref=f3e58]: ▶ 6:30
+        - link "03 문제 03 논술형 MV 보완 방법들과 나의 선택 “표본에서 본 것을 100% 믿지 말자” — 보완책의 지도를 그리고 하나를 옹호하기 이론과 균열 ‣ 03, 06, 09 ▶ 6:42" [ref=f3e59] [cursor=pointer]:
+          - /url: /q/q03
+          - generic: "03"
+          - generic [ref=f3e60]:
+            - generic [ref=f3e61]: 문제 03
+            - generic [ref=f3e62]: 논술형
+          - generic [ref=f3e63]: MV 보완 방법들과 나의 선택
+          - generic [ref=f3e64]: “표본에서 본 것을 100% 믿지 말자” — 보완책의 지도를 그리고 하나를 옹호하기
+          - generic [ref=f3e65]:
+            - generic [ref=f3e66]: 이론과 균열
+            - generic [ref=f3e67]: ‣ 03, 06, 09
+            - generic [ref=f3e68]: ▶ 6:42
+        - link "04 문제 04 논술형 Michaud (1998)의 Resampling 방법 여러 평행세계에서 최적화를 반복하고 가중치를 평균한다 — 포트폴리오판 bagging 이론과 균열 ‣ 03 ▶ 5:27" [ref=f3e69] [cursor=pointer]:
+          - /url: /q/q04
+          - generic: "04"
+          - generic [ref=f3e70]:
+            - generic [ref=f3e71]: 문제 04
+            - generic [ref=f3e72]: 논술형
+          - generic [ref=f3e73]: Michaud (1998)의 Resampling 방법
+          - generic [ref=f3e74]: 여러 평행세계에서 최적화를 반복하고 가중치를 평균한다 — 포트폴리오판 bagging
+          - generic [ref=f3e75]:
+            - generic [ref=f3e76]: 이론과 균열
+            - generic [ref=f3e77]: ‣ 03
+            - generic [ref=f3e78]: ▶ 5:27
+        - link "05 문제 05 논술형 1/N이 표본외에서 MV를 이기는 이유, 그리고 1/N을 이기는 법 1/N의 승리는 단순함의 승리가 아니라 추정오차 통제의 승리다 이론과 균열 ‣ 03, 06, 09 ▶ 6:43" [ref=f3e79] [cursor=pointer]:
+          - /url: /q/q05
+          - generic: "05"
+          - generic [ref=f3e80]:
+            - generic [ref=f3e81]: 문제 05
+            - generic [ref=f3e82]: 논술형
+          - generic [ref=f3e83]: 1/N이 표본외에서 MV를 이기는 이유, 그리고 1/N을 이기는 법
+          - generic [ref=f3e84]: 1/N의 승리는 단순함의 승리가 아니라 추정오차 통제의 승리다
+          - generic [ref=f3e85]:
+            - generic [ref=f3e86]: 이론과 균열
+            - generic [ref=f3e87]: ‣ 03, 06, 09
+            - generic [ref=f3e88]: ▶ 6:43
+        - link "06 문제 06 논술형 Marcenko–Pastur 정리로 행렬의 무작위성 판정 완전한 우연이 남기는 지문을 알면, 지문 밖으로 튄 고유값이 곧 신호다 잡음 축 ‣ 06 ▶ 7:03" [ref=f3e89] [cursor=pointer]:
+          - /url: /q/q06
+          - generic: "06"
+          - generic [ref=f3e90]:
+            - generic [ref=f3e91]: 문제 06
+            - generic [ref=f3e92]: 논술형
+          - generic [ref=f3e93]: Marcenko–Pastur 정리로 행렬의 무작위성 판정
+          - generic [ref=f3e94]: 완전한 우연이 남기는 지문을 알면, 지문 밖으로 튄 고유값이 곧 신호다
+          - generic [ref=f3e95]:
+            - generic [ref=f3e96]: 잡음 축
+            - generic [ref=f3e97]: ‣ 06
+            - generic [ref=f3e98]: ▶ 7:03
+        - link "07 문제 07 논술형 MP 정리를 이용한 잡음 제거 공분산행렬 구축 인물은 그대로, 배경 노이즈만 균일하게 — 0이 아니라 평균으로 치환하는 이유 잡음 축 ‣ 06 ▶ 6:14" [ref=f3e99] [cursor=pointer]:
+          - /url: /q/q07
+          - generic: "07"
+          - generic [ref=f3e100]:
+            - generic [ref=f3e101]: 문제 07
+            - generic [ref=f3e102]: 논술형
+          - generic [ref=f3e103]: MP 정리를 이용한 잡음 제거 공분산행렬 구축
+          - generic [ref=f3e104]: 인물은 그대로, 배경 노이즈만 균일하게 — 0이 아니라 평균으로 치환하는 이유
+          - generic [ref=f3e105]:
+            - generic [ref=f3e106]: 잡음 축
+            - generic [ref=f3e107]: ‣ 06
+            - generic [ref=f3e108]: ▶ 6:14
+        - link "08 문제 08 논술형 p-값 접근의 한계와 평균감소불순도(MDI) 화재경보기는 “불이 났을 확률”을 말해주지 않는다 — D1~D4와 트리 기반 대안 특성 선택 ‣ 08 ▶ 7:23" [ref=f3e109] [cursor=pointer]:
+          - /url: /q/q08
+          - generic: "08"
+          - generic [ref=f3e110]:
+            - generic [ref=f3e111]: 문제 08
+            - generic [ref=f3e112]: 논술형
+          - generic [ref=f3e113]: p-값 접근의 한계와 평균감소불순도(MDI)
+          - generic [ref=f3e114]: 화재경보기는 “불이 났을 확률”을 말해주지 않는다 — D1~D4와 트리 기반 대안
+          - generic [ref=f3e115]:
+            - generic [ref=f3e116]: 특성 선택
+            - generic [ref=f3e117]: ‣ 08
+            - generic [ref=f3e118]: ▶ 7:23
+        - link "09 문제 09 계산형 상관계수 행렬의 조건수 κ = (1+|ρ|)/(1−|ρ|) — 분산투자가 절실할수록 해가 흔들리는 마코위츠의 저주 신호 축 ‣ 05, 09 ▶ 6:18" [ref=f3e119] [cursor=pointer]:
+          - /url: /q/q09
+          - generic: "09"
+          - generic [ref=f3e120]:
+            - generic [ref=f3e121]: 문제 09
+            - generic [ref=f3e122]: 계산형
+          - generic [ref=f3e123]: 상관계수 행렬의 조건수
+          - generic [ref=f3e124]: κ = (1+|ρ|)/(1−|ρ|) — 분산투자가 절실할수록 해가 흔들리는 마코위츠의 저주
+          - generic [ref=f3e125]:
+            - generic [ref=f3e126]: 신호 축
+            - generic [ref=f3e127]: ‣ 05, 09
+            - generic [ref=f3e128]: ▶ 6:18
+        - link "10 문제 10 논술형 중첩군집 최적화 (NCO) 팀 안에서 먼저, 그다음 팀 사이에서 — 조건수를 폭발시키던 블록을 격리 수술한다 신호 축 ‣ 09 ▶ 6:55" [ref=f3e129] [cursor=pointer]:
+          - /url: /q/q10
+          - generic: "10"
+          - generic [ref=f3e130]:
+            - generic [ref=f3e131]: 문제 10
+            - generic [ref=f3e132]: 논술형
+          - generic [ref=f3e133]: 중첩군집 최적화 (NCO)
+          - generic [ref=f3e134]: 팀 안에서 먼저, 그다음 팀 사이에서 — 조건수를 폭발시키던 블록을 격리 수술한다
+          - generic [ref=f3e135]:
+            - generic [ref=f3e136]: 신호 축
+            - generic [ref=f3e137]: ‣ 09
+            - generic [ref=f3e138]: ▶ 6:55
+        - link "11 문제 11 논술형 계층적 위험 평형 (HRP) 역행렬을 아예 쓰지 않는 길 — 완전그래프를 나무로 바꾸면 오류가 국소에 머문다 신호 축 ‣ 09 ▶ 9:55" [ref=f3e139] [cursor=pointer]:
+          - /url: /q/q11
+          - generic: "11"
+          - generic [ref=f3e140]:
+            - generic [ref=f3e141]: 문제 11
+            - generic [ref=f3e142]: 논술형
+          - generic [ref=f3e143]: 계층적 위험 평형 (HRP)
+          - generic [ref=f3e144]: 역행렬을 아예 쓰지 않는 길 — 완전그래프를 나무로 바꾸면 오류가 국소에 머문다
+          - generic [ref=f3e145]:
+            - generic [ref=f3e146]: 신호 축
+            - generic [ref=f3e147]: ‣ 09
+            - generic [ref=f3e148]: ▶ 9:55
+    - generic [ref=f3e149]:
+      - heading "문제들의 전체 지도" [level=2] [ref=f3e152]
+      - paragraph [ref=f3e153]:
+        - text: 11개 문제는 사실 하나의 이야기입니다 —
+        - strong [ref=f3e154]: 추정오차(잡음)와 상관구조(신호)가 MV 최적화를 어떻게 무너뜨리고, ML이 이를 어떻게 복구하는가.
+      - generic [ref=f3e155]:
+        - generic [ref=f3e156]:
+          - generic [ref=f3e157]: "01"
+          - generic [ref=f3e158]:
+            - generic [ref=f3e159]: 기초 계산
+            - generic [ref=f3e160]: 2자산 최소분산으로 몸을 푼다. 여기서 이미 “최소분산은 μ를 안 쓴다”는 씨앗이 뿌려진다.
+            - link "문제 01" [ref=f3e162] [cursor=pointer]:
+              - /url: /q/q01
+        - generic [ref=f3e163]:
+          - generic [ref=f3e164]: "02"
+          - generic [ref=f3e165]:
+            - generic [ref=f3e166]: Markowitz의 이론과 균열
+            - generic [ref=f3e167]: 이론은 아름답지만 재료를 재는 저울이 고장 나 있다. 추정오차 → error maximization → 집중 → OOS 저성과.
+            - link "문제 02" [ref=f3e169] [cursor=pointer]:
+              - /url: /q/q02
+        - generic [ref=f3e170]:
+          - generic [ref=f3e171]: "03"
+          - generic [ref=f3e172]:
+            - generic [ref=f3e173]: 전통적 보완책
+            - generic [ref=f3e174]: shrinkage · 제약 · resampling. 공통 철학은 “표본에서 본 것을 100% 믿지 말자”.
+            - generic [ref=f3e175]:
+              - link "문제 03" [ref=f3e176] [cursor=pointer]:
+                - /url: /q/q03
+              - link "문제 04" [ref=f3e177] [cursor=pointer]:
+                - /url: /q/q04
+        - generic [ref=f3e178]:
+          - generic [ref=f3e179]: "04"
+          - generic [ref=f3e180]:
+            - generic [ref=f3e181]: 그래도 1/N에 지는 현실
+            - generic [ref=f3e182]: DeMiguel의 3,000개월. 1/N의 승리는 단순함의 승리가 아니라 추정오차 통제의 승리다.
+            - link "문제 05" [ref=f3e184] [cursor=pointer]:
+              - /url: /q/q05
+        - generic [ref=f3e185]:
+          - generic [ref=f3e186]: "05"
+          - generic [ref=f3e187]:
+            - generic [ref=f3e188]: 불안정의 뿌리 ① 잡음 축
+            - generic [ref=f3e189]: 랜덤행렬이론. MP 정리로 진단하고(06), denoising으로 수술한다(07).
+            - generic [ref=f3e190]:
+              - link "문제 06" [ref=f3e191] [cursor=pointer]:
+                - /url: /q/q06
+              - link "문제 07" [ref=f3e192] [cursor=pointer]:
+                - /url: /q/q07
+        - generic [ref=f3e193]:
+          - generic [ref=f3e194]: "06"
+          - generic [ref=f3e195]:
+            - generic [ref=f3e196]: 불안정의 뿌리 ② 신호 축
+            - generic [ref=f3e197]: 조건수와 군집. 표본을 늘려도 사라지지 않는, 상관구조 자체가 만드는 불안정.
+            - link "문제 09" [ref=f3e199] [cursor=pointer]:
+              - /url: /q/q09
+        - generic [ref=f3e200]:
+          - generic [ref=f3e201]: "07"
+          - generic [ref=f3e202]:
+            - generic [ref=f3e203]: ML 해법
+            - generic [ref=f3e204]: NCO는 마코위츠를 고쳐 쓰는 길, HRP는 마코위츠 없이 사는 길.
+            - generic [ref=f3e205]:
+              - link "문제 10" [ref=f3e206] [cursor=pointer]:
+                - /url: /q/q10
+              - link "문제 11" [ref=f3e207] [cursor=pointer]:
+                - /url: /q/q11
+        - generic [ref=f3e208]:
+          - generic [ref=f3e209]: "08"
+          - generic [ref=f3e210]:
+            - generic [ref=f3e211]: 별도 축 — 특성 선택
+            - generic [ref=f3e212]: "p-값에서 MDI로. 철학은 같다: 강한 가정 위의 표본내 지표를 믿지 말고 표본외로 검증하라."
+            - link "문제 08" [ref=f3e214] [cursor=pointer]:
+              - /url: /q/q08
+    - generic [ref=f3e215]:
+      - heading "원본 자료" [level=2] [ref=f3e218]
+      - paragraph [ref=f3e219]: 위 내용은 아래 두 PDF와 짜집기 특강 3종을 합친 것입니다. 원문 그대로 보려면 여기서 여세요.
+      - generic [ref=f3e220]:
+        - link "PDF 16쪽 김덕기버전 — 기말시험 문제 및 상세 풀이 출제 의도 · 수식 유도 · 채점 포인트와 가산점 요소" [ref=f3e221] [cursor=pointer]:
+          - /url: /pdf/kim.pdf
+          - generic [ref=f3e222]:
+            - generic [ref=f3e223]: PDF
+            - generic [ref=f3e224]: 16쪽
+          - generic [ref=f3e225]: 김덕기버전 — 기말시험 문제 및 상세 풀이
+          - generic [ref=f3e226]: 출제 의도 · 수식 유도 · 채점 포인트와 가산점 요소
+        - link "PDF 22쪽 전병하버전 — 모범답안 & 해제 시험지 전사용 모범답안 · 비유와 용어 풀이 · 슬라이드 근거" [ref=f3e227] [cursor=pointer]:
+          - /url: /pdf/jeon.pdf
+          - generic [ref=f3e228]:
+            - generic [ref=f3e229]: PDF
+            - generic [ref=f3e230]: 22쪽
+          - generic [ref=f3e231]: 전병하버전 — 모범답안 & 해제
+          - generic [ref=f3e232]: 시험지 전사용 모범답안 · 비유와 용어 풀이 · 슬라이드 근거
+        - link "특강 0점 방지 0점 맞기 싫은 사람 비유 한 줄. 백지는 면한다" [ref=f3e233] [cursor=pointer]:
+          - /url: https://lilys.ai/digest/10688314/12524845?s=1&noteVersionId=9105947
+          - generic [ref=f3e234]:
+            - generic [ref=f3e235]: 특강
+            - generic [ref=f3e236]: 0점 방지
+          - generic [ref=f3e237]: 0점 맞기 싫은 사람
+          - generic [ref=f3e238]: 비유 한 줄. 백지는 면한다
+        - link "특강 60점 60점은 맞아보자 핵심 논리 + 필수 키워드 + 답안 전략" [ref=f3e239] [cursor=pointer]:
+          - /url: https://lilys.ai/digest/10688314/12524854?s=1&noteVersionId=9105956
+          - generic [ref=f3e240]:
+            - generic [ref=f3e241]: 특강
+            - generic [ref=f3e242]: 60점
+          - generic [ref=f3e243]: 60점은 맞아보자
+          - generic [ref=f3e244]: 핵심 논리 + 필수 키워드 + 답안 전략
+        - link "특강 고득점 더 욕심내지는 말자 비유 → 핵심 키워드 → 모범 답안 암기 노트" [ref=f3e245] [cursor=pointer]:
+          - /url: https://lilys.ai/digest/10688314/12524884?s=1&noteVersionId=9105991
+          - generic [ref=f3e246]:
+            - generic [ref=f3e247]: 특강
+            - generic [ref=f3e248]: 고득점
+          - generic [ref=f3e249]: 더 욕심내지는 말자
+          - generic [ref=f3e250]: 비유 → 핵심 키워드 → 모범 답안 암기 노트
+    - generic [ref=f3e251]:
+      - heading "시험장에서의 연결 고리" [level=2] [ref=f3e254]
+      - list [ref=f3e255]:
+        - listitem [ref=f3e256]:
+          - text: ✓
+          - generic [ref=f3e257]:
+            - strong [ref=f3e258]: "[2]의 문제점"
+            - text: 을 말할 때는 반드시 두 갈래로 쪼갤 것 — 잡음(추정오차; [3][4][7]의 해법) vs 신호(군집이 만드는 조건수; [9]의 진단, [10][11]의 해법). 이 이분법이 전체 강의의 척추다.
+        - listitem [ref=f3e259]:
+          - text: ✓
+          - generic [ref=f3e260]:
+            - strong [ref=f3e261]: "[5]의 결론 문장"
+            - text: (“1/N의 승리 = 추정오차 통제의 승리”)은 [3]의 선택 논거와 [10][11]의 존재 이유를 한꺼번에 정당화하는 만능 연결어다.
+        - listitem [ref=f3e262]:
+          - text: ✓
+          - generic [ref=f3e263]:
+            - strong [ref=f3e264]: "[6] → [7]"
+            - text: 은 진단 → 수술의 관계,
+            - strong [ref=f3e265]: "[9] → [10]"
+            - text: 도 진단 → 수술의 관계다. 진단 없이 수술부터 쓰지 않도록 순서를 지킬 것.
+        - listitem [ref=f3e266]:
+          - text: ✓
+          - generic [ref=f3e267]:
+            - strong [ref=f3e268]: "[8]"
+            - text: 은 별도 축이지만 철학은 같다 — “강한 가정 위의 표본내 지표(p-값, in-sample MV)를 믿지 말고, 가정을 줄이고(MDI, 위험기반) 표본외로 검증하라(MDA, rolling OOS)”.
+        - listitem [ref=f3e269]:
+          - text: ✓
+          - generic [ref=f3e270]: "논술형의 공통 채점 축 4개: ① 수식을 포함한 정확한 정의 ② 왜 그런가(메커니즘) ③ 실증 근거(수치·문헌) ④ 한계와 검증(OOS). 각 답안을 이 4축으로 구성하면 안정적이다."
+    - contentinfo [ref=f3e271]:
+      - generic [ref=f3e272]: ML × PORTFOLIO OPTIMIZATION — FINAL
+      - generic [ref=f3e273]: ANSWER / DECODE / CRAM / RUBRIC
+  - button "Open Next.js Dev Tools" [ref=f3e279] [cursor=pointer]
