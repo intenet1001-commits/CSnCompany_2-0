@@ -1,7 +1,7 @@
 {
   "name": "cs-ceo",
-  "version": "15.1.0",
-  "description": "CS 시리즈 CEO 오케스트레이터 — 공수 추정 후 CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run 자율 배분. v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지, 외부 플러그인 에이전트 직접 호출 지원.",
+  "version": "15.2.0",
+  "description": "CS 시리즈 CEO 오케스트레이터 — AgentsToZ 프로젝트 기억과 활성 제약을 임무 분할 전에 회상하고 CS 파트너에 자율 배분.",
   "author": {
     "name": "intenet1001-commits",
     "url": "https://github.com/intenet1001-commits"
@@ -27,8 +27,8 @@
   ],
   "interface": {
     "displayName": "Cs Ceo",
-    "shortDescription": "CS 시리즈 CEO 오케스트레이터 — 공수 추정 후 CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run 자율 배분. v5.5: Dynamic Re",
-    "longDescription": "CS 시리즈 CEO 오케스트레이터 — 공수 추정 후 CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run 자율 배분. v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지, 외부 플러그인 에이전트 직접 호출 지원.",
+    "shortDescription": "CS 시리즈 CEO 오케스트레이터 — AgentsToZ 프로젝트 기억과 활성 제약을 임무 분할 전에 회상하고 CS 파트너에 자율 배분.",
+    "longDescription": "CS 시리즈 CEO 오케스트레이터 — AgentsToZ 프로젝트 기억과 활성 제약을 임무 분할 전에 회상하고 CS 파트너에 자율 배분.",
     "developerName": "intenet1001-commits",
     "category": "Engineering",
     "capabilities": [

@@ -1,7 +1,7 @@
 {
   "name": "cs-end",
-  "version": "3.1.1",
-  "description": "CS Session Closing — Session Digest (Attention) → 4-Agent parallel analysis → Learning Gate (Input Gate) → Error note capture (Phase 2.2) → Selective version-up (GRU Update Gate) → Knowledge Decay (Forget Gate) → Structured compact handoff (Hidden State) → CLAUDE.md auto-update (Phase 6.5/6.7/7). Self-contained: learnings persist only to cs-experiencing SKILL.md, no external vault.",
+  "version": "3.2.0",
+  "description": "CS Session Closing — 검증된 세션 결론을 프로젝트 로컬 AgentsToZ 장기기억 에이전트에 위임하고 CS 학습 게이트를 별도로 운영.",
   "author": {
     "name": "gwanli",
     "url": "https://github.com/intenet1001-commits"
@@ -18,8 +18,8 @@
   ],
   "interface": {
     "displayName": "Cs End",
-    "shortDescription": "CS Session Closing — Session Digest (Attention) → 4-Agent parallel analysis → Learning Gate (Input Gate) → Err",
-    "longDescription": "CS Session Closing — Session Digest (Attention) → 4-Agent parallel analysis → Learning Gate (Input Gate) → Error note capture (Phase 2.2) → Selective version-up (GRU Update Gate) → Knowledge Decay (Forget Gate) → Structured compact handoff (Hidden State) → CLAUDE.md auto-update (Phase 6.5/6.7/7). Self-contained: learnings persist only to cs-experiencing SKILL.md, no external vault.",
+    "shortDescription": "CS Session Closing — 검증된 세션 결론을 프로젝트 로컬 AgentsToZ 장기기억 에이전트에 위임하고 CS 학습 게이트를 별도로 운영.",
+    "longDescription": "CS Session Closing — 검증된 세션 결론을 프로젝트 로컬 AgentsToZ 장기기억 에이전트에 위임하고 CS 학습 게이트를 별도로 운영.",
     "developerName": "intenet1001-commits",
     "category": "Engineering",
     "capabilities": [
@@ -30,5 +30,6 @@
     "websiteURL": "https://github.com/intenet1001-commits/CSnCompany_2-0",
     "defaultPrompt": [],
     "brandColor": "#0F766E"
-  }
+  },
+  "skills": "./skills/"
 }

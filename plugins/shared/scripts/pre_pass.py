@@ -43,6 +43,8 @@ except ImportError:  # Windows fallback uses an exclusive lock marker below.
 HOME = Path.home()
 MARKETPLACE = HOME / ".claude/plugins/marketplaces/CSnCompany_2-0"
 BASE = MARKETPLACE / "plugins"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SOURCE_PLUGINS = REPO_ROOT / "plugins"
 
 
 # ── low-level helpers ─────────────────────────────────────────────────────────
@@ -217,6 +219,14 @@ def _provenance_tuple(item: dict) -> Optional[Tuple[str, str, str]]:
     return values
 
 
+def _provenance_candidate_key(item: dict) -> Optional[str]:
+    provenance = item.get("provenance")
+    if not isinstance(provenance, dict):
+        return None
+    value = provenance.get("candidate_key")
+    return value if isinstance(value, str) and value else None
+
+
 def _is_pending_learning(item: object) -> bool:
     """Canonical pending 또는 status 키가 없는 legacy pending-patch."""
     if not isinstance(item, dict):
@@ -264,6 +274,7 @@ _SKIP_DIRS = {".bak", "node_modules", ".git", "__pycache__", ".cache", ".DS_Stor
 def find_skill(name: str) -> str:
     """Search known locations for <name>/SKILL.md, skipping unsafe dirs."""
     roots = [
+        SOURCE_PLUGINS,
         BASE,
         HOME / ".claude/plugins/marketplaces",
         HOME / ".claude/plugins/cache",
@@ -722,6 +733,7 @@ _SKILL_TO_AGENT_HINT: dict[str, str] = {
 def find_agent_file(name: str) -> str:
     """Search for agents/<name>.md in plugin marketplaces and cache."""
     roots = [
+        SOURCE_PLUGINS,
         HOME / ".claude/plugins/marketplaces",
         HOME / ".claude/plugins/cache",
     ]
@@ -853,6 +865,7 @@ def cmd_resolve_partner(argv: list) -> dict:
 def cmd_learn_append(argv: list) -> dict:
     """learn-append --plugin X --lesson "..." [--evidence "..."] [--tier tactical|principle]
     [--source-run-id ID] [--source-range RANGE] [--memory-id ID]
+    [--candidate-key STABLE_ENTRY_VERSION_ID]
 
     어떤 플러그인이든 구조화된 학습 후보를 BTW 저장소에 추가한다 (R7).
     승격은 /cs-end Learning Gate가 담당 — 여기서는 캡처만.
@@ -865,6 +878,7 @@ def cmd_learn_append(argv: list) -> dict:
         "source-run-id": "",
         "source-range": "",
         "memory-id": "",
+        "candidate-key": "",
     }
     btw_file = HOME / ".claude" / ".experiencing-btw.json"
     i = 0
@@ -896,6 +910,11 @@ def cmd_learn_append(argv: list) -> dict:
                 "--memory-id, and --source-range together"
             )
         }
+    requested_candidate_key = fields["candidate-key"].strip()
+    if requested_candidate_key and not re.fullmatch(
+        r"memory-[0-9a-f]{24}", requested_candidate_key
+    ):
+        return {"error": "learn-append --candidate-key has an invalid format"}
     if not fields["evidence"]:
         # LOOP-PROTOCOL [a]: 근거 없는 학습은 tactical 상한
         fields["tier"] = "tactical"
@@ -904,11 +923,39 @@ def cmd_learn_append(argv: list) -> dict:
     requested_provenance = (
         provenance_values if supplied_provenance else None
     )
+    if requested_candidate_key and requested_provenance is None:
+        return {"error": "learn-append --candidate-key requires complete provenance"}
     requested_idea = f"[{fields['plugin']}] {fields['lesson']}"
     try:
         with _queue_lock(btw_file):
             items = _read_learning_queue(btw_file, missing_ok=True)
             queue_changed = _normalize_learning_queue(items)
+
+            if requested_candidate_key:
+                existing = next(
+                    (
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                        and _provenance_candidate_key(item) == requested_candidate_key
+                    ),
+                    None,
+                )
+                if existing is not None:
+                    if _provenance_tuple(existing) != requested_provenance:
+                        return {
+                            "error": "learn-append --candidate-key provenance conflicts with an existing candidate"
+                        }
+                    if queue_changed:
+                        _atomic_write_json(btw_file, items)
+                    return {
+                        "appended": existing,
+                        "created": False,
+                        "deduplicated": True,
+                        "total_pending": sum(
+                            1 for item in items if _is_pending_learning(item)
+                        ),
+                    }
 
             if requested_provenance is not None:
                 existing = next(
@@ -940,7 +987,11 @@ def cmd_learn_append(argv: list) -> dict:
                 and isinstance(item.get("id"), str)
                 and item["id"]
             }
-            if requested_provenance is not None:
+            if requested_candidate_key:
+                provenance_key = requested_candidate_key.encode("utf-8")
+                base_id = f"btw-memory-{hashlib.sha256(provenance_key).hexdigest()[:24]}"
+                entry_id = _unique_id(base_id, used_ids)
+            elif requested_provenance is not None:
                 provenance_key = "\0".join(
                     (*requested_provenance, requested_idea)
                 ).encode("utf-8")
@@ -960,6 +1011,11 @@ def cmd_learn_append(argv: list) -> dict:
                     "source_run_id": provenance_values[0],
                     "source_range": provenance_values[2],
                     "memory_id": provenance_values[1],
+                    **(
+                        {"candidate_key": requested_candidate_key}
+                        if requested_candidate_key
+                        else {}
+                    ),
                 },
                 "date": datetime.date.today().isoformat(),
                 "status": "pending",

@@ -32,7 +32,7 @@ If you are not the author, Phase 4 (git push) is automatically skipped — your 
 0. **Phase 0 — 플래그 파싱 + Origin 확인** (자동)
 0.5. **Phase 0.5 — Session Pre-Pass Digest** ← 신규 (Attention + KV Cache)
 1. **Phase 1 — 4-Agent 병렬 분석** (Digest 공유 컨텍스트 주입)
-1.5. **Phase 1.5 — Core Memory Update** ← 신규 (장기 핵심 메모리 갱신, cs-core-memory-v1)
+1.5. **Phase 1.5 — Project Memory Owner Handoff** (AgentsToZ 장기기억 에이전트 위임)
 2. **Phase 2 — 학습 영속화 + Learning Gate** (3-axis 품질 스코어)
 2.2. **Phase 2.2 — Error Note 점검 + 캡처** ← 신규 (open 노트 항상 점검 + 에러→해결 캡처)
 2.5. **Phase 2.5 — Knowledge Decay Check** ← 신규 (Forget Gate, 항목 있을 때만)
@@ -146,59 +146,68 @@ fi
 - `version-scout` 출력에 domain 매핑이 없으면 → Phase 3의 fallback 규칙 (a) (AskUserQuestion 확인)로 처리한다. 자동 전체 버전업 금지.
 - `doc-updater` 후보에 file/needed_change/reason 중 하나라도 누락되면 해당 항목만 드롭하고 나머지는 사용한다. 배열 전체가 파싱 불가하면 doc-updater를 1회 재실행한다 (140번째 줄 "해당 에이전트만 1회 재실행" 규칙 재사용, 재실행도 실패하면 N/A 처리).
 
-## Phase 1.5 — Core Memory Update (장기 핵심 메모리 갱신)
+## Phase 1.5 — Project Memory Owner Handoff
 
-**조건:** `~/.claude/core-memory/` 디렉토리가 없으면 생성 후 진행. 항상 실행.
-
-Phase 1의 `learning-extractor` 결과를 memory-keeper 에이전트에 전달한다:
-
-```bash
-mkdir -p "$HOME/.claude/core-memory"
-LATEST_CORE=$(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v"* 2>/dev/null | sort -V | tail -1)
-MEMORY_KEEPER="$LATEST_CORE/agents/memory-keeper.md"
-```
-
-memory-keeper 에이전트를 Task()로 스폰합니다. 입력:
-- `LEARNING_CANDIDATES`: Phase 1 `learning-extractor` JSON 출력 전체 (Learning Gate 통과 전 원본 — memory-keeper는 raw 후보를 수신하여 게이트 미통과 항목에서도 반복 패턴을 감지한다)
-- `CORE_MD_PATH`: `~/.claude/core-memory/CORE.md`
-
-memory-keeper 출력 (JSON):
-
-```json
-{
-  "updated": true,
-  "new_patterns": ["패턴 제목 1", "패턴 제목 2"],
-  "reinforced": ["기존 패턴 제목 (강화)"],
-  "core_memory_summary": "Phase 6 compact에 포함할 핵심 인사이트 1-3줄"
-}
-```
-
-`core_memory_summary`를 변수로 저장하여 Phase 6 핸드오프에 포함한다:
+장기기억 저장의 단일 소유자는 AgentsToZ가 프로젝트에 설치한 장기기억 에이전트다.
+CSnCompany는 별도 전역 기억을 생성하거나 직접 합성하지 않는다.
 
 ```bash
-CORE_MEMORY_SUMMARY=$(printf '%s' "$CORE_RESULT" | python3 -c \
-  "import sys,json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('core_memory_summary',''))
-except Exception:
-    print('__PARSE_ERROR__')" 2>/dev/null)
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ ! -f "$PROJECT_ROOT/.agent-memory/config.json" ]; then
+  PROJECT_ROOT="$PWD"
+  while [ "$PROJECT_ROOT" != "/" ] && [ ! -f "$PROJECT_ROOT/.agent-memory/config.json" ]; do
+    PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
+  done
+fi
+PROJECT_MEMORY_CONFIG="$PROJECT_ROOT/.agent-memory/config.json"
+```
 
-if [ "$CORE_MEMORY_SUMMARY" = "__PARSE_ERROR__" ]; then
-  echo "⚠️ Core Memory Update skipped: memory-keeper 출력이 유효한 JSON이 아님"
-  CORE_MEMORY_SUMMARY=""
+`PROJECT_MEMORY_CONFIG`가 없으면 조용히 Phase 2로 진행한다. 있으면 현재 표면의 프로젝트 로컬
+`remember-session` 어댑터를 한 번만 호출한다. 후보 경로는 다음 순서이며, **어댑터의 지침을
+그대로 실행**하고 저장 로직을 이 명령 안에 복제하지 않는다.
+
+```text
+.claude/skills/remember-session/SKILL.md
+.agents/skills/remember-session/SKILL.md
+.codex/skills/remember-session/SKILL.md
+```
+
+어댑터 입력에는 Phase 0.5/1에서 이미 계산한 다음의 컴팩트한 결론만 전달한다.
+
+- 세션 목표와 실제 완료 결과
+- 검증된 결정/제약/워크플로 변화
+- 반복 실패의 원인과 확인된 해결법
+- 미해결 충돌은 해결된 사실처럼 쓰지 않고 contested evidence로 전달
+
+raw 대화, 비밀값, 임시 상태, 전체 diff, 모든 에이전트 출력을 복제하지 않는다. 기억 에이전트가
+현재 `memoryId`와 기존 entry ID를 읽고 병합·저장·mark-remembered·Push를 소유한다.
+
+어댑터가 없으면 직접 폴백 저장하지 말고 다음 한 줄만 남긴 뒤 Phase 2로 계속한다:
+
+```text
+⚠️ Project Memory handoff skipped: AgentsToZ remember-session adapter missing
+```
+
+어댑터의 **로컬 기억 갱신이 성공한 뒤** cs-memory가 설치되어 있으면, 변경 포인터만 무토큰으로
+수집한다. 원격 Push만 실패한 경우에도 로컬 갱신은 성공으로 보고 수집하며 Push 경고는 별도로 남긴다:
+
+```bash
+MEMORY_PLUGIN=$(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v"* 2>/dev/null | sort -V | tail -1)
+if [ -z "$MEMORY_PLUGIN" ] && [ -n "$LATEST_EXP" ] && [ -d "$(dirname "$LATEST_EXP")/cs-core-memory-v1" ]; then
+  MEMORY_PLUGIN="$(dirname "$LATEST_EXP")/cs-core-memory-v1"
+fi
+if [ -z "$MEMORY_PLUGIN" ] && [ -d "$PROJECT_ROOT/plugins/cs-core-memory-v1" ]; then
+  MEMORY_PLUGIN="$PROJECT_ROOT/plugins/cs-core-memory-v1"
+fi
+MEMORY_COLLECTOR="$MEMORY_PLUGIN/skills/learn/scripts/memory_learning.py"
+if [ -f "$MEMORY_COLLECTOR" ]; then
+  uv run --quiet --no-project python "$MEMORY_COLLECTOR" collect \
+    --project "$PROJECT_ROOT" --no-registry --no-cwd --quiet
 fi
 ```
 
-`try/except`로 감싸 파싱 실패(`json.load` 예외)를 "정상적으로 비어 있음"과 구분한다 — `2>/dev/null`만으로는 python3의 비정상 종료가 빈 문자열로 삼켜져, memory-keeper가 `status: error`를 명시하지 않은 채 단순히 깨진 JSON을 반환한 경우 아래 경고 없이 완전히 조용해지는 문제가 있었다.
-
-**Phase 6 compact 6번째 필드 (`top_insight`):** `CORE_MEMORY_SUMMARY`가 비어 있지 않으면 5-field compact에 `top_insight` 필드로 추가한다. 비어 있으면 필드 자체를 생략한다 (기존 5-field 파싱에 영향 없음).
-
-**실패 시 처리:** `LATEST_CORE`가 비어 있거나 memory-keeper Task가 오류를 반환하거나, 위 파싱에서 `__PARSE_ERROR__`가 감지되면 `CORE_MEMORY_SUMMARY=""` 로 설정하고 다음 경고 한 줄을 출력한 뒤 Phase 2로 계속 진행한다 — 이 Phase는 블로커가 되어서는 안 된다:
-
-```
-⚠️ Core Memory Update skipped: <오류 사유 1줄>
-```
+이 수집은 `.agent-memory`를 수정하지 않고 `memoryId + entryId + contentVersionHash` 포인터만
+갱신한다. 실패해도 기억 저장 성공을 롤백하지 않으며, 실패 사유 한 줄을 최종 리포트에 남긴다.
 
 ## Phase 2 — 학습 영속화 + Learning Gate (Input Gate 패턴)
 

@@ -1,0 +1,8 @@
+# AgentsToZ가 생성합니다. 이 디렉터리 안에만 적용됩니다.
+# journal/ 은 세션 이력이라 커밋 대상입니다 — 통합이 항목을 잃어도 원본이 남습니다.
+# 나머지는 재생성 가능하거나 매 프롬프트마다 바뀌는 값이라 제외합니다.
+activity.json
+state.json
+backups/
+*.tmp-*
+.codex-memory-*.md

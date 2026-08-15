@@ -1,5 +1,5 @@
 interface:
   display_name: "장기기억 상태"
-  short_description: "학습 커서와 미처리 후보 및 에이전트 버전 확인"
+  short_description: "baseline·후보·스케줄·에이전트 버전 확인"
   default_prompt: "Use $status to show memory learning and agent upgrade status."
 

@@ -145,6 +145,44 @@ class LearningQueueTests(unittest.TestCase):
             )
             self.assertEqual(legacy_producer.returncode, 0, legacy_producer.stderr)
 
+    def test_memory_candidate_key_deduplicates_paraphrases_from_one_entry_version(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "queue.json"
+            candidate_key = "memory-" + ("a" * 24)
+            common = (
+                "--plugin", "project-memory:demo",
+                "--source-run-id", f"memory:{candidate_key}",
+                "--memory-id", "memory-1",
+                "--source-range", "entry:abc@version-1",
+                "--candidate-key", candidate_key,
+                "--btw-file", str(queue),
+            )
+            first = run_prepass(
+                "learn-append", "--lesson", "compact first phrasing", *common
+            )
+            second = run_prepass(
+                "learn-append", "--lesson", "a paraphrase from the same entry version", *common
+            )
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertTrue(json.loads(first.stdout)["created"])
+            self.assertTrue(json.loads(second.stdout)["deduplicated"])
+            items = json.loads(queue.read_text(encoding="utf-8"))
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0]["provenance"]["candidate_key"], candidate_key)
+
+            collision = run_prepass(
+                "learn-append", "--lesson", "different source",
+                "--plugin", "project-memory:other",
+                "--source-run-id", f"memory:{candidate_key}",
+                "--memory-id", "memory-2",
+                "--source-range", "entry:other@version-2",
+                "--candidate-key", candidate_key,
+                "--btw-file", str(queue),
+            )
+            self.assertNotEqual(collision.returncode, 0)
+            self.assertIn("provenance", collision.stdout)
+
     def test_legacy_migration_is_stable_and_status_update_touches_one_entry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             queue = Path(tmp) / "queue.json"
@@ -287,15 +325,15 @@ class LearningQueueTests(unittest.TestCase):
             self.assertEqual(result["sources"]["marketplace.json"], "0.9.0")
 
     def test_bundled_skill_agents_metadata_does_not_hide_plugin_root(self) -> None:
-        resolved = run_prepass("resolve-partner", "long-term-memory-training")
+        resolved = run_prepass("resolve-partner", "learn")
         self.assertEqual(resolved.returncode, 0, resolved.stderr)
         result = json.loads(resolved.stdout)
         self.assertTrue(result["found"])
         self.assertEqual(result["type"], "SKILL")
-        self.assertEqual(result["plugin_name"], "cs-core-memory")
+        self.assertEqual(result["plugin_name"], "cs-memory")
         self.assertEqual(
             result["invocation"],
-            "cs-core-memory:long-term-memory-training",
+            "cs-memory:learn",
         )
 
 

@@ -55,7 +55,7 @@ Two captured design languages you can `--audit` or `--apply` to your own Next.js
 | 🚢 **DevOps** | `cs-ship` | `/cs-ship` | Pre-PR validation: spec compliance, coverage, commit messages |
 | ⚡ **Team Lead** | `cs-smart-run` | `/cs-smart-run "task"` | Plan with Opus → execute with Sonnet agents in parallel |
 | 📚 **Knowledge Keeper** | `cs-experiencing` | `/cs-experiencing` | Versioned learnings + `/cs-end` session-wrap *(author-only push)* |
-| 🧠 **Memory Trainer** | `cs-memory` | `/cs-memory:learn` | Learns long-term memory from changed projects, upgrades only the agents with validated lessons (`/cs-memory:upgrade`), read-only status check (`/cs-memory:status`) |
+| 🧠 **Memory Learner** | `cs-memory` | `/cs-memory:learn` | Consumes changed AgentsToZ memory entries without editing the source; zero-token scheduled intake (`/cs-memory:schedule`) and selective compact upgrades (`/cs-memory:upgrade`) |
 | 🗣️ **Language Coach** | `convo-maker` | `/convo-maker` | Turns session Q&A into natural American English conversations |
 
 ---
@@ -104,12 +104,14 @@ Pick à la carte, or install everything:
 /plugin install convo-maker@CSnCompany_2-0
 ```
 
-> Upgrading from the old `cs-core-memory` plugin? Uninstall it first — `cs-memory` replaces it with three slim commands (`learn` / `upgrade` / `status`) instead of the old verbose ones:
+> Upgrading from the old `cs-core-memory` plugin? Uninstall it first — `cs-memory` replaces it with four bounded commands (`learn` / `schedule` / `upgrade` / `status`) instead of the old global-memory reader/writer:
 > ```
 > /plugin uninstall cs-core-memory@CSnCompany_2-0
 > /plugin install cs-memory@CSnCompany_2-0
 > /reload-plugins
 > ```
+>
+> `cs-memory` does not initialize or edit project memory. AgentsToZ and its project-local memory agent own `.agent-memory`; CSnCompany only recalls relevant context and learns from stable entry-version changes.
 
 ### Step 3 — Restart Claude Code
 

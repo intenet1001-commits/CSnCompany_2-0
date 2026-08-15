@@ -8,9 +8,10 @@ description: |
   v5.3: Goal Gate — 모든 요청 진입 직전 목표(WHAT)를 추출·확정. 불명확 시 1회 질문.
   v5.5: Dynamic Resolve v2 — 파트너 타입(AGENT/SKILL/PROTOCOL) 자동 감지. AGENT 타입은 Task(subagent_type)로 직접 호출. 외부 플러그인 에이전트(oh-my-claudecode:executor 등) 지원.
   v5.6: Mode D (Dynamic Chain) — CrewAI/AutoGen/ChatDev 벤치마크 이식. 다중 도메인이 순서·조건·재작업 루프로 얽히면 선언적 chain 매니페스트를 walk하고 speaker selection(P1)·termination conditions(P2)·instructor-assistant 역할극(P4)을 적용 (plugins/shared/ORCHESTRATION-PATTERNS.md).
+  v15.2: AgentsToZ Project Memory Context — 임무 분할 전 현재 프로젝트의 활성 제약과 관련 기억을 최대 5개만 읽기 전용 주입.
   설치된 스킬/에이전트를 자동 탐색하고, 타이밍(Pre/In/Post/Wraps)은 파트너 description을 읽고 판단해 근거 한 줄과 함께 결정한다.
   Use when user types "/cs-ceo", "cs-ceo", "/goal", or "/cs-partnership".
-version: 15.1.0
+version: 15.2.0
 allowed-tools:
   - Task
   - Agent
@@ -30,11 +31,12 @@ allowed-tools:
 
 유저가 `/cs-ceo [자연어 요청]`을 입력하면:
 1. **(v5.3 신규) Goal Gate**: CEO가 요청에서 목표(WHAT)를 추출. 불명확하면 사용자에게 1회 질문하여 목표 확정 (Phase G)
-2. **(v5.2 신규) 외부 지식 게이트**: CEO가 라이브러리/프레임워크/최신 동향 등 외부 도움이 필요할 것 같으면 즉시 `/context7-auto-research`를 호출해 공부 후 진행 (Phase -3)
-3. CEO가 외부 파트너 스킬 필요 여부 판단 (Phase -2)
-3. CEO 에이전트(opus)가 공수를 추정하고
-4. 어떤 CS 도메인을 어떤 순서로 실행할지 스스로 결정하고
-5. 필요 시 cs-smart-run(Opus 플랜→Sonnet 실행)을 자율 선택한다
+2. **(v15.2) Project Memory Gate**: `.agent-memory/config.json`이 있으면 AgentsToZ 기억의 활성 제약과 목표 관련 항목을 최대 5개 회상한 뒤 임무를 분할 (Phase G.5)
+3. **(v5.2 신규) 외부 지식 게이트**: CEO가 라이브러리/프레임워크/최신 동향 등 외부 도움이 필요할 것 같으면 즉시 `/context7-auto-research`를 호출해 공부 후 진행 (Phase -3)
+4. CEO가 외부 파트너 스킬 필요 여부 판단 (Phase -2)
+5. CEO 에이전트(opus)가 공수를 추정하고
+6. 어떤 CS 도메인을 어떤 순서로 실행할지 스스로 결정하고
+7. 필요 시 cs-smart-run(Opus 플랜→Sonnet 실행)을 자율 선택한다
 
 유저는 도메인이나 파트너를 지정할 필요 없다. 원하는 것을 말하면 CEO가 판단한다.
 
@@ -48,6 +50,8 @@ allowed-tools:
   │ 불명확 → AskUserQuestion: "어떤 목표를 달성하고 싶으신가요?"
   │          └─ 답변 → GOAL_STATEMENT 확정 → 다음 Phase
   │          └─ 취소 → 종료
+  ↓
+[Phase G.5] AgentsToZ 프로젝트 기억? → active constraints ≤2 + 목표 관련 항목, 총 ≤5
   ↓
 [Phase -3] 외부 지식 필요?  ← 라이브러리/최신 변경/모르는 용어/대안 비교/외부 stack trace
   │ Yes → context7-auto-research 설치됨?
@@ -155,6 +159,7 @@ Task() 스폰 시 유저 요청을 원문 그대로 전달 (`with [partner]:` �
 ```
 
 CEO 에이전트 내부 처리:
+- Phase G/G.5: 목표 확정 → 프로젝트 기억 회상 (분할 전)
 - Phase -2: 파트너십 탐지 (명시/자동)
 - Partnership Registry: 파트너 경로 확보
 - Phase -1~0: 컨텍스트 점검 + 도메인/파트너 경로 확인

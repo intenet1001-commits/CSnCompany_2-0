@@ -1,7 +1,7 @@
 {
   "name": "cs-memory",
-  "version": "2.0.1",
-  "description": "장기기억 학습, 학습 후보 기반 에이전트 업그레이드, 통합 상태 확인",
+  "version": "2.1.0",
+  "description": "AgentsToZ 프로젝트 기억의 무토큰 변화 감지, 비중복 컴팩트 학습, 정기 수집, 에이전트 업그레이드",
   "author": {
     "name": "gwanli",
     "url": "https://github.com/intenet1001-commits"
@@ -12,12 +12,14 @@
     "memory",
     "project-memory",
     "incremental-learning",
-    "agent-upgrade"
+    "agent-upgrade",
+    "agentstoz",
+    "scheduled-learning"
   ],
   "interface": {
     "displayName": "Cs Memory",
-    "shortDescription": "장기기억 학습, 학습 후보 기반 에이전트 업그레이드, 통합 상태 확인",
-    "longDescription": "장기기억 학습, 학습 후보 기반 에이전트 업그레이드, 통합 상태 확인",
+    "shortDescription": "AgentsToZ 프로젝트 기억의 무토큰 변화 감지, 비중복 컴팩트 학습, 정기 수집, 에이전트 업그레이드",
+    "longDescription": "AgentsToZ 프로젝트 기억의 무토큰 변화 감지, 비중복 컴팩트 학습, 정기 수집, 에이전트 업그레이드",
     "developerName": "intenet1001-commits",
     "category": "Engineering",
     "capabilities": [

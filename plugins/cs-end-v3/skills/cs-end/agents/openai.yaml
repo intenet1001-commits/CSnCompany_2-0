@@ -1,0 +1,4 @@
+interface:
+  display_name: "CS 세션 종료"
+  short_description: "검증된 학습을 저장하고 AgentsToZ 기억 소유자에게 위임"
+  default_prompt: "Use $cs-end to close this CSnCompany session, persist validated learnings, and hand project-memory storage to the local AgentsToZ remember-session adapter."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "장기기억 정기 수집"
+  short_description: "macOS·Linux·Windows 무토큰 변화 수집 스케줄 관리"
+  default_prompt: "Use $schedule to inspect, install, or remove the native zero-model AgentsToZ project-memory change collector."

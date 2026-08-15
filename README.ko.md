@@ -55,7 +55,7 @@
 | 🚢 **DevOps** | `cs-ship` | `/cs-ship` | PR 직전 검증: 스펙 준수, 커버리지, 커밋 메시지 |
 | ⚡ **팀 리더** | `cs-smart-run` | `/cs-smart-run "작업"` | Opus로 계획 → Sonnet 에이전트로 병렬 실행 |
 | 📚 **지식 저장소** | `cs-experiencing` | `/cs-experiencing` | 버전별 학습 관리 + `/cs-end` 세션 마무리 *(GitHub push는 플러그인 작성자 전용)* |
-| 🧠 **메모리 트레이너** | `cs-memory` | `/cs-memory:learn` | 변경된 프로젝트를 장기기억에 학습, 검증된 교훈이 있는 에이전트만 업그레이드(`/cs-memory:upgrade`), 읽기 전용 상태 확인(`/cs-memory:status`) |
+| 🧠 **메모리 학습기** | `cs-memory` | `/cs-memory:learn` | AgentsToZ 원본 기억은 수정하지 않고 변경 엔트리만 소비, 무토큰 정기 수집(`/cs-memory:schedule`)과 선택적 컴팩트 업그레이드(`/cs-memory:upgrade`) |
 | 🗣️ **언어 코치** | `convo-maker` | `/convo-maker` | 세션 Q&A를 자연스러운 미국식 영어 대화로 변환 |
 
 ---
@@ -104,12 +104,14 @@ Claude Code 안에서 입력:
 /plugin install convo-maker@CSnCompany_2-0
 ```
 
-> 기존 `cs-core-memory` 플러그인을 쓰고 있었다면 먼저 제거하세요 — `cs-memory`가 예전의 장황한 명령어들을 세 개(`learn`/`upgrade`/`status`)로 대체합니다:
+> 기존 `cs-core-memory` 플러그인을 쓰고 있었다면 먼저 제거하세요 — `cs-memory`가 예전 전역 기억 reader/writer를 네 개의 제한된 명령(`learn`/`schedule`/`upgrade`/`status`)으로 대체합니다:
 > ```
 > /plugin uninstall cs-core-memory@CSnCompany_2-0
 > /plugin install cs-memory@CSnCompany_2-0
 > /reload-plugins
 > ```
+>
+> `cs-memory`는 프로젝트 기억을 초기화하거나 편집하지 않습니다. `.agent-memory`의 저장은 AgentsToZ와 프로젝트 로컬 장기기억 에이전트가 소유하고, CSnCompany는 관련 맥락 회상과 안정적인 엔트리 버전 변화 학습만 담당합니다.
 
 ### 3단계 — Claude Code 재시작
 

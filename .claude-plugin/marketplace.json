@@ -8,8 +8,9 @@
   "plugins": [
     {
       "name": "cs-end",
-      "description": "🏁 Session Closer — 4-Agent analysis + TIL save + error note capture (Phase 2.2) + plugin version-up + GitHub push. Self-contained, no external vault. (/cs-end)",
-      "source": "./plugins/cs-end-v3"
+      "description": "🏁 Session Closer — 세션 학습 게이트 + 프로젝트 로컬 AgentsToZ 장기기억 에이전트 위임 + 선택적 버전업. (/cs-end)",
+      "source": "./plugins/cs-end-v3",
+      "version": "3.2.0"
     },
     {
       "name": "cs-error-notes",
@@ -18,8 +19,9 @@
     },
     {
       "name": "cs-ceo",
-      "description": "🧭 CEO — Estimates effort and autonomously dispatches across CS-test/CS-plan/CS-codebase-review/cs-design/cs-smart-run. v5.5 adds Dynamic Resolve v2: partner type auto-detection (AGENT/SKILL/PROTOCOL) + external agent direct call support.",
-      "source": "./plugins/cs-ceo-v15"
+      "description": "🧭 CEO — AgentsToZ 프로젝트 기억과 활성 제약을 임무 분할 전에 회상하고 CS 파트너에 자율 배분.",
+      "source": "./plugins/cs-ceo-v15",
+      "version": "15.2.0"
     },
     {
       "name": "goal",
@@ -89,9 +91,9 @@
     },
     {
       "name": "cs-memory",
-      "description": "🧠 Memory Trainer — 장기기억 학습 + 학습 후보 기반 관련 에이전트 업그레이드",
+      "description": "🧠 Memory Learner — AgentsToZ 기억 변화만 무토큰 수집하고 비중복 컴팩트 교훈으로 관련 에이전트를 강화",
       "source": "./plugins/cs-core-memory-v1",
-      "version": "2.0.1"
+      "version": "2.1.0"
     },
     {
       "name": "csn-sync",
