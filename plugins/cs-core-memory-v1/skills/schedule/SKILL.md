@@ -32,8 +32,15 @@ With no arguments, run `status`. Do not install or remove a scheduler implicitly
    - the generated command contains `collect --no-cwd --quiet`;
    - no shell string, credential, model command, or project-memory write is present.
 4. If the dry run is valid, run the same command without `--dry-run`.
-5. Run `status` and report the native definition path and whether it is loaded/enabled.
-6. `remove` deletes only this skill's exact launchd/systemd/Task Scheduler definition.
+5. Run `status` and report the native definition path, loaded/enabled state, `scriptCurrent`,
+   `definitionCurrent`, and `needsReinstall`.
+   - Install copies the current deterministic collector to
+     `~/.csncompany/bin/memory_learning.py`; native definitions must point to this stable path, not a
+     versioned marketplace/cache directory.
+   - If `needsReinstall=true`, explain that the plugin source or native definition drifted and offer to
+     repeat the same `install <scope>` command. Do not reinstall implicitly during a status check.
+6. `remove` deletes only this skill's exact launchd/systemd/Task Scheduler definition and its stable
+   collector copy.
 
 Optional interval syntax is `every <N>h`; pass it as `--interval-hours N`. Default to 6 hours. Reject
 sub-hour polling: memory saves are session-scale events and faster polling only creates filesystem churn.

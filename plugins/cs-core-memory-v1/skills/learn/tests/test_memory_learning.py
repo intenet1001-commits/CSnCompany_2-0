@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import contextlib
+import copy
 import importlib.util
 import json
 import os
 import re
+import shutil
 import tempfile
+import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -145,6 +149,26 @@ class ParserTests(unittest.TestCase):
         self.assertFalse(invalid["valid"])
         self.assertTrue(any("duplicate" in warning for warning in invalid["warnings"]))
 
+    def test_empty_explicit_id_is_retained_as_a_non_trainable_placeholder(self) -> None:
+        parsed = MEMORY.parse_memory_document(document(decision_body=""))
+        placeholder = next(
+            item for item in parsed["entries"] if item["entryId"] == ENTRY_A
+        )
+        self.assertFalse(placeholder["substantive"])
+        self.assertFalse(placeholder["trainable"])
+        self.assertTrue(placeholder["trackable"])
+
+    def test_high_entropy_detector_ignores_repository_paths_and_hashes(self) -> None:
+        safe_values = [
+            "intenet1001-commits/CSnCompany_2-0",
+            "archive/CSnCompany_2-0/plugins/cache/versioned",
+            "0123456789abcdef" * 4,
+        ]
+        for value in safe_values:
+            redacted, detectors = MEMORY.redact_secrets(value)
+            self.assertEqual(detectors, [])
+            self.assertEqual(redacted, value)
+
 
 class ProjectReadTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -153,6 +177,13 @@ class ProjectReadTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def test_windows_state_guard_contract_is_no_reparse_and_no_delete_share(self) -> None:
+        self.assertTrue(MEMORY.WINDOWS_FILE_FLAG_OPEN_REPARSE_POINT)
+        self.assertEqual(
+            MEMORY.WINDOWS_STATE_SHARE_MODE & MEMORY.WINDOWS_FILE_SHARE_DELETE,
+            0,
+        )
 
     def test_composite_snapshot_verifier_detects_replaced_file(self) -> None:
         path = self.root / "note.md"
@@ -168,6 +199,7 @@ class ProjectReadTests(unittest.TestCase):
         project = make_project(self.root / "project", split=True)
         loaded = MEMORY.load_project_memory(project)
         self.assertEqual(loaded["layout"], "split")
+        self.assertEqual(loaded["text"], document())
         self.assertIn("Keep local memory authoritative", loaded["text"])
         self.assertNotIn("generated index only", loaded["text"])
         self.assertEqual({
@@ -214,6 +246,73 @@ class ProjectReadTests(unittest.TestCase):
         ])
         with self.assertRaisesRegex(MEMORY.MemoryLearningError, "state parent"):
             MEMORY.collect(args)
+
+    @unittest.skipIf(os.name == "nt", "symlink privileges differ on Windows")
+    def test_state_parent_rejects_a_symlinked_ancestor(self) -> None:
+        target = self.root / "real-state" / "nested"
+        target.mkdir(parents=True)
+        linked = self.root / "linked-ancestor"
+        linked.symlink_to(self.root / "real-state", target_is_directory=True)
+        state = linked / "nested" / "state.json"
+        with self.assertRaisesRegex(MEMORY.MemoryLearningError, "state parent"):
+            MEMORY.load_state(state)
+
+    @unittest.skipIf(os.name == "nt", "symlink privileges differ on Windows")
+    def test_state_write_rejects_parent_rebinding_after_validation(self) -> None:
+        parent = self.root / "state-write-parent"
+        parent.mkdir()
+        parked = self.root / "state-write-parent-original"
+        outside = self.root / "state-write-outside"
+        outside.mkdir()
+        state = parent / "state.json"
+        original_validate = MEMORY.validate_state_parent
+        rebound = False
+
+        def rebind_after_validation(path: Path, *, create: bool) -> None:
+            nonlocal rebound
+            original_validate(path, create=create)
+            if not rebound:
+                parent.rename(parked)
+                parent.symlink_to(outside, target_is_directory=True)
+                rebound = True
+
+        with mock.patch.object(
+            MEMORY,
+            "validate_state_parent",
+            side_effect=rebind_after_validation,
+        ):
+            with self.assertRaisesRegex(MEMORY.MemoryLearningError, "state parent"):
+                MEMORY.atomic_write_state(state, MEMORY.empty_state())
+        self.assertFalse((outside / "state.json").exists())
+
+    @unittest.skipIf(os.name == "nt", "symlink privileges differ on Windows")
+    def test_state_lock_rejects_parent_rebinding_after_validation(self) -> None:
+        parent = self.root / "state-lock-parent"
+        parent.mkdir()
+        parked = self.root / "state-lock-parent-original"
+        outside = self.root / "state-lock-outside"
+        outside.mkdir()
+        state = parent / "state.json"
+        original_validate = MEMORY.validate_state_parent
+        rebound = False
+
+        def rebind_after_validation(path: Path, *, create: bool) -> None:
+            nonlocal rebound
+            original_validate(path, create=create)
+            if not rebound:
+                parent.rename(parked)
+                parent.symlink_to(outside, target_is_directory=True)
+                rebound = True
+
+        with mock.patch.object(
+            MEMORY,
+            "validate_state_parent",
+            side_effect=rebind_after_validation,
+        ):
+            with self.assertRaisesRegex(MEMORY.MemoryLearningError, "state parent"):
+                with MEMORY.state_lock(state):
+                    pass
+        self.assertFalse((outside / "state.json.lock").exists())
 
     def test_oversize_memory_fails_closed(self) -> None:
         project = make_project(self.root / "project")
@@ -284,6 +383,54 @@ class IncrementalTests(unittest.TestCase):
         self.assertEqual(bootstrap["bootstrapQueued"], 2)
         self.assertEqual(bootstrap["pending"], 2)
 
+    def test_user_limits_cannot_exceed_the_documented_hard_caps(self) -> None:
+        with self.assertRaisesRegex(MEMORY.MemoryLearningError, "between 0 and 20"):
+            MEMORY.collect(self.args("collect", "--bootstrap-limit", "21"))
+        MEMORY.collect(self.args("collect"))
+        with self.assertRaisesRegex(MEMORY.MemoryLearningError, "between 1 and 5"):
+            MEMORY.next_candidates(self.args("next", "--limit", "6"))
+
+    def test_filling_an_empty_stable_id_becomes_a_pending_change(self) -> None:
+        core = self.project / ".agent-memory/CORE.md"
+        core.write_text(document(decision_body=""), encoding="utf-8")
+        first = MEMORY.collect(self.args("collect"))
+        self.assertEqual(first["newVersions"], 0)
+        placeholder = MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"][ENTRY_A]
+        self.assertEqual(placeholder["status"], "placeholder")
+
+        core.write_text(
+            document(decision_body="- decision: Filled after the stable ID was reserved."),
+            encoding="utf-8",
+        )
+        changed = MEMORY.collect(self.args("collect"))
+        current = MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"][ENTRY_A]
+        self.assertEqual(changed["newVersions"], 1)
+        self.assertEqual(current["status"], "pending")
+        self.assertEqual(current["changeKind"], "filled")
+        self.assertNotIn("supersedesCandidateId", current)
+        filled_candidate = current["candidateId"]
+
+        core.write_text(document(decision_body=""), encoding="utf-8")
+        MEMORY.collect(self.args("collect"))
+        current = MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"][ENTRY_A]
+        self.assertEqual(current["status"], "placeholder")
+        self.assertEqual(current["changeKind"], "cleared")
+        candidates = MEMORY.next_candidates(self.args("next", "--limit", "5"))["candidates"]
+        self.assertNotIn(ENTRY_A, {item["entryId"] for item in candidates})
+
+        core.write_text(
+            document(decision_body="- decision: Filled after the stable ID was reserved."),
+            encoding="utf-8",
+        )
+        refilled = MEMORY.collect(self.args("collect"))
+        current = MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"][ENTRY_A]
+        self.assertEqual(refilled["newVersions"], 1)
+        self.assertEqual(current["status"], "pending")
+        self.assertEqual(current["changeKind"], "filled")
+        self.assertEqual(current["candidateId"], filled_candidate)
+        self.assertNotIn("supersedesCandidateId", current)
+        self.assertEqual(MEMORY.collect(self.args("collect"))["newVersions"], 0)
+
     def test_collect_is_idempotent_and_stores_no_memory_body(self) -> None:
         first = MEMORY.collect(self.args("collect"))
         with mock.patch.object(
@@ -314,6 +461,106 @@ class IncrementalTests(unittest.TestCase):
         entries = MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"]
         self.assertEqual(len(entries), 3)
         self.assertEqual(len({entry["candidateId"] for entry in entries.values()}), 3)
+
+    def test_slow_collector_cannot_overwrite_a_newer_source_snapshot(self) -> None:
+        core = self.project / ".agent-memory/CORE.md"
+        original = MEMORY.load_project_memory(self.project)
+        original_hash = next(
+            entry["contentVersionHash"]
+            for entry in original["parsed"]["entries"]
+            if entry["entryId"] == ENTRY_A
+        )
+        changed_text = document(
+            decision_body="- decision: Newer concurrent version.\n- first_seen: 2026-08-15"
+        )
+        changed = MEMORY.parse_memory_document(changed_text)
+        changed_hash = next(
+            entry["contentVersionHash"]
+            for entry in changed["entries"]
+            if entry["entryId"] == ENTRY_A
+        )
+        self.assertNotEqual(original_hash, changed_hash)
+
+        slow_waiting_for_lock = threading.Event()
+        release_slow = threading.Event()
+        original_state_lock = MEMORY.state_lock
+
+        @contextlib.contextmanager
+        def controlled_state_lock(path: Path):
+            if threading.current_thread().name == "slow-collector":
+                slow_waiting_for_lock.set()
+                self.assertTrue(release_slow.wait(timeout=5))
+            with original_state_lock(path) as access:
+                yield access
+
+        failures: list[BaseException] = []
+
+        def run_collect() -> None:
+            try:
+                MEMORY.collect(self.args("collect"))
+            except BaseException as exc:  # surface thread failures in the test
+                failures.append(exc)
+
+        with mock.patch.object(MEMORY, "state_lock", side_effect=controlled_state_lock):
+            slow = threading.Thread(target=run_collect, name="slow-collector")
+            slow.start()
+            self.assertTrue(slow_waiting_for_lock.wait(timeout=5))
+            core.write_text(changed_text, encoding="utf-8")
+            MEMORY.collect(self.args("collect"))
+            pending = MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"][ENTRY_A]
+            MEMORY.resolve_candidate(self.args(
+                "resolve",
+                "--candidate-id", pending["candidateId"],
+                "--status", "queued",
+                "--learning-id", "learning-v2",
+            ))
+            resolved = copy.deepcopy(
+                MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"][ENTRY_A]
+            )
+            release_slow.set()
+            slow.join(timeout=5)
+
+        self.assertFalse(slow.is_alive())
+        self.assertEqual(failures, [])
+        current = MEMORY.load_state(self.state)["memories"][MEMORY_ID]["entries"][ENTRY_A]
+        self.assertEqual(current["contentVersionHash"], changed_hash)
+        self.assertNotEqual(current["contentVersionHash"], original_hash)
+        self.assertEqual(current["status"], "queued")
+        self.assertEqual(current["learningId"], "learning-v2")
+        self.assertEqual(current["candidateId"], resolved["candidateId"])
+        self.assertEqual(current["resolvedAt"], resolved["resolvedAt"])
+        self.assertEqual(core.read_text(encoding="utf-8"), changed_text)
+
+    def test_collect_response_uses_its_locked_transaction_snapshot(self) -> None:
+        baseline_args = MEMORY.build_parser().parse_args([
+            "collect", "--project", str(self.project), "--state-file", str(self.state),
+            "--no-cwd", "--no-registry",
+        ])
+        MEMORY.collect(baseline_args)
+        core = self.project / ".agent-memory/CORE.md"
+        core.write_text(
+            document(decision_body="- decision: Transaction-local response version."),
+            encoding="utf-8",
+        )
+        original_load = MEMORY.load_state
+        calls = 0
+
+        def later_snapshot(path: Path, access=None) -> dict:
+            nonlocal calls
+            calls += 1
+            state = original_load(path, access)
+            if calls == 2:
+                state = copy.deepcopy(state)
+                for memory in state["memories"].values():
+                    for entry in memory.get("entries", {}).values():
+                        if entry.get("status") == "pending":
+                            entry["status"] = "queued"
+            return state
+
+        with mock.patch.object(MEMORY, "load_state", side_effect=later_snapshot):
+            result = MEMORY.collect(baseline_args)
+        self.assertEqual(result["newVersions"], 1)
+        self.assertEqual(result["pending"], 1)
 
     def test_next_is_bounded_and_excludes_contested(self) -> None:
         MEMORY.collect(self.args("collect"))
@@ -406,6 +653,69 @@ class IncrementalTests(unittest.TestCase):
         self.assertEqual(conflict["conflicts"], 1)
         self.assertEqual(conflict["projectsUpdated"], 0)
 
+    def test_common_provider_and_high_entropy_credentials_fail_closed(self) -> None:
+        credentials = {
+            "slack-token": "xoxb-" + ("1234567890-" * 3) + "abcdef",
+            "stripe-key": "sk_live_" + ("Ab3" * 12),
+            "gitlab-token": "glpat-" + ("Ab3_" * 7),
+            "credential-assignment": "Q7vN2pL9sR4xT8mK3dF6hJ1cW5yB0zUe",
+        }
+        core = self.project / ".agent-memory/CORE.md"
+        for expected_detector, credential in credentials.items():
+            value = (
+                "token=" + credential
+                if expected_detector == "credential-assignment"
+                else "credential " + credential
+            )
+            redacted, detectors = MEMORY.redact_secrets(value)
+            self.assertIn(expected_detector, detectors)
+            self.assertNotIn(credential, redacted)
+
+            core.write_text(
+                document(decision_body="- evidence: " + value),
+                encoding="utf-8",
+            )
+            collected = MEMORY.collect(self.args("collect"))
+            self.assertEqual(collected["projectsUpdated"], 0)
+            self.assertEqual(collected["quarantined"], 1)
+            self.assertNotIn(credential, json.dumps(collected))
+            with self.assertRaisesRegex(MEMORY.MemoryLearningError, "quarantined"):
+                MEMORY.recall(MEMORY.build_parser().parse_args([
+                    "recall", "--project", str(self.project), "--query", "evidence",
+                ]))
+
+    def test_adjacent_provider_families_are_detected_without_public_artifact_false_positives(self) -> None:
+        credentials = {
+            "aws-key": "ASIA" + ("A1" * 8),
+            "github-token": "gho_" + ("Ab3" * 12),
+            "google-oauth-token": "ya29." + ("Ab3_" * 8),
+            "pypi-token": "pypi-" + ("Ab3_" * 8),
+            "slack-webhook": "https://hooks.slack.com/services/T12345678/B12345678/" + ("Ab3" * 8),
+            "stripe-key": "sk_test_" + ("Ab3" * 8),
+            "sendgrid-token": "SG." + ("Ab3_" * 6) + "." + ("Cd4_" * 6),
+        }
+        for expected_detector, credential in credentials.items():
+            redacted, detectors = MEMORY.redact_secrets(credential)
+            self.assertIn(expected_detector, detectors)
+            self.assertNotIn(credential, redacted)
+
+        opaque = "Q7vN2pL9sR4xT8mK3dF6hJ1cW5yB0zUe"
+        safe_values = [
+            "integrity: sha512-" + ("Ab3+/" * 20),
+            "checksum=" + ("0123456789abcdef" * 4),
+            "ssh-rsa " + ("Ab3+/" * 30) + " public@example.test",
+            "public-resource-" + opaque,
+            opaque,
+        ]
+        for value in safe_values:
+            redacted, detectors = MEMORY.redact_secrets(value)
+            self.assertEqual(detectors, [], value)
+            self.assertEqual(redacted, value)
+
+        redacted, detectors = MEMORY.redact_secrets("Authorization: Bearer " + opaque)
+        self.assertIn("high-entropy-token", detectors)
+        self.assertNotIn(opaque, redacted)
+
     def test_new_duplicate_memory_id_blocks_previously_pending_candidates(self) -> None:
         MEMORY.collect(self.args("collect"))
         other = make_project(self.root / "duplicate", memory_id=MEMORY_ID)
@@ -420,8 +730,15 @@ class IncrementalTests(unittest.TestCase):
         self.assertEqual(MEMORY.status(self.args("status"))["actionablePending"], 0)
         self.assertEqual(MEMORY.next_candidates(self.args("next", "--limit", "5"))["returned"], 0)
 
+        still_blocked = MEMORY.collect(self.args("collect"))
+        self.assertEqual(still_blocked["conflicts"], 1)
+        self.assertEqual(still_blocked["blockedPending"], 2)
+        self.assertEqual(MEMORY.next_candidates(self.args("next", "--limit", "5"))["returned"], 0)
+
+        shutil.rmtree(other)
         recovered = MEMORY.collect(self.args("collect"))
         self.assertEqual(recovered["conflicts"], 0)
+        self.assertEqual(recovered["blockedPending"], 0)
         self.assertGreater(MEMORY.next_candidates(self.args("next", "--limit", "5"))["returned"], 0)
 
     def test_next_revalidates_version_after_collection(self) -> None:
@@ -430,7 +747,7 @@ class IncrementalTests(unittest.TestCase):
         (self.project / ".agent-memory/CORE.md").write_text(
             document(decision_body="- decision: Changed after collection."), encoding="utf-8"
         )
-        batch = MEMORY.next_candidates(self.args("next", "--limit", "10"))
+        batch = MEMORY.next_candidates(self.args("next", "--limit", "5"))
         self.assertNotIn(ENTRY_A, {x["entryId"] for x in batch["candidates"]})
         self.assertGreaterEqual(batch["stale"], 1)
         with self.assertRaisesRegex(MEMORY.MemoryLearningError, "changed"):

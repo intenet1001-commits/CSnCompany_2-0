@@ -15,12 +15,14 @@ Perform read-only checks:
    `cs-design-v*`, `cs-clarify-v*`, `cs-ceo-v*`, `cs-smart-run`, and `cs-experiencing-v*`.
 5. Show:
    - configured memory count and last full scan per project;
-   - observed-baseline/pending/queued/rejected/contested entry-version counts;
-   - scheduler installed/enabled state and scope when available;
+   - placeholder/observed-baseline/pending/queued/rejected/contested entry-version counts;
+   - scheduler installed/enabled state, stable-script/native-definition freshness, and scope when available;
    - pending/promoted/rejected candidate counts;
    - domains changed by the most recent upgrade when that provenance exists;
    - actionable next command.
 
 Recommend `/cs-memory:learn` only when pending entry versions exist. Recommend
 `/cs-memory:upgrade` only when pending reusable candidates exist.
+If scheduler `needsReinstall=true`, recommend the same explicit `/cs-memory:schedule install <scope>`;
+never repair it implicitly during this read-only status command.
 

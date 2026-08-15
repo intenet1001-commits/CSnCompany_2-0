@@ -143,6 +143,9 @@ allowed-tools:
 ```bash
 BASE="$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins"
 LATEST_CEO=$(ls -d "$BASE/cs-ceo-v"* 2>/dev/null | sort -V | tail -1)
+if [ -z "$LATEST_CEO" ]; then
+  LATEST_CEO=$(ls -d "$HOME/.codex/plugins/cache/CSnCompany_2-0/cs-ceo/"* 2>/dev/null | sort -V | tail -1)
+fi
 echo "CEO 경로: $LATEST_CEO"
 echo "CEO 버전: $(cat $LATEST_CEO/VERSION)"
 ```

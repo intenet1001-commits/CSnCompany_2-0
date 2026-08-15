@@ -24,6 +24,7 @@ from __future__ import annotations  # 지원 런타임에서 annotation 평가�
 import datetime
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -45,6 +46,106 @@ MARKETPLACE = HOME / ".claude/plugins/marketplaces/CSnCompany_2-0"
 BASE = MARKETPLACE / "plugins"
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SOURCE_PLUGINS = REPO_ROOT / "plugins"
+MAX_LEARNING_QUEUE_BYTES = 4 * 1024 * 1024
+MAX_PENDING_LEARNINGS = 500
+MAX_LEARNING_ENTRY_BYTES = 16 * 1024
+SESSION_DIGEST_PENDING_LIMIT = 20
+MAX_SESSION_DIGEST_SCAN_FILES = 256
+MAX_SESSION_DIGEST_SCAN_BYTES = 4 * 1024 * 1024
+MAX_SESSION_DIGEST_SKILL_ENTRIES = 200
+MAX_SESSION_DIGEST_TITLE_BYTES = 240
+MAX_SESSION_DIGEST_TEXT_BYTES = 512
+MAX_SESSION_DIGEST_PROVENANCE_BYTES = 128
+MAX_SESSION_DIGEST_OUTPUT_BYTES = 128 * 1024
+LEARNING_FIELD_BYTE_LIMITS = {
+    "plugin": 256,
+    "lesson": 6_000,
+    "evidence": 6_000,
+    "tier": 32,
+    "source-run-id": 1_024,
+    "source-range": 1_024,
+    "memory-id": 512,
+    "candidate-key": 64,
+}
+
+
+def _strip_control_chars(value: str) -> str:
+    return "".join(
+        char
+        for char in value
+        if char in "\n\t" or (ord(char) >= 32 and ord(char) != 127)
+    )
+
+
+def _redact_secrets(value: str) -> tuple[str, list[str]]:
+    patterns = [
+        ("private-key", re.compile(r"-----BEGIN [^-\n]*PRIVATE KEY-----.*?-----END [^-\n]*PRIVATE KEY-----", re.I | re.S)),
+        ("openai-key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
+        ("github-token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})\b")),
+        ("gitlab-token", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b")),
+        ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{16,}\b", re.I)),
+        ("slack-webhook", re.compile(r"https://hooks\.slack\.com/services/T[A-Z0-9]{8,}/B[A-Z0-9]{8,}/[A-Za-z0-9_-]{20,}", re.I)),
+        ("stripe-key", re.compile(r"\b(?:(?:sk|rk)_(?:live|test)_|whsec_)[A-Za-z0-9]{16,}\b")),
+        ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
+        ("google-oauth-token", re.compile(r"\bya29\.[A-Za-z0-9_-]{20,}\b")),
+        ("npm-token", re.compile(r"\bnpm_[A-Za-z0-9]{30,}\b")),
+        ("pypi-token", re.compile(r"\bpypi-[A-Za-z0-9_-]{20,}\b")),
+        ("huggingface-token", re.compile(r"\bhf_[A-Za-z0-9]{30,}\b")),
+        ("sendgrid-token", re.compile(r"\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b")),
+        ("aws-key", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
+        ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b")),
+        (
+            "credential-assignment",
+            re.compile(
+                r"(?im)\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|token)\s*[:=]\s*[\"']?([^\s\"']{16,})"
+            ),
+        ),
+    ]
+    clean = _strip_control_chars(value)
+    found: list[str] = []
+    for name, pattern in patterns:
+        if pattern.search(clean):
+            found.append(name)
+            clean = pattern.sub("[REDACTED]", clean)
+    high_entropy = re.compile(
+        r"(?<![A-Za-z0-9_+=-])[A-Za-z0-9_+=-]{32,256}(?![A-Za-z0-9_+=-])"
+    )
+    credential_context = re.compile(
+        r"(?i)(?:authorization\s*:\s*bearer|bearer|api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|token|credential)"
+    )
+    public_context = re.compile(
+        r"(?i)(?:integrity|checksum|digest|sha(?:1|224|256|384|512)|public[_ -]?key|ssh-(?:rsa|ed25519))"
+    )
+
+    def redact_high_entropy(match: re.Match[str]) -> str:
+        token = match.group(0).rstrip("=")
+        if re.fullmatch(r"[0-9a-fA-F]+", token):
+            return match.group(0)
+        if re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}", token):
+            return match.group(0)
+        context = clean[max(0, match.start() - 48):min(len(clean), match.end() + 48)]
+        if public_context.search(context) or not credential_context.search(context):
+            return match.group(0)
+        classes = sum((
+            any(char.islower() for char in token),
+            any(char.isupper() for char in token),
+            any(char.isdigit() for char in token),
+            any(char in "_+=-" for char in token),
+        ))
+        if classes < 3 or len(set(token)) < 12:
+            return match.group(0)
+        frequencies = {
+            char: token.count(char) / len(token)
+            for char in set(token)
+        }
+        entropy = -sum(part * math.log2(part) for part in frequencies.values())
+        if entropy < 4.0:
+            return match.group(0)
+        found.append("high-entropy-token")
+        return "[REDACTED]"
+
+    clean = high_entropy.sub(redact_high_entropy, clean)
+    return clean, sorted(set(found))
 
 
 # ── low-level helpers ─────────────────────────────────────────────────────────
@@ -142,6 +243,10 @@ def _read_learning_queue(path: Path, *, missing_ok: bool) -> list:
         if missing_ok:
             return []
         raise FileNotFoundError(f"BTW store not found: {path}")
+    if path.stat().st_size > MAX_LEARNING_QUEUE_BYTES:
+        raise ValueError(
+            f"BTW store exceeds the {MAX_LEARNING_QUEUE_BYTES}-byte limit"
+        )
     try:
         items = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
@@ -149,6 +254,45 @@ def _read_learning_queue(path: Path, *, missing_ok: bool) -> list:
     if not isinstance(items, list):
         raise ValueError("BTW store must contain a JSON array")
     return items
+
+
+def _json_bytes(value: object) -> int:
+    return len(
+        (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    )
+
+
+def _truncate_utf8(value: object, maximum_bytes: int) -> str:
+    if not isinstance(value, str):
+        return ""
+    encoded = value.encode("utf-8")
+    if len(encoded) <= maximum_bytes:
+        return value
+    return encoded[:maximum_bytes].decode("utf-8", errors="ignore")
+
+
+def _bounded_digest_text(value: object) -> str:
+    return _truncate_utf8(value, MAX_SESSION_DIGEST_TEXT_BYTES)
+
+
+def _bounded_digest_provenance(value: object) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    bounded: dict[str, str] = {}
+    for key in ("source_run_id", "memory_id", "source_range", "candidate_key"):
+        raw = value.get(key)
+        if isinstance(raw, str) and raw:
+            bounded[key] = _truncate_utf8(raw, MAX_SESSION_DIGEST_PROVENANCE_BYTES)
+    return bounded
+
+
+def _write_learning_queue(path: Path, items: list) -> None:
+    size = _json_bytes(items)
+    if size > MAX_LEARNING_QUEUE_BYTES:
+        raise ValueError(
+            f"BTW store would exceed the {MAX_LEARNING_QUEUE_BYTES}-byte limit"
+        )
+    _atomic_write_json(path, items)
 
 
 def _canonical_entry_hash(item: dict) -> str:
@@ -595,61 +739,136 @@ def cmd_session_digest(argv: list) -> dict:
         i += 1
 
     # ── 1. Knowhow index (titles + dates only, no full body) ──────────────────
-    # Scans SKILL.md itself PLUS sibling knowledge/*.md topic files (the 2026-06
-    # restructure moved project-specific entries out of SKILL.md into knowledge/).
     skill_snapshot: list[dict] = []
-    if skill_path and Path(skill_path).is_file():
-        scan_files = [Path(skill_path)]
-        knowledge_dir = Path(skill_path).parent / "knowledge"
-        if knowledge_dir.is_dir():
-            scan_files += sorted(knowledge_dir.glob("*.md"))
-        # Match: ### N. Title (YYYY-MM-DD)
-        # Also capture optional <!-- tier: principle|tactical --> comment
-        header_re = re.compile(
-            r"^### (\d+)\.\s+(.+?)\s+\((\d{4}-\d{2}-\d{2})\)",
-            re.MULTILINE,
-        )
-        tier_re = re.compile(r"<!--\s*tier:\s*(principle|tactical)\s*-->")
-        seen_n: set[int] = set()
-        for f in scan_files:
-            text = f.read_text(encoding="utf-8", errors="ignore")
-            for m in header_re.finditer(text):
-                n, title, date_str = m.group(1), m.group(2).strip(), m.group(3)
-                if int(n) in seen_n:  # global numbering — skip duplicates (e.g. INDEX rows)
-                    continue
-                seen_n.add(int(n))
-                # Look for tier comment in the 3 lines after the header
-                after = text[m.end():m.end() + 200]
-                tier_match = tier_re.search(after)
-                tier = tier_match.group(1) if tier_match else "tactical"  # default = tactical
-                skill_snapshot.append({"n": int(n), "title": title, "date": date_str, "tier": tier})
-        skill_snapshot.sort(key=lambda e: e["n"])
+    skill_scan_files = 0
+    skill_scan_bytes = 0
+    skill_snapshot_has_more = False
+    skill_quarantined = 0
+    truncation_reasons: set[str] = set()
+    source = Path(skill_path) if skill_path else None
+    scan_files: list[Path] = []
+    if source and source.is_file() and not source.is_symlink():
+        scan_files.append(source)
+        knowledge_dir = source.parent / "knowledge"
+        if knowledge_dir.is_dir() and not knowledge_dir.is_symlink():
+            discovered: list[Path] = []
+            try:
+                with os.scandir(knowledge_dir) as iterator:
+                    for entry in iterator:
+                        if len(discovered) >= MAX_SESSION_DIGEST_SCAN_FILES:
+                            skill_snapshot_has_more = True
+                            truncation_reasons.add("skill-file-limit")
+                            break
+                        if (
+                            entry.name.endswith(".md")
+                            and entry.is_file(follow_symlinks=False)
+                        ):
+                            discovered.append(Path(entry.path))
+            except OSError:
+                truncation_reasons.add("skill-scan-error")
+            scan_files.extend(sorted(discovered))
+    elif source:
+        truncation_reasons.add("skill-source-unsafe-or-missing")
+
+    scan_files = scan_files[:MAX_SESSION_DIGEST_SCAN_FILES]
+    header_re = re.compile(
+        r"^### (\d+)\.\s+(.+?)\s+\((\d{4}-\d{2}-\d{2})\)",
+        re.MULTILINE,
+    )
+    tier_re = re.compile(r"<!--\s*tier:\s*(principle|tactical)\s*-->")
+    seen_n: set[int] = set()
+    for path in scan_files:
+        if len(skill_snapshot) >= MAX_SESSION_DIGEST_SKILL_ENTRIES:
+            skill_snapshot_has_more = True
+            truncation_reasons.add("skill-entry-limit")
+            break
+        remaining = MAX_SESSION_DIGEST_SCAN_BYTES - skill_scan_bytes
+        if remaining <= 0:
+            skill_snapshot_has_more = True
+            truncation_reasons.add("skill-byte-limit")
+            break
+        try:
+            if path.is_symlink():
+                raise OSError("symlinked skill source")
+            with path.open("rb") as handle:
+                payload = handle.read(remaining + 1)
+        except OSError:
+            truncation_reasons.add("skill-scan-error")
+            continue
+        skill_scan_files += 1
+        if len(payload) > remaining:
+            payload = payload[:remaining]
+            skill_snapshot_has_more = True
+            truncation_reasons.add("skill-byte-limit")
+        skill_scan_bytes += len(payload)
+        text = payload.decode("utf-8", errors="ignore")
+        for match in header_re.finditer(text):
+            number = int(match.group(1))
+            if number in seen_n:
+                continue
+            seen_n.add(number)
+            if len(skill_snapshot) >= MAX_SESSION_DIGEST_SKILL_ENTRIES:
+                skill_snapshot_has_more = True
+                truncation_reasons.add("skill-entry-limit")
+                break
+            raw_title = match.group(2).strip()
+            _, detectors = _redact_secrets(raw_title)
+            if detectors:
+                skill_quarantined += 1
+                truncation_reasons.add("secret-quarantine")
+                continue
+            tier_match = tier_re.search(text[match.end():match.end() + 200])
+            skill_snapshot.append({
+                "n": number,
+                "title": _truncate_utf8(raw_title, MAX_SESSION_DIGEST_TITLE_BYTES),
+                "date": match.group(3),
+                "tier": tier_match.group(1) if tier_match else "tactical",
+            })
+    skill_snapshot.sort(key=lambda entry: entry["n"])
 
     # ── 2. BTW pending items ──────────────────────────────────────────────────
     btw_pending: list[dict] = []
+    btw_count = 0
+    btw_quarantined = 0
+    btw_quarantine_detectors: set[str] = set()
+    btw_error = ""
     btw_path = Path(btw_file)
     if btw_path.is_file():
         try:
             with _queue_lock(btw_path):
                 items = _read_learning_queue(btw_path, missing_ok=False)
                 if _normalize_learning_queue(items):
-                    _atomic_write_json(btw_path, items)
+                    _write_learning_queue(btw_path, items)
             for it in items:
                 if not isinstance(it, dict):
                     continue
                 if not _is_pending_learning(it):
                     continue
+                btw_count += 1
+                _, detectors = _redact_secrets(
+                    json.dumps(it, ensure_ascii=False, sort_keys=True)
+                )
+                if detectors:
+                    btw_quarantined += 1
+                    btw_quarantine_detectors.update(detectors)
+                    truncation_reasons.add("secret-quarantine")
+                    continue
+                if len(btw_pending) >= SESSION_DIGEST_PENDING_LIMIT:
+                    truncation_reasons.add("pending-window-limit")
+                    continue
                 idea = it.get("idea") or it.get("learning") or it.get("change") or ""
                 btw_pending.append({
                     "id": it.get("id"),
-                    "idea": idea,
+                    "idea": _bounded_digest_text(idea),
                     "date": it.get("date", ""),
-                    "evidence": it.get("evidence", ""),
+                    "evidence": _bounded_digest_text(it.get("evidence", "")),
                     "tier": it.get("tier", "tactical"),
-                    "provenance": it.get("provenance", {}),
+                    "provenance": _bounded_digest_provenance(
+                        it.get("provenance", {})
+                    ),
                 })
         except (FileNotFoundError, ValueError, OSError):
-            pass
+            btw_error = "queue-unavailable-or-invalid"
 
     # ── 3. Domain usage (GRU Update Gate) — git diff heuristic ───────────────
     # 패턴은 marketplace.json에서 파생 (R9 단일 출처) — 하드코딩 테이블 금지
@@ -697,14 +916,56 @@ def cmd_session_digest(argv: list) -> dict:
                 "age_days": age,
             })
 
-    return {
+    result = {
         "domains_used":    domains_used,
         "skill_snapshot":  skill_snapshot,
+        "skill_snapshot_returned": len(skill_snapshot),
+        "skill_snapshot_has_more": skill_snapshot_has_more,
+        "skill_scan_files": skill_scan_files,
+        "skill_scan_bytes": skill_scan_bytes,
+        "skill_quarantined": skill_quarantined,
         "btw_pending":     btw_pending,
-        "btw_count":       len(btw_pending),
+        "btw_count":       btw_count,
+        "btw_returned":    len(btw_pending),
+        "btw_has_more":    btw_count > len(btw_pending),
+        "btw_quarantined": btw_quarantined,
+        "btw_quarantine_detectors": sorted(btw_quarantine_detectors),
+        "btw_error": btw_error,
         "stale_entries":   stale_entries,
         "stale_count":     len(stale_entries),
+        "digest_truncated": bool(truncation_reasons),
+        "truncation_reasons": sorted(truncation_reasons),
     }
+
+    def rendered_size() -> int:
+        return len((json.dumps(result, indent=2) + "\n").encode("utf-8"))
+
+    while rendered_size() > MAX_SESSION_DIGEST_OUTPUT_BYTES:
+        result["digest_truncated"] = True
+        reasons = set(result["truncation_reasons"])
+        reasons.add("output-byte-limit")
+        result["truncation_reasons"] = sorted(reasons)
+        if result["skill_snapshot"]:
+            removed = result["skill_snapshot"].pop()
+            result["stale_entries"] = [
+                item for item in result["stale_entries"]
+                if item["n"] != removed["n"]
+            ]
+            result["skill_snapshot_returned"] = len(result["skill_snapshot"])
+            result["skill_snapshot_has_more"] = True
+            result["stale_count"] = len(result["stale_entries"])
+        elif result["btw_pending"]:
+            result["btw_pending"].pop()
+            result["btw_returned"] = len(result["btw_pending"])
+            result["btw_has_more"] = True
+        elif result["domains_used"]:
+            result["domains_used"].pop()
+        elif result["stale_entries"]:
+            result["stale_entries"].pop()
+            result["stale_count"] = len(result["stale_entries"])
+        else:
+            break
+    return result
 
 
 def cmd_git_status(argv: list) -> dict:
@@ -898,6 +1159,19 @@ def cmd_learn_append(argv: list) -> dict:
         i += 1
     if not fields["plugin"] or not fields["lesson"]:
         return {"error": "learn-append requires --plugin and --lesson"}
+    for field, byte_limit in LEARNING_FIELD_BYTE_LIMITS.items():
+        if len(fields[field].encode("utf-8")) > byte_limit:
+            return {
+                "error": (
+                    f"learn-append --{field} exceeds its {byte_limit}-byte limit"
+                )
+            }
+    _, secret_detectors = _redact_secrets("\n".join(fields.values()))
+    if secret_detectors:
+        return {
+            "error": "learn-append rejected secret indicators",
+            "detectors": secret_detectors,
+        }
     provenance_values = (
         fields["source-run-id"].strip(),
         fields["memory-id"].strip(),
@@ -947,7 +1221,7 @@ def cmd_learn_append(argv: list) -> dict:
                             "error": "learn-append --candidate-key provenance conflicts with an existing candidate"
                         }
                     if queue_changed:
-                        _atomic_write_json(btw_file, items)
+                        _write_learning_queue(btw_file, items)
                     return {
                         "appended": existing,
                         "created": False,
@@ -970,7 +1244,7 @@ def cmd_learn_append(argv: list) -> dict:
                 )
                 if existing is not None:
                     if queue_changed:
-                        _atomic_write_json(btw_file, items)
+                        _write_learning_queue(btw_file, items)
                     return {
                         "appended": existing,
                         "created": False,
@@ -979,6 +1253,15 @@ def cmd_learn_append(argv: list) -> dict:
                             1 for item in items if _is_pending_learning(item)
                         ),
                     }
+
+            pending_count = sum(1 for item in items if _is_pending_learning(item))
+            if pending_count >= MAX_PENDING_LEARNINGS:
+                return {
+                    "error": (
+                        "learn-append pending queue reached its "
+                        f"{MAX_PENDING_LEARNINGS}-item limit"
+                    )
+                }
 
             used_ids = {
                 item["id"]
@@ -1020,8 +1303,23 @@ def cmd_learn_append(argv: list) -> dict:
                 "date": datetime.date.today().isoformat(),
                 "status": "pending",
             }
+            if _json_bytes(entry) > MAX_LEARNING_ENTRY_BYTES:
+                return {
+                    "error": (
+                        "learn-append entry exceeds its "
+                        f"{MAX_LEARNING_ENTRY_BYTES}-byte limit"
+                    )
+                }
             items.append(entry)
-            _atomic_write_json(btw_file, items)
+            if _json_bytes(items) > MAX_LEARNING_QUEUE_BYTES:
+                items.pop()
+                return {
+                    "error": (
+                        "learn-append queue exceeds its "
+                        f"{MAX_LEARNING_QUEUE_BYTES}-byte limit"
+                    )
+                }
+            _write_learning_queue(btw_file, items)
     except (FileNotFoundError, ValueError, OSError) as exc:
         return {"error": str(exc)}
 
@@ -1097,7 +1395,7 @@ def cmd_learn_update_status(argv: list) -> dict:
                 target = pre_normalization_matches[0]
             else:
                 if queue_changed:
-                    _atomic_write_json(btw_file, items)
+                    _write_learning_queue(btw_file, items)
                 if len(matches) > 1 or len(pre_normalization_matches) > 1:
                     return {
                         "error": f"learning id is not unique: {fields['id']}",
@@ -1111,7 +1409,7 @@ def cmd_learn_update_status(argv: list) -> dict:
             target["status"] = fields["status"]
             if note_provided:
                 target["note"] = fields["note"]
-            _atomic_write_json(btw_file, items)
+            _write_learning_queue(btw_file, items)
     except (FileNotFoundError, ValueError, OSError) as exc:
         return {"error": str(exc), "updated": False}
 

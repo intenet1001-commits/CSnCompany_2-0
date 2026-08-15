@@ -124,6 +124,9 @@ if [ ! -f "$PROJECT_ROOT/.agent-memory/config.json" ]; then
 fi
 PROJECT_MEMORY_CONFIG="$PROJECT_ROOT/.agent-memory/config.json"
 CS_MEMORY_PLUGIN=$(ls -d "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0/plugins/cs-core-memory-v"* 2>/dev/null | sort -V | tail -1)
+if [ -z "$CS_MEMORY_PLUGIN" ]; then
+  CS_MEMORY_PLUGIN=$(ls -d "$HOME/.codex/plugins/cache/CSnCompany_2-0/cs-memory/"* 2>/dev/null | sort -V | tail -1)
+fi
 if [ -z "$CS_MEMORY_PLUGIN" ] && [ -n "$LATEST_CEO" ] && [ -d "$(dirname "$LATEST_CEO")/cs-core-memory-v1" ]; then
   CS_MEMORY_PLUGIN="$(dirname "$LATEST_CEO")/cs-core-memory-v1"
 fi

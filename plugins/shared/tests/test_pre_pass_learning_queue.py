@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import stat
@@ -11,6 +12,21 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "pre_pass.py"
+SPEC = importlib.util.spec_from_file_location("pre_pass_under_test", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+PREPASS_MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(PREPASS_MODULE)
+
+MEMORY_SCRIPT = (
+    Path(__file__).resolve().parents[2]
+    / "cs-core-memory-v1/skills/learn/scripts/memory_learning.py"
+)
+MEMORY_SPEC = importlib.util.spec_from_file_location(
+    "memory_learning_for_secret_parity", MEMORY_SCRIPT
+)
+assert MEMORY_SPEC is not None and MEMORY_SPEC.loader is not None
+MEMORY_MODULE = importlib.util.module_from_spec(MEMORY_SPEC)
+MEMORY_SPEC.loader.exec_module(MEMORY_MODULE)
 
 
 def run_prepass(*args: str) -> subprocess.CompletedProcess[str]:
@@ -23,6 +39,13 @@ def run_prepass(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 class LearningQueueTests(unittest.TestCase):
+    def test_queue_byte_count_matches_atomic_on_disk_serialization(self) -> None:
+        value = [{"id": "btw-test", "status": "pending", "lesson": "한글 value"}]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "queue.json"
+            PREPASS_MODULE._atomic_write_json(path, value)
+            self.assertEqual(PREPASS_MODULE._json_bytes(value), path.stat().st_size)
+
     def test_40_concurrent_appends_are_lossless_unique_and_private(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             queue = Path(tmp) / "queue.json"
@@ -182,6 +205,188 @@ class LearningQueueTests(unittest.TestCase):
             )
             self.assertNotEqual(collision.returncode, 0)
             self.assertIn("provenance", collision.stdout)
+
+    def test_session_digest_is_a_bounded_pending_window(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "queue.json"
+            items = [
+                {
+                    "id": f"pending-{index}",
+                    "idea": f"idea-{index}-" + ("i" * 5000),
+                    "evidence": f"evidence-{index}-" + ("e" * 5000),
+                    "tier": "tactical",
+                    "status": "pending",
+                    "provenance": {
+                        "source_run_id": "run-" + ("r" * 1000),
+                        "memory_id": "memory-" + ("m" * 1000),
+                        "source_range": "range-" + ("s" * 1000),
+                    },
+                }
+                for index in range(30)
+            ]
+            queue.write_text(json.dumps(items), encoding="utf-8")
+
+            completed = run_prepass("session-digest", "--btw-file", str(queue))
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            digest = json.loads(completed.stdout)
+            self.assertEqual(digest["btw_count"], 30)
+            self.assertEqual(digest["btw_returned"], 20)
+            self.assertTrue(digest["btw_has_more"])
+            self.assertEqual(len(digest["btw_pending"]), 20)
+            self.assertTrue(all(len(item["idea"].encode("utf-8")) <= 512 for item in digest["btw_pending"]))
+            self.assertTrue(all(len(item["evidence"].encode("utf-8")) <= 512 for item in digest["btw_pending"]))
+            self.assertLessEqual(len(completed.stdout.encode("utf-8")), 128 * 1024)
+
+    def test_secret_append_is_rejected_without_mutation_and_legacy_digest_is_quarantined(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "queue.json"
+            safe = {
+                "id": "safe",
+                "idea": "safe reusable lesson",
+                "evidence": "bounded evidence",
+                "tier": "tactical",
+                "status": "pending",
+            }
+            queue.write_text(json.dumps([safe]), encoding="utf-8")
+            before = queue.read_bytes()
+            credential = "glpat-" + ("Ab3_" * 7)
+            rejected = run_prepass(
+                "learn-append",
+                "--plugin", "ordinary-plugin",
+                "--lesson", "secret " + credential,
+                "--btw-file", str(queue),
+            )
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("secret", json.loads(rejected.stdout)["error"])
+            self.assertEqual(queue.read_bytes(), before)
+
+            legacy = {
+                "id": "legacy-secret",
+                "idea": "legacy " + credential,
+                "evidence": "",
+                "tier": "tactical",
+                "status": "pending",
+            }
+            queue.write_text(json.dumps([safe, legacy]), encoding="utf-8")
+            digest_result = run_prepass("session-digest", "--btw-file", str(queue))
+            self.assertEqual(digest_result.returncode, 0, digest_result.stderr)
+            self.assertNotIn(credential, digest_result.stdout)
+            digest = json.loads(digest_result.stdout)
+            self.assertEqual(digest["btw_count"], 2)
+            self.assertEqual(digest["btw_returned"], 1)
+            self.assertEqual(digest["btw_quarantined"], 1)
+            self.assertEqual([item["id"] for item in digest["btw_pending"]], ["safe"])
+
+    def test_queue_and_memory_secret_detectors_have_matching_semantics(self) -> None:
+        fixtures = [
+            "ASIA" + ("A1" * 8),
+            "gho_" + ("Ab3" * 12),
+            "ya29." + ("Ab3_" * 8),
+            "pypi-" + ("Ab3_" * 8),
+            "https://hooks.slack.com/services/T12345678/B12345678/" + ("Ab3" * 8),
+            "sk_test_" + ("Ab3" * 8),
+            "SG." + ("Ab3_" * 6) + "." + ("Cd4_" * 6),
+            "Authorization: Bearer Q7vN2pL9sR4xT8mK3dF6hJ1cW5yB0zUe",
+            "integrity: sha512-" + ("Ab3+/" * 20),
+            "ssh-rsa " + ("Ab3+/" * 30) + " public@example.test",
+            "public-resource-Q7vN2pL9sR4xT8mK3dF6hJ1cW5yB0zUe",
+        ]
+        for fixture in fixtures:
+            queue_redacted, queue_detectors = PREPASS_MODULE._redact_secrets(fixture)
+            memory_redacted, memory_detectors = MEMORY_MODULE.redact_secrets(fixture)
+            self.assertEqual(queue_detectors, memory_detectors, fixture)
+            self.assertEqual(queue_redacted, memory_redacted, fixture)
+
+    def test_session_digest_bounds_multibyte_headers_files_and_total_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = root / "SKILL.md"
+            long_title = "한글제목" * 100
+            skill.write_text(
+                "\n".join(
+                    f"### {index}. {long_title}-{index} (2026-08-15)"
+                    for index in range(1, 231)
+                ),
+                encoding="utf-8",
+            )
+            knowledge = root / "knowledge"
+            knowledge.mkdir()
+            for index in range(260):
+                (knowledge / f"topic-{index:03d}.md").write_text(
+                    f"### {1000 + index}. Extra-{index} (2026-08-15)\n",
+                    encoding="utf-8",
+                )
+            queue = root / "queue.json"
+            queue.write_text(
+                json.dumps([
+                    {
+                        "id": f"pending-{index}",
+                        "idea": "한" * 5000,
+                        "evidence": "글" * 5000,
+                        "tier": "tactical",
+                        "status": "pending",
+                    }
+                    for index in range(20)
+                ]),
+                encoding="utf-8",
+            )
+            completed = run_prepass(
+                "session-digest",
+                "--skill", str(skill),
+                "--btw-file", str(queue),
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertLessEqual(len(completed.stdout.encode("utf-8")), 128 * 1024)
+            digest = json.loads(completed.stdout)
+            self.assertLessEqual(digest["skill_scan_files"], 256)
+            self.assertLessEqual(digest["skill_snapshot_returned"], 200)
+            self.assertTrue(digest["digest_truncated"])
+            self.assertTrue(digest["skill_snapshot_has_more"])
+            self.assertTrue(all(
+                len(item["title"].encode("utf-8")) <= 240
+                for item in digest["skill_snapshot"]
+            ))
+            self.assertTrue(all(
+                len(item["idea"].encode("utf-8")) <= 512
+                and len(item["evidence"].encode("utf-8")) <= 512
+                for item in digest["btw_pending"]
+            ))
+
+    def test_learn_append_rejects_oversized_entries_and_a_full_pending_queue(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "queue.json"
+            oversized = run_prepass(
+                "learn-append",
+                "--plugin", "ordinary-plugin",
+                "--lesson", "x" * 9000,
+                "--btw-file", str(queue),
+            )
+            self.assertNotEqual(oversized.returncode, 0)
+            self.assertIn("limit", json.loads(oversized.stdout)["error"])
+            self.assertFalse(queue.exists())
+
+            queue.write_text(
+                json.dumps([
+                    {
+                        "id": f"pending-{index}",
+                        "idea": "bounded",
+                        "evidence": "",
+                        "tier": "tactical",
+                        "status": "pending",
+                    }
+                    for index in range(500)
+                ]),
+                encoding="utf-8",
+            )
+            full = run_prepass(
+                "learn-append",
+                "--plugin", "ordinary-plugin",
+                "--lesson", "one more",
+                "--btw-file", str(queue),
+            )
+            self.assertNotEqual(full.returncode, 0)
+            self.assertIn("pending", json.loads(full.stdout)["error"])
+            self.assertEqual(len(json.loads(queue.read_text(encoding="utf-8"))), 500)
 
     def test_legacy_migration_is_stable_and_status_update_touches_one_entry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

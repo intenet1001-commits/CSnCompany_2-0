@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 import plistlib
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "memory_learning_schedule.py"
 SPEC = importlib.util.spec_from_file_location("memory_learning_schedule", SCRIPT)
@@ -84,6 +86,54 @@ class ScheduleGenerationTests(unittest.TestCase):
             SCHEDULE.build_collect_command(
                 self.uv, self.learning, self.state, "folder", Path("relative"), self.root
             )
+
+    def test_install_uses_a_stable_copy_and_status_detects_source_drift(self) -> None:
+        completed = subprocess.CompletedProcess(["fixture"], 0, "", "")
+        install_args = SCHEDULE.build_parser().parse_args([
+            "install",
+            "--platform", "linux",
+            "--home", str(self.root),
+            "--uv", str(self.uv),
+            "--learning-script", str(self.learning),
+            "--state-file", str(self.state),
+        ])
+        with mock.patch.object(SCHEDULE, "run_checked", return_value=completed):
+            result = SCHEDULE.install(install_args)
+
+        stable = SCHEDULE.stable_learning_script(self.root)
+        self.assertEqual(stable.read_bytes(), self.learning.read_bytes())
+        service = Path(result["definitions"][0]).read_text(encoding="utf-8")
+        self.assertIn(str(stable), service)
+        self.assertNotIn(str(self.learning), service)
+
+        status_args = SCHEDULE.build_parser().parse_args([
+            "status",
+            "--platform", "linux",
+            "--home", str(self.root),
+            "--learning-script", str(self.learning),
+        ])
+        with mock.patch.object(SCHEDULE, "run_checked", return_value=completed):
+            current = SCHEDULE.status(status_args)
+        self.assertTrue(current["scriptCurrent"])
+        self.assertTrue(current["definitionCurrent"])
+        self.assertFalse(current["needsReinstall"])
+
+        service_path = Path(result["definitions"][0])
+        service_path.write_text(
+            service.replace(str(stable), str(self.learning)),
+            encoding="utf-8",
+        )
+        with mock.patch.object(SCHEDULE, "run_checked", return_value=completed):
+            stale_definition = SCHEDULE.status(status_args)
+        self.assertFalse(stale_definition["definitionCurrent"])
+        self.assertTrue(stale_definition["needsReinstall"])
+
+        service_path.write_text(service, encoding="utf-8")
+        self.learning.write_text("print('upgraded')\n", encoding="utf-8")
+        with mock.patch.object(SCHEDULE, "run_checked", return_value=completed):
+            stale = SCHEDULE.status(status_args)
+        self.assertFalse(stale["scriptCurrent"])
+        self.assertTrue(stale["needsReinstall"])
 
 
 if __name__ == "__main__":

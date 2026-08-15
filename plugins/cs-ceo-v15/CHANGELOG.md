@@ -4,6 +4,8 @@
 - AgentsToZ 프로젝트 기억을 임무 분할 전 Phase G.5에서 읽기 전용 recall한다.
 - 최대 2개 active constraints + 목표 관련 항목으로 총 5개 이하의 two-budget 컨텍스트를 사용한다.
 - `memoryId`/`memoryAgent`/`memoryAgentId`를 임무 맥락에 보존하고, 각 하위 임무에는 관련 항목 최대 2개만 전달한다.
+- Claude marketplace뿐 아니라 Codex-only versioned cache에서도 `cs-memory` recall helper를 찾는다.
+- `cs-ceo` 진입 Skill 자체도 Codex-only versioned cache에서 최신 CEO agent를 실행 가능하게 찾는다.
 - 종료 시 `actionablePending`이 있을 때만 같은 CEO 세션에서 `/cs-memory:learn pending`을 1회 처리해 무인 모델 호출 없이 정기 수집→컴팩트 학습 루프를 닫는다.
 - 본문 시점과 파일 관측 mtime을 분리하고 contested/오래된 기억은 현재 저장소 증거로 재검증한다.
 - 구형 전역 `~/.claude/core-memory` 폴백을 제거했다.

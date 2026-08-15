@@ -29,13 +29,19 @@
 
 ## Strategic Patterns
 
-- Memory integration (AgentsToZ) workflow, now at `memory-agent-version:10` (bumped from 3/4 in both `CLAUDE.md` and `AGENTS.md`): on "세션 기억하기" (remember session) requests, update local memory first, call the `mark-remembered` endpoint, then `push` to back it up remotely — via:
-  `PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; curl --fail-with-body -sS -X POST --get --data-urlencode "folderPath=$PROJECT_ROOT" http://127.0.0.1:3001/api/project-memory/mark-remembered && curl --fail-with-body -sS -X POST --get --data-urlencode "folderPath=$PROJECT_ROOT" http://127.0.0.1:3001/api/project-memory/push` (switched from `curl -fsS` to `--fail-with-body -sS` so server error bodies stay visible).
-- Memory scales past a single file: once it outgrows one, `sourcePath` becomes a generated **index** of entry titles with bodies in `.agent-memory/notes/` — read the index, then only the matching notes; edit the notes, never the generated index. Each note is capped at 12000 bytes and compacted one over-budget note at a time by merging/compressing older entries, never dropping a durable decision.
-- The AgentsToZ project-memory block is maintained identically in both `CLAUDE.md` and `AGENTS.md`, delimited by `<!-- AgentsToZ project-memory:start -->` / `:end` markers with a `memory-agent-version:<n>` marker; version bumps must be applied to both files.
-- Generated Claude/Codex `UserPromptSubmit` hooks are intentionally token-free: they discard prompt content and record only last-activity time and agent, so AgentsToZ can flag "세션 기억하기 필요" without consuming tokens.
-- If a compatible external closing workflow (e.g. `/cs-end`) runs, the same "세션 기억하기" procedure applies before it finishes.
-- A failed remote memory backup must never roll back the local memory update — report the failure so the push can be retried from AgentsToZ_byCS instead.
+### AgentsToZ is the sole project-memory writer
+<!-- memory-entry-id:e2f17372967a1b9cf292bdf0 -->
+
+- Since `memory-agent-version:11`, `.agent-memory` is authoritative. CSnCompany may read it but must not modify it outside the project-local remember-session adapter, and its learning state stores only IDs, hashes, timestamps, root provenance, and dispositions—not titles, bodies, section names, or excerpts.
+- Remember-session uses Pull (when automatic backup is enabled) → local edit → `mark-remembered` journal → Push. A remote failure never rolls back the local save. `/cs-end` delegates to the same adapter. Split memory uses a generated index plus bounded notes; edit notes, never the index.
+- Keep the generated project-memory block synchronized in `CLAUDE.md` and `AGENTS.md`. Claude/Codex activity hooks remain token-free and record only activity time and agent, never prompt text.
+
+### cs-memory 2.1 learns changes through bounded deterministic state
+<!-- memory-entry-id:6608fc2728a3dd412f93217b -->
+
+- Stable identity is `memoryId + entryId`; a version adds the content hash and accepted/contested boundary. Title/section/note moves and mtime-only changes do not relearn. Initial automatic collection is an `observed` baseline; a later filled stable placeholder is a `filled` change.
+- Collection is model-free and read-only, with explicit bounded recall/learning. Duplicate IDs, unsafe paths, unstable or oversized sources, and credential indicators are blocked without retaining source text. State/queue writes are locked, atomic, size-validated, and parent-identity guarded; known duplicate roots remain blocked until all are revalidated.
+- The optional six-hour scheduler executes a stable user-state copy and calls no model. `cs-ceo` recalls bounded project memory before decomposition and learns only actionable pending items; Claude and Codex cache resolvers are both executable paths.
 - CLAUDE.md enforces skill-first routing: when a user request matches an available skill, invoke it via the Skill tool as the first action rather than answering ad-hoc, unless the request is a single-fact check answerable in 1-3 direct tool calls. Routing rules are maintained as an explicit trigger→skill table (including Korean trigger phrases such as "플랜실행", "디자인 리뷰", "장기기억 학습").
 - Recurring workflow: `cs-experiencing` learnings are committed incrementally with version bumps (e.g. v8.2.7 → v9.0.3 across 2026-07-19 to 2026-07-22), each commit capturing a discrete number of learned items/addenda.
 - `csn-sync`'s `sync.sh` treats `git fetch` failure as non-fatal: on failure it warns and reports repo state against the last cached upstream ref instead of aborting, so offline status checks still work.

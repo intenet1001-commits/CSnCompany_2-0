@@ -13,11 +13,13 @@ import contextlib
 import datetime as dt
 import hashlib
 import json
+import math
 import os
 import re
 import stat
 import sys
 import tempfile
+import time
 import unicodedata
 import urllib.parse
 import urllib.request
@@ -31,6 +33,9 @@ MAX_MANIFEST_BYTES = 512 * 1024
 MAX_MEMORY_BYTES = 1024 * 1024
 MAX_MANIFEST_PARTS = 256
 MAX_STATE_BYTES = 8 * 1024 * 1024
+WINDOWS_FILE_SHARE_DELETE = 0x00000004
+WINDOWS_STATE_SHARE_MODE = 0x00000001 | 0x00000002
+WINDOWS_FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
 MAX_DISCOVERY_DIRS = 50_000
 MAX_PROJECTS = 200
 MAX_CANDIDATE_BODY_CHARS = 3_000
@@ -127,8 +132,18 @@ def redact_secrets(value: str) -> Tuple[str, List[str]]:
     patterns = [
         ("private-key", re.compile(r"-----BEGIN [^-\n]*PRIVATE KEY-----.*?-----END [^-\n]*PRIVATE KEY-----", re.I | re.S)),
         ("openai-key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
-        ("github-token", re.compile(r"\b(?:ghp|github_pat)_[A-Za-z0-9_]{20,}\b")),
-        ("aws-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+        ("github-token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})\b")),
+        ("gitlab-token", re.compile(r"\bglpat-[A-Za-z0-9_-]{20,}\b")),
+        ("slack-token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{16,}\b", re.I)),
+        ("slack-webhook", re.compile(r"https://hooks\.slack\.com/services/T[A-Z0-9]{8,}/B[A-Z0-9]{8,}/[A-Za-z0-9_-]{20,}", re.I)),
+        ("stripe-key", re.compile(r"\b(?:(?:sk|rk)_(?:live|test)_|whsec_)[A-Za-z0-9]{16,}\b")),
+        ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
+        ("google-oauth-token", re.compile(r"\bya29\.[A-Za-z0-9_-]{20,}\b")),
+        ("npm-token", re.compile(r"\bnpm_[A-Za-z0-9]{30,}\b")),
+        ("pypi-token", re.compile(r"\bpypi-[A-Za-z0-9_-]{20,}\b")),
+        ("huggingface-token", re.compile(r"\bhf_[A-Za-z0-9]{30,}\b")),
+        ("sendgrid-token", re.compile(r"\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b")),
+        ("aws-key", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
         ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b")),
         (
             "credential-assignment",
@@ -143,6 +158,39 @@ def redact_secrets(value: str) -> Tuple[str, List[str]]:
         if pattern.search(clean):
             found.append(name)
             clean = pattern.sub("[REDACTED]", clean)
+    high_entropy = re.compile(r"(?<![A-Za-z0-9_+=-])[A-Za-z0-9_+=-]{32,256}(?![A-Za-z0-9_+=-])")
+    credential_context = re.compile(
+        r"(?i)(?:authorization\s*:\s*bearer|bearer|api[_-]?key|access[_-]?token|auth[_-]?token|password|secret|token|credential)"
+    )
+    public_context = re.compile(
+        r"(?i)(?:integrity|checksum|digest|sha(?:1|224|256|384|512)|public[_ -]?key|ssh-(?:rsa|ed25519))"
+    )
+
+    def redact_high_entropy(match: re.Match[str]) -> str:
+        token = match.group(0).rstrip("=")
+        if re.fullmatch(r"[0-9a-fA-F]+", token):
+            return match.group(0)
+        if re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}", token):
+            return match.group(0)
+        context = clean[max(0, match.start() - 48):min(len(clean), match.end() + 48)]
+        if public_context.search(context) or not credential_context.search(context):
+            return match.group(0)
+        classes = sum((
+            any(char.islower() for char in token),
+            any(char.isupper() for char in token),
+            any(char.isdigit() for char in token),
+            any(char in "_+=-" for char in token),
+        ))
+        if classes < 3 or len(set(token)) < 12:
+            return match.group(0)
+        frequencies = {char: token.count(char) / len(token) for char in set(token)}
+        entropy = -sum(value * math.log2(value) for value in frequencies.values())
+        if entropy < 4.0:
+            return match.group(0)
+        found.append("high-entropy-token")
+        return "[REDACTED]"
+
+    clean = high_entropy.sub(redact_high_entropy, clean)
     return clean, sorted(set(found))
 
 
@@ -325,7 +373,8 @@ def parse_memory_document(text: str) -> Dict[str, Any]:
 
     def append_entry(section: str, title: str, body_lines: Sequence[str], start: int, end: int, explicit: Optional[str]) -> None:
         body = normalized_body("\n".join(body_lines))
-        if not body.strip():
+        substantive = bool(body.strip())
+        if not substantive and not explicit:
             return
         identity_source = "explicit" if explicit else "legacy"
         if explicit:
@@ -343,6 +392,7 @@ def parse_memory_document(text: str) -> Dict[str, Any]:
         clean_section, _ = redact_secrets(section)
         section_key = normalize(section)
         semantic_class = "contested" if section_key in CONTESTED_SECTIONS else "accepted"
+        trackable = section_key in TRAINABLE_SECTIONS and (substantive or bool(explicit))
         entries.append({
             "entryId": entry_id,
             "entryKey": entry_id,
@@ -354,7 +404,9 @@ def parse_memory_document(text: str) -> Dict[str, Any]:
             "lineStart": start + 1,
             "lineEnd": end,
             "ordinal": len(entries),
-            "trainable": section_key in TRAINABLE_SECTIONS,
+            "substantive": substantive,
+            "trackable": trackable,
+            "trainable": section_key in TRAINABLE_SECTIONS and substantive,
             "caution": section_key in CONTESTED_SECTIONS,
             "knowledgeTimeHint": knowledge_time_hint(title, body),
         })
@@ -396,7 +448,7 @@ def parse_memory_document(text: str) -> Dict[str, Any]:
             append_entry(section, title, body_lines, start, end, explicit)
 
     valid = not any("duplicate explicit" in warning for warning in warnings)
-    if not entries:
+    if not any(entry["substantive"] for entry in entries):
         warnings.append("memory contains no substantive entries")
     return {
         "valid": valid,
@@ -474,7 +526,7 @@ def load_project_memory(project_root: Path) -> Dict[str, Any]:
             newest_ns = max(newest_ns, note_stat.st_mtime_ns)
             payloads.append(payload)
             observed_files.append((note_path, note_stat))
-        raw = b"\n\n".join(payloads)
+        raw = b"".join(payloads)
     else:
         raw, source_stat = read_regular_bytes(resolved_source, MAX_MEMORY_BYTES)
         observed_files.append((resolved_source, source_stat))
@@ -719,10 +771,38 @@ def empty_state() -> Dict[str, Any]:
     return {"schemaVersion": STATE_SCHEMA, "updatedAt": None, "memories": {}}
 
 
+def normalized_state_path(path: Path) -> Path:
+    absolute = Path(os.path.abspath(os.fspath(path.expanduser())))
+    if (
+        sys.platform == "darwin"
+        and len(absolute.parts) > 1
+        and absolute.parts[1] in {"etc", "tmp", "var"}
+    ):
+        absolute = Path("/private").joinpath(*absolute.parts[1:])
+    return absolute
+
+
+def assert_no_symlink_components(path: Path) -> Path:
+    absolute = normalized_state_path(path)
+    parts = absolute.parts
+    if not parts:
+        raise MemoryLearningError("state parent is invalid")
+    current = Path(parts[0])
+    for part in parts[1:]:
+        current /= part
+        try:
+            current_stat = current.lstat()
+        except FileNotFoundError:
+            break
+        except OSError as exc:
+            raise MemoryLearningError("state parent could not be validated") from exc
+        if stat.S_ISLNK(current_stat.st_mode):
+            raise MemoryLearningError("state parent must not traverse a symlink")
+    return absolute
+
+
 def validate_state_parent(path: Path, *, create: bool) -> None:
-    parent = path.expanduser().parent
-    if parent.is_symlink():
-        raise MemoryLearningError("state parent must not be a symlink")
+    parent = assert_no_symlink_components(path.expanduser().parent)
     if parent.exists() and not parent.is_dir():
         raise MemoryLearningError("state parent is not a directory")
     if not create:
@@ -733,78 +813,486 @@ def validate_state_parent(path: Path, *, create: bool) -> None:
     if probe.is_symlink():
         raise MemoryLearningError("state parent must not traverse a symlink")
     parent.mkdir(parents=True, exist_ok=True)
-    if parent.is_symlink() or not parent.is_dir():
+    assert_no_symlink_components(parent)
+    if not parent.is_dir():
         raise MemoryLearningError("state parent is unsafe")
 
 
-def load_state(path: Path) -> Dict[str, Any]:
+class StateAccess:
+    def __init__(
+        self,
+        parent_path: Path,
+        descriptor: Optional[int],
+        identity: Tuple[int, int],
+        guard_handles: Optional[List[int]] = None,
+    ) -> None:
+        self.parent_path = parent_path
+        self.descriptor = descriptor
+        self.identity = identity
+        self.guard_handles = guard_handles or []
+
+
+def open_state_directory(parent: Path, *, create: bool) -> int:
+    """Open every POSIX path component relative to a verified directory FD."""
+    absolute = normalized_state_path(parent)
+    parts = absolute.parts
+    flags = os.O_RDONLY
+    if hasattr(os, "O_DIRECTORY"):
+        flags |= os.O_DIRECTORY
+    if hasattr(os, "O_CLOEXEC"):
+        flags |= os.O_CLOEXEC
+    descriptor = os.open(parts[0], flags)
+    try:
+        for part in parts[1:]:
+            component_flags = flags
+            if hasattr(os, "O_NOFOLLOW"):
+                component_flags |= os.O_NOFOLLOW
+            try:
+                next_descriptor = os.open(
+                    part,
+                    component_flags,
+                    dir_fd=descriptor,
+                )
+            except FileNotFoundError:
+                if not create:
+                    raise
+                try:
+                    os.mkdir(part, 0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+                next_descriptor = os.open(
+                    part,
+                    component_flags,
+                    dir_fd=descriptor,
+                )
+            component_stat = os.fstat(next_descriptor)
+            if not stat.S_ISDIR(component_stat.st_mode):
+                os.close(next_descriptor)
+                raise MemoryLearningError("state parent component is not a directory")
+            os.close(descriptor)
+            descriptor = next_descriptor
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def windows_file_handle(
+    path: Path,
+    *,
+    directory: bool,
+    create: bool = False,
+    writable: bool = False,
+) -> Optional[int]:
+    """Open a Windows path without following reparse points or sharing delete."""
+    import ctypes
+    from ctypes import wintypes
+
+    file_read_attributes = 0x0080
+    generic_read = 0x80000000
+    generic_write = 0x40000000
+    open_existing = 3
+    open_always = 4
+    file_attribute_normal = 0x00000080
+    file_attribute_directory = 0x00000010
+    file_attribute_reparse_point = 0x00000400
+    file_flag_backup_semantics = 0x02000000
+
+
+    class ByHandleFileInformation(ctypes.Structure):
+        _fields_ = [
+            ("file_attributes", wintypes.DWORD),
+            ("creation_time_low", wintypes.DWORD),
+            ("creation_time_high", wintypes.DWORD),
+            ("last_access_time_low", wintypes.DWORD),
+            ("last_access_time_high", wintypes.DWORD),
+            ("last_write_time_low", wintypes.DWORD),
+            ("last_write_time_high", wintypes.DWORD),
+            ("volume_serial_number", wintypes.DWORD),
+            ("file_size_high", wintypes.DWORD),
+            ("file_size_low", wintypes.DWORD),
+            ("number_of_links", wintypes.DWORD),
+            ("file_index_high", wintypes.DWORD),
+            ("file_index_low", wintypes.DWORD),
+        ]
+
+    kernel32 = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [wintypes.HANDLE]
+    close_handle.restype = wintypes.BOOL
+    create_file = kernel32.CreateFileW
+    create_file.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    create_file.restype = wintypes.HANDLE
+    desired_access = file_read_attributes
+    if not directory:
+        desired_access |= generic_read
+        if writable:
+            desired_access |= generic_write
+    flags = file_attribute_normal | WINDOWS_FILE_FLAG_OPEN_REPARSE_POINT
+    if directory:
+        flags |= file_flag_backup_semantics
+    handle = create_file(
+        str(path),
+        desired_access,
+        WINDOWS_STATE_SHARE_MODE,
+        None,
+        open_always if create else open_existing,
+        flags,
+        None,
+    )
+    invalid_handle = ctypes.c_void_p(-1).value
+    if handle == invalid_handle:
+        error = getattr(ctypes, "get_last_error")()
+        if not create and error in {2, 3}:
+            return None
+        raise OSError(error, "Windows state path could not be opened safely")
+    information = ByHandleFileInformation()
+    get_information = kernel32.GetFileInformationByHandle
+    get_information.argtypes = [wintypes.HANDLE, ctypes.POINTER(ByHandleFileInformation)]
+    get_information.restype = wintypes.BOOL
+    if not get_information(handle, ctypes.byref(information)):
+        error = getattr(ctypes, "get_last_error")()
+        close_handle(handle)
+        raise OSError(error, "Windows state path metadata could not be read")
+    is_directory = bool(information.file_attributes & file_attribute_directory)
+    is_reparse_point = bool(information.file_attributes & file_attribute_reparse_point)
+    if is_reparse_point or is_directory != directory:
+        close_handle(handle)
+        raise MemoryLearningError("state path must not traverse a Windows reparse point")
+    return int(handle)
+
+
+def close_windows_handle(handle: int) -> None:
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [wintypes.HANDLE]
+    close_handle.restype = wintypes.BOOL
+    close_handle(handle)
+
+
+def open_windows_directory_guards(parent: Path, *, create: bool) -> List[int]:
+    absolute = normalized_state_path(parent)
+    parts = absolute.parts
+    current = Path(parts[0])
+    paths = [current]
+    for part in parts[1:]:
+        current = current / part
+        paths.append(current)
+    handles: List[int] = []
+    try:
+        for component in paths:
+            handle = windows_file_handle(component, directory=True)
+            if handle is None:
+                if not create:
+                    raise FileNotFoundError(component)
+                try:
+                    os.mkdir(component, 0o700)
+                except FileExistsError:
+                    pass
+                handle = windows_file_handle(component, directory=True)
+            if handle is None:
+                raise MemoryLearningError("state parent could not be opened safely")
+            handles.append(handle)
+        return handles
+    except BaseException:
+        for handle in reversed(handles):
+            close_windows_handle(handle)
+        raise
+
+
+def windows_regular_descriptor(
+    path: Path,
+    *,
+    create: bool,
+    writable: bool,
+) -> Optional[int]:
+    import msvcrt
+
+    handle = windows_file_handle(
+        path,
+        directory=False,
+        create=create,
+        writable=writable,
+    )
+    if handle is None:
+        return None
+    flags = getattr(os, "O_BINARY", 0) | (os.O_RDWR if writable else os.O_RDONLY)
+    try:
+        return getattr(msvcrt, "open_osfhandle")(handle, flags)
+    except BaseException:
+        close_windows_handle(handle)
+        raise
+
+
+def verify_state_access(access: StateAccess) -> None:
+    try:
+        assert_no_symlink_components(access.parent_path)
+        current = os.stat(access.parent_path, follow_symlinks=False)
+    except (OSError, MemoryLearningError) as exc:
+        raise MemoryLearningError("state parent changed during access") from exc
+    if (
+        not stat.S_ISDIR(current.st_mode)
+        or (current.st_dev, current.st_ino) != access.identity
+    ):
+        raise MemoryLearningError("state parent changed during access")
+
+
+@contextlib.contextmanager
+def state_parent_access(path: Path, *, create: bool) -> Iterator[StateAccess]:
+    expanded = path.expanduser()
+    parent = normalized_state_path(expanded.parent)
+    if os.name == "nt":
+        validate_state_parent(expanded, create=False)
+        try:
+            guard_handles = open_windows_directory_guards(parent, create=create)
+        except (OSError, MemoryLearningError) as exc:
+            raise MemoryLearningError("state parent could not be opened safely") from exc
+        try:
+            current = os.stat(parent, follow_symlinks=False)
+            access = StateAccess(
+                parent,
+                None,
+                (current.st_dev, current.st_ino),
+                guard_handles,
+            )
+            verify_state_access(access)
+            yield access
+            verify_state_access(access)
+        finally:
+            for handle in reversed(guard_handles):
+                close_windows_handle(handle)
+        return
+
+    # Static validation gives clear errors; component-FD traversal closes the
+    # validation/use race and performs any required creation safely.
+    validate_state_parent(expanded, create=False)
+    try:
+        descriptor = open_state_directory(parent, create=create)
+    except (OSError, MemoryLearningError) as exc:
+        raise MemoryLearningError("state parent could not be opened safely") from exc
+    opened = os.fstat(descriptor)
+    access = StateAccess(parent, descriptor, (opened.st_dev, opened.st_ino))
+    try:
+        verify_state_access(access)
+        yield access
+        verify_state_access(access)
+    finally:
+        os.close(descriptor)
+
+
+def state_access_matches(path: Path, access: StateAccess) -> bool:
+    return normalized_state_path(path.expanduser().parent) == access.parent_path
+
+
+def load_state(path: Path, access: Optional[StateAccess] = None) -> Dict[str, Any]:
     path = path.expanduser()
-    validate_state_parent(path, create=False)
-    if path.is_symlink():
-        raise MemoryLearningError("learning state must not be a symlink")
-    if not path.exists():
-        return empty_state()
-    raw = read_json(path, MAX_STATE_BYTES)
+    if access is None:
+        validate_state_parent(path, create=False)
+        if not normalized_state_path(path.parent).exists():
+            return empty_state()
+        with state_parent_access(path, create=False) as opened:
+            return load_state(path, opened)
+    if not state_access_matches(path, access):
+        raise MemoryLearningError("state path does not match its verified parent")
+    verify_state_access(access)
+
+    if access.descriptor is None:
+        try:
+            descriptor = windows_regular_descriptor(
+                access.parent_path / path.name,
+                create=False,
+                writable=False,
+            )
+        except (OSError, MemoryLearningError) as exc:
+            raise MemoryLearningError("learning state could not be opened safely") from exc
+        if descriptor is None:
+            return empty_state()
+    else:
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            descriptor = os.open(path.name, flags, dir_fd=access.descriptor)
+        except FileNotFoundError:
+            return empty_state()
+        except OSError as exc:
+            raise MemoryLearningError("learning state could not be opened safely") from exc
+    try:
+        state_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(state_stat.st_mode):
+            raise MemoryLearningError("learning state is not a regular file")
+        if state_stat.st_size > MAX_STATE_BYTES:
+            raise MemoryLearningError("learning state exceeds its bounded size")
+        payload = bytearray()
+        while True:
+            chunk = os.read(descriptor, min(64 * 1024, MAX_STATE_BYTES + 1 - len(payload)))
+            if not chunk:
+                break
+            payload.extend(chunk)
+            if len(payload) > MAX_STATE_BYTES:
+                raise MemoryLearningError("learning state exceeds its bounded size")
+        try:
+            raw = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise MemoryLearningError("learning state is invalid JSON") from exc
+    finally:
+        os.close(descriptor)
     if not isinstance(raw, dict) or raw.get("schemaVersion") != STATE_SCHEMA or not isinstance(raw.get("memories"), dict):
         raise MemoryLearningError("learning state has an incompatible schema")
     return raw
 
 
 @contextlib.contextmanager
-def state_lock(path: Path) -> Iterator[None]:
+def state_lock(path: Path) -> Iterator[StateAccess]:
     lock_path = path.expanduser().with_suffix(path.suffix + ".lock")
-    validate_state_parent(lock_path, create=True)
-    if lock_path.is_symlink():
-        raise MemoryLearningError("state lock must not be a symlink")
-    handle = open(lock_path, "a+b")
-    try:
-        os.chmod(lock_path, 0o600)
-    except OSError:
-        pass
-    try:
-        if os.name == "nt":
-            import msvcrt
-            handle.seek(0, os.SEEK_END)
-            if handle.tell() == 0:
-                handle.write(b"\0")
-                handle.flush()
-            handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+    with state_parent_access(lock_path, create=True) as access:
+        if access.descriptor is None:
+            try:
+                descriptor = windows_regular_descriptor(
+                    access.parent_path / lock_path.name,
+                    create=True,
+                    writable=True,
+                )
+            except (OSError, MemoryLearningError) as exc:
+                raise MemoryLearningError("state lock could not be opened safely") from exc
+            if descriptor is None:
+                raise MemoryLearningError("state lock could not be opened safely")
+            handle = os.fdopen(descriptor, "a+b")
         else:
-            import fcntl
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-        yield
-    finally:
+            flags = os.O_CREAT | os.O_RDWR
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = None
+            last_error: Optional[OSError] = None
+            for attempt in range(3):
+                try:
+                    descriptor = os.open(
+                        lock_path.name,
+                        flags,
+                        0o600,
+                        dir_fd=access.descriptor,
+                    )
+                    break
+                except FileNotFoundError as exc:
+                    last_error = exc
+                    verify_state_access(access)
+                    if attempt < 2:
+                        time.sleep(0)
+                except OSError as exc:
+                    raise MemoryLearningError("state lock could not be opened safely") from exc
+            if descriptor is None:
+                raise MemoryLearningError("state lock could not be opened safely") from last_error
+            lock_stat = os.fstat(descriptor)
+            if not stat.S_ISREG(lock_stat.st_mode):
+                os.close(descriptor)
+                raise MemoryLearningError("state lock is not a regular file")
+            handle = os.fdopen(descriptor, "a+b")
         try:
+            if hasattr(os, "fchmod"):
+                os.fchmod(handle.fileno(), 0o600)
             if os.name == "nt":
                 import msvcrt
+                handle.seek(0, os.SEEK_END)
+                if handle.tell() == 0:
+                    handle.write(b"\0")
+                    handle.flush()
                 handle.seek(0)
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
             else:
                 import fcntl
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            yield access
         finally:
-            handle.close()
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
 
 
-def atomic_write_state(path: Path, state: Dict[str, Any]) -> None:
+def atomic_write_state(
+    path: Path,
+    state: Dict[str, Any],
+    access: Optional[StateAccess] = None,
+) -> None:
     path = path.expanduser()
-    validate_state_parent(path, create=True)
     payload = (json.dumps(state, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
     if len(payload) > MAX_STATE_BYTES:
         raise MemoryLearningError("learning state exceeds its bounded size")
-    descriptor, temporary = tempfile.mkstemp(prefix=path.name + ".", dir=str(path.parent))
+    if access is None:
+        with state_parent_access(path, create=True) as opened:
+            atomic_write_state(path, state, opened)
+        return
+    if not state_access_matches(path, access):
+        raise MemoryLearningError("state path does not match its verified parent")
+    verify_state_access(access)
+
+    if access.descriptor is None:
+        target = access.parent_path / path.name
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=path.name + ".",
+            dir=str(access.parent_path),
+        )
+        try:
+            if hasattr(os, "fchmod"):
+                os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            verify_state_access(access)
+            os.replace(temporary, target)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        return
+
+    temporary = ".%s.%s.tmp" % (path.name, os.urandom(8).hex())
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
     try:
+        descriptor = os.open(
+            temporary,
+            flags,
+            0o600,
+            dir_fd=access.descriptor,
+        )
         if hasattr(os, "fchmod"):
             os.fchmod(descriptor, 0o600)
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        verify_state_access(access)
+        os.replace(
+            temporary,
+            path.name,
+            src_dir_fd=access.descriptor,
+            dst_dir_fd=access.descriptor,
+        )
+        os.fsync(access.descriptor)
     finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+        try:
+            os.unlink(temporary, dir_fd=access.descriptor)
+        except FileNotFoundError:
+            pass
 
 
 def candidate_id(memory_id: str, entry_id: str, version_hash: str) -> str:
@@ -839,6 +1327,7 @@ def state_entry(
     now: str,
     bootstrap: bool,
 ) -> Tuple[Dict[str, Any], bool, bool, bool]:
+    substantive = bool(entry.get("substantive", True))
     version_changed = (
         previous is None
         or previous.get("status") == "removed"
@@ -848,7 +1337,9 @@ def state_entry(
         current_id = candidate_id("", entry["entryId"], entry["contentVersionHash"])
         # The caller rewrites this with the memory-scoped ID.
         first_observation = previous is None
-        bootstrap_queued = bool(first_observation and bootstrap and not entry["caution"])
+        bootstrap_queued = bool(
+            substantive and first_observation and bootstrap and not entry["caution"]
+        )
         result = {
             "entryId": entry["entryId"],
             "contentVersionHash": entry["contentVersionHash"],
@@ -856,23 +1347,47 @@ def state_entry(
             "priorityRank": entry_priority_rank(entry),
             "knowledgeTimeHint": entry["knowledgeTimeHint"],
             "caution": bool(entry["caution"]),
+            "substantive": substantive,
             "status": (
-                "contested"
+                "placeholder"
+                if not substantive
+                else "contested"
                 if entry["caution"]
                 else "pending"
                 if (not first_observation or bootstrap_queued)
                 else "observed"
             ),
             "candidateId": current_id,
-            "changeKind": "added" if previous is None else "updated",
+            "changeKind": (
+                "reserved"
+                if not substantive and previous is None
+                else "cleared"
+                if not substantive
+                else "added"
+                if previous is None
+                else "filled"
+                if not bool(previous.get("substantive", True))
+                else "updated"
+            ),
             "firstObservedAt": previous.get("firstObservedAt", now) if previous else now,
             "versionObservedAt": now,
             "lastObservedAt": now,
         }
-        if previous and previous.get("candidateId"):
+        if (
+            previous
+            and bool(previous.get("substantive", True))
+            and previous.get("candidateId")
+        ):
             result["supersedesCandidateId"] = previous["candidateId"]
-        changed_candidate = bool(not first_observation and not entry["caution"])
-        return result, changed_candidate, bool(entry["caution"]), bootstrap_queued
+        changed_candidate = bool(
+            substantive and not first_observation and not entry["caution"]
+        )
+        return (
+            result,
+            changed_candidate,
+            bool(substantive and entry["caution"]),
+            bootstrap_queued,
+        )
     result: Dict[str, Any] = (
         {str(key): value for key, value in previous.items()}
         if isinstance(previous, dict)
@@ -883,6 +1398,7 @@ def state_entry(
         "priorityRank": entry_priority_rank(entry),
         "knowledgeTimeHint": entry["knowledgeTimeHint"],
         "caution": bool(entry["caution"]),
+        "substantive": substantive,
         "lastObservedAt": now,
     })
     result.pop("section", None)
@@ -890,6 +1406,7 @@ def state_entry(
     bootstrap_queued = bool(
         bootstrap
         and result.get("status") == "observed"
+        and substantive
         and not entry["caution"]
     )
     if bootstrap_queued:
@@ -898,103 +1415,231 @@ def state_entry(
     return result, False, False, bootstrap_queued
 
 
+def known_project_roots(memory: Any) -> List[str]:
+    """Return bounded source pointers retained for conflict revalidation."""
+    if not isinstance(memory, dict):
+        return []
+    values = memory.get("knownProjectRoots")
+    candidates = values if isinstance(values, list) else [memory.get("projectRoot")]
+    roots = {
+        value
+        for value in candidates
+        if isinstance(value, str)
+        and value
+        and len(value) <= 4096
+        and Path(value).is_absolute()
+    }
+    return sorted(roots)[:MAX_PROJECTS]
+
+
+def memory_root_is_definitively_absent(value: str) -> bool:
+    """Only forget a known root when it clearly no longer hosts project memory."""
+    try:
+        root = Path(value)
+        if not root.exists():
+            return True
+        config = root / ".agent-memory" / "config.json"
+        return not config.exists() and not config.is_symlink()
+    except OSError:
+        return False
+
+
+def load_consistent_project(inspection: Dict[str, Any]) -> Dict[str, Any]:
+    """Load one source generation and reject continuously moving inputs."""
+    current = inspection
+    for _attempt in range(3):
+        root = Path(current["projectRoot"])
+        project = load_project_memory(root)
+        after = project_memory_stamp(root)
+        if (
+            project["memoryId"] == current["memoryId"] == after["memoryId"]
+            and project["projectRoot"] == current["projectRoot"] == after["projectRoot"]
+            and current["fileStamp"] == after["fileStamp"]
+        ):
+            project["fileStamp"] = after["fileStamp"]
+            return project
+        current = after
+    raise MemoryLearningError("project memory kept changing during collection")
+
+
+def state_disposition_counts(state: Dict[str, Any]) -> Dict[str, int]:
+    counts = {
+        "pending": 0,
+        "blockedPending": 0,
+        "contested": 0,
+        "observed": 0,
+    }
+    for memory in state["memories"].values():
+        if not isinstance(memory, dict):
+            continue
+        blocked = bool(memory.get("blockedReason"))
+        for entry in memory.get("entries", {}).values():
+            if not isinstance(entry, dict):
+                continue
+            status = entry.get("status")
+            if status == "pending":
+                key = "blockedPending" if blocked else "pending"
+                counts[key] += 1
+            if status == "contested":
+                counts["contested"] += 1
+            if status == "observed":
+                counts["observed"] += 1
+    return counts
+
+
 def collect(args: argparse.Namespace) -> Dict[str, Any]:
-    project_roots, discovery_warnings = discover_projects(args)
+    discovered_roots, discovery_warnings = discover_projects(args)
     state_path = Path(args.state_file).expanduser()
-    state_before = load_state(state_path)
     now_datetime = dt.datetime.now(dt.timezone.utc)
     now = now_datetime.isoformat().replace("+00:00", "Z")
-    inspections: List[Dict[str, Any]] = []
-    quarantined: List[Dict[str, Any]] = []
-    for root in project_roots:
-        try:
-            inspections.append(project_memory_stamp(root))
-        except (OSError, ValueError, MemoryLearningError) as exc:
-            quarantined.append({"projectRoot": str(root), "reason": public_error(exc)})
-
-    by_id: Dict[str, List[Dict[str, Any]]] = {}
-    for inspection in inspections:
-        by_id.setdefault(inspection["memoryId"], []).append(inspection)
-    conflicts: List[Dict[str, Any]] = []
-    unique_inspections: List[Dict[str, Any]] = []
-    for memory_id, copies in sorted(by_id.items()):
-        unique_roots = sorted({copy["projectRoot"] for copy in copies})
-        if len(unique_roots) > 1:
-            conflicts.append({"memoryId": memory_id, "projectRoots": unique_roots, "reason": "same memoryId exists at multiple roots"})
-        else:
-            unique_inspections.append(copies[0])
-    blocked_memory_ids = {item["memoryId"] for item in conflicts}
-
-    loaded: List[Dict[str, Any]] = []
-    unchanged_by_stamp = 0
     bootstrap_history = bool(getattr(args, "bootstrap_history", False))
-    bootstrap_budget = max(
-        0,
-        min(100, int(getattr(args, "bootstrap_limit", DEFAULT_BOOTSTRAP_LIMIT))),
+    bootstrap_budget = int(
+        getattr(args, "bootstrap_limit", DEFAULT_BOOTSTRAP_LIMIT)
     )
-    previous_memories = state_before["memories"]
-    existing_pending = sum(
-        1
-        for memory in previous_memories.values()
-        if isinstance(memory, dict)
-        for entry in memory.get("entries", {}).values()
-        if isinstance(entry, dict) and entry.get("status") == "pending"
-    )
-    bootstrap_remaining = max(0, bootstrap_budget - existing_pending)
-    bootstrap_scan_remaining = bootstrap_remaining
-    for inspection in unique_inspections:
-        previous = previous_memories.get(inspection["memoryId"], {})
-        observed_count = (
-            sum(
-                1
-                for entry in previous.get("entries", {}).values()
-                if isinstance(entry, dict) and entry.get("status") == "observed"
-            )
-            if isinstance(previous, dict) and isinstance(previous.get("entries"), dict)
-            else 0
-        )
-        needs_bootstrap_scan = bool(
-            bootstrap_history and bootstrap_scan_remaining > 0 and observed_count > 0
-        )
-        if needs_bootstrap_scan:
-            bootstrap_scan_remaining -= min(bootstrap_scan_remaining, observed_count)
-        if (
-            isinstance(previous, dict)
-            and not previous.get("blockedReason")
-            and previous.get("projectRoot") == inspection["projectRoot"]
-            and previous.get("fileStamp") == inspection["fileStamp"]
-            and full_audit_is_recent(previous.get("lastFullScanAt"), now_datetime)
-            and not needs_bootstrap_scan
-        ):
-            unchanged_by_stamp += 1
-            continue
-        try:
-            project = load_project_memory(Path(inspection["projectRoot"]))
-            project["fileStamp"] = inspection["fileStamp"]
-            if project["secretDetectors"]:
-                quarantined.append({"projectRoot": inspection["projectRoot"], "reason": "secret-indicators", "detectors": project["secretDetectors"]})
-            elif not project["parsed"]["valid"]:
-                quarantined.append({"projectRoot": inspection["projectRoot"], "reason": "invalid-memory-structure", "warnings": project["parsed"]["warnings"]})
-            else:
-                loaded.append(project)
-        except (OSError, ValueError, MemoryLearningError) as exc:
-            quarantined.append({"projectRoot": inspection["projectRoot"], "reason": public_error(exc)})
-
-    accepted = loaded
+    if not 0 <= bootstrap_budget <= DEFAULT_BOOTSTRAP_LIMIT:
+        raise MemoryLearningError("bootstrap limit must be between 0 and 20")
+    quarantined: List[Dict[str, Any]] = []
+    conflicts: List[Dict[str, Any]] = []
+    accepted: List[Dict[str, Any]] = []
+    blocked_memory_ids: set[str] = set()
+    scan_roots: List[Path] = []
+    unchanged_by_stamp = 0
     new_versions = 0
     contested_versions = 0
     bootstrap_queued = 0
     project_results: List[Dict[str, Any]] = []
-    with state_lock(state_path):
-        state = load_state(state_path)
+    disposition_counts = {
+        "pending": 0,
+        "blockedPending": 0,
+        "contested": 0,
+        "observed": 0,
+    }
+    with state_lock(state_path) as state_access:
+        state = load_state(state_path, state_access)
         memories = state["memories"]
         state_changed = False
+
+        persisted_blocked_roots: Dict[str, List[str]] = {
+            memory_id: known_project_roots(memory)
+            for memory_id, memory in memories.items()
+            if isinstance(memory, dict) and memory.get("blockedReason") == "duplicate-memory-id"
+        }
+        roots_to_scan = {root.resolve() for root in discovered_roots}
+        for roots in persisted_blocked_roots.values():
+            roots_to_scan.update(Path(value) for value in roots)
+        if len(roots_to_scan) > MAX_PROJECTS:
+            discovery_warnings.append("project collection reached its bounded project limit")
+        scan_roots = sorted(roots_to_scan)[:MAX_PROJECTS]
+
+        inspections: List[Dict[str, Any]] = []
+        for root in scan_roots:
+            try:
+                inspections.append(project_memory_stamp(root))
+            except (OSError, ValueError, MemoryLearningError) as exc:
+                root_value = str(root)
+                quarantined.append({"projectRoot": root_value, "reason": public_error(exc)})
+
+        by_id: Dict[str, List[Dict[str, Any]]] = {}
+        inspection_by_root: Dict[str, Dict[str, Any]] = {}
+        for inspection in inspections:
+            by_id.setdefault(inspection["memoryId"], []).append(inspection)
+            inspection_by_root[inspection["projectRoot"]] = inspection
+
+        roots_by_id: Dict[str, set[str]] = {
+            memory_id: {copy["projectRoot"] for copy in copies}
+            for memory_id, copies in by_id.items()
+        }
+        for memory_id, roots in persisted_blocked_roots.items():
+            retained = roots_by_id.setdefault(memory_id, set())
+            for root in roots:
+                inspected = inspection_by_root.get(root)
+                if inspected is not None:
+                    if inspected["memoryId"] == memory_id:
+                        retained.add(root)
+                    continue
+                if not memory_root_is_definitively_absent(root):
+                    retained.add(root)
+
+        unique_inspections: List[Dict[str, Any]] = []
+        for memory_id, roots in sorted(roots_by_id.items()):
+            known_roots = sorted(roots)
+            if len(known_roots) > 1:
+                conflicts.append({
+                    "memoryId": memory_id,
+                    "projectRoots": known_roots,
+                    "reason": "same memoryId exists or remains unverified at multiple roots",
+                })
+                blocked_memory_ids.add(memory_id)
+                continue
+            successful = by_id.get(memory_id, [])
+            if len(successful) == 1:
+                unique_inspections.append(successful[0])
+
         for blocked_memory_id in blocked_memory_ids:
+            roots = sorted(roots_by_id[blocked_memory_id])
             blocked_memory = memories.get(blocked_memory_id)
-            if isinstance(blocked_memory, dict) and blocked_memory.get("blockedReason") != "duplicate-memory-id":
+            if not isinstance(blocked_memory, dict):
+                blocked_memory = {
+                    "projectRoot": roots[0],
+                    "entries": {},
+                    "removed": {},
+                }
+                memories[blocked_memory_id] = blocked_memory
+                state_changed = True
+            if blocked_memory.get("knownProjectRoots") != roots:
+                blocked_memory["knownProjectRoots"] = roots
+                state_changed = True
+            if blocked_memory.get("blockedReason") != "duplicate-memory-id":
                 blocked_memory["blockedReason"] = "duplicate-memory-id"
                 blocked_memory["blockedAt"] = now
                 state_changed = True
+
+        existing_pending = sum(
+            1
+            for memory in memories.values()
+            if isinstance(memory, dict)
+            for entry in memory.get("entries", {}).values()
+            if isinstance(entry, dict) and entry.get("status") == "pending"
+        )
+        bootstrap_remaining = max(0, bootstrap_budget - existing_pending)
+        bootstrap_scan_remaining = bootstrap_remaining
+        for inspection in unique_inspections:
+            previous = memories.get(inspection["memoryId"], {})
+            observed_count = (
+                sum(
+                    1
+                    for entry in previous.get("entries", {}).values()
+                    if isinstance(entry, dict) and entry.get("status") == "observed"
+                )
+                if isinstance(previous, dict) and isinstance(previous.get("entries"), dict)
+                else 0
+            )
+            needs_bootstrap_scan = bool(
+                bootstrap_history and bootstrap_scan_remaining > 0 and observed_count > 0
+            )
+            if needs_bootstrap_scan:
+                bootstrap_scan_remaining -= min(bootstrap_scan_remaining, observed_count)
+            if (
+                isinstance(previous, dict)
+                and not previous.get("blockedReason")
+                and previous.get("projectRoot") == inspection["projectRoot"]
+                and previous.get("fileStamp") == inspection["fileStamp"]
+                and full_audit_is_recent(previous.get("lastFullScanAt"), now_datetime)
+                and not needs_bootstrap_scan
+            ):
+                unchanged_by_stamp += 1
+                continue
+            try:
+                project = load_consistent_project(inspection)
+                if project["secretDetectors"]:
+                    quarantined.append({"projectRoot": inspection["projectRoot"], "reason": "secret-indicators", "detectors": project["secretDetectors"]})
+                elif not project["parsed"]["valid"]:
+                    quarantined.append({"projectRoot": inspection["projectRoot"], "reason": "invalid-memory-structure", "warnings": project["parsed"]["warnings"]})
+                else:
+                    accepted.append(project)
+            except (OSError, ValueError, MemoryLearningError) as exc:
+                quarantined.append({"projectRoot": inspection["projectRoot"], "reason": public_error(exc)})
+
         for project in accepted:
             memory_id = project["memoryId"]
             for old_memory_id, old_memory in list(memories.items()):
@@ -1012,7 +1657,7 @@ def collect(args: argparse.Namespace) -> Dict[str, Any]:
             project_contested = 0
             project_bootstrap = 0
             trainable_entries = sorted(
-                (entry for entry in project["parsed"]["entries"] if entry["trainable"]),
+                (entry for entry in project["parsed"]["entries"] if entry["trackable"]),
                 key=source_entry_priority,
             )
             for entry in trainable_entries:
@@ -1064,6 +1709,7 @@ def collect(args: argparse.Namespace) -> Dict[str, Any]:
                 "lastScannedAt": now,
                 "lastFullScanAt": now,
                 "fileStamp": project["fileStamp"],
+                "knownProjectRoots": [project["projectRoot"]],
                 "entries": current_entries,
                 "removed": removed,
             }
@@ -1082,36 +1728,21 @@ def collect(args: argparse.Namespace) -> Dict[str, Any]:
             })
         if accepted or state_changed:
             state["updatedAt"] = now
-            atomic_write_state(state_path, state)
-
-    final_state = load_state(state_path) if state_path.exists() else empty_state()
-    pending_total = 0
-    blocked_pending_total = 0
-    contested_total = 0
-    observed_total = 0
-    for memory in final_state["memories"].values():
-        blocked = bool(memory.get("blockedReason"))
-        for entry in memory.get("entries", {}).values():
-            if entry.get("status") == "pending":
-                if blocked:
-                    blocked_pending_total += 1
-                else:
-                    pending_total += 1
-            contested_total += entry.get("status") == "contested"
-            observed_total += entry.get("status") == "observed"
+            atomic_write_state(state_path, state, state_access)
+        disposition_counts = state_disposition_counts(state)
     return {
         "ok": True,
         "stateFile": str(state_path),
-        "scanned": len(project_roots),
+        "scanned": len(scan_roots),
         "projectsUpdated": len(accepted),
         "unchangedByStamp": unchanged_by_stamp,
         "newVersions": new_versions,
         "bootstrapQueued": bootstrap_queued,
         "contestedVersions": contested_versions,
-        "pending": pending_total,
-        "blockedPending": blocked_pending_total,
-        "contested": contested_total,
-        "observed": observed_total,
+        "pending": disposition_counts["pending"],
+        "blockedPending": disposition_counts["blockedPending"],
+        "contested": disposition_counts["contested"],
+        "observed": disposition_counts["observed"],
         "conflicts": len(conflicts),
         "blockedMemories": len(blocked_memory_ids),
         "quarantined": len(quarantined),
@@ -1145,7 +1776,9 @@ def next_candidates(args: argparse.Namespace) -> Dict[str, Any]:
             if isinstance(entry, dict) and entry.get("status") == "pending":
                 pending.append((memory_id, entry_id, entry, memory))
     pending.sort(key=priority_key)
-    limit = max(1, min(20, int(args.limit)))
+    limit = int(args.limit)
+    if not 1 <= limit <= MAX_RECALL_HITS:
+        raise MemoryLearningError("candidate limit must be between 1 and 5")
     candidates: List[Dict[str, Any]] = []
     batch_body_chars = 0
     stale = 0
@@ -1218,8 +1851,8 @@ def resolve_candidate(args: argparse.Namespace) -> Dict[str, Any]:
     if args.status not in allowed:
         raise MemoryLearningError("candidate status must be one of: %s" % ", ".join(sorted(allowed)))
     state_path = Path(args.state_file).expanduser()
-    with state_lock(state_path):
-        state = load_state(state_path)
+    with state_lock(state_path) as state_access:
+        state = load_state(state_path, state_access)
         matches: List[Tuple[str, str, Dict[str, Any], Dict[str, Any]]] = []
         for memory_id, memory in state["memories"].items():
             for entry_id, entry in memory.get("entries", {}).items():
@@ -1264,7 +1897,7 @@ def resolve_candidate(args: argparse.Namespace) -> Dict[str, Any]:
         if args.learning_id:
             target["learningId"] = strip_control_chars(args.learning_id).strip()[:160]
         state["updatedAt"] = target["resolvedAt"]
-        atomic_write_state(state_path, state)
+        atomic_write_state(state_path, state, state_access)
     return {"ok": True, "candidateId": args.candidate_id, "status": args.status}
 
 
@@ -1408,7 +2041,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--bootstrap-limit",
         type=int,
         default=DEFAULT_BOOTSTRAP_LIMIT,
-        help="Maximum observed historical entries to queue in this explicit collection (max 100).",
+        help="Maximum observed historical entries to queue in this explicit collection (max 20).",
     )
     add_discovery_arguments(collect_parser)
     collect_parser.set_defaults(func=collect)
