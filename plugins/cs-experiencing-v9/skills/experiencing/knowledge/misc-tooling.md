@@ -81,3 +81,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 화면에는 `#pdf-doc { display:none; }`으로 숨겨둔 별도 인쇄 전용 레이아웃 div를 만들고, `@media print { body * { visibility:hidden } #pdf-doc, #pdf-doc * { visibility:visible } ... }` 규칙으로 인쇄 시에만 그 레이아웃이 전체 페이지를 차지하도록 했다. 버튼 클릭 시 `window.print()`만 호출하면 브라우저 네이티브 인쇄 대화상자가 뜨고, 사용자가 "PDF로 저장"을 선택해 실제 PDF 파일을 받을 수 있었다.
 - **교훈**: Artifact/프로토타입에서 "PDF 다운로드" 요구가 나오면 jsPDF 같은 라이브러리 도입을 먼저 검토하지 말고, `display:none` 인쇄 전용 레이아웃 + `@media print` + `window.print()` 조합이 CSP 제약 없이 되는지부터 확인한다.
 - **근거**: `#pdf-doc { display:none } + @media print { ... }` + `downloadPdf(){ window.print(); }` 구현 후 인쇄 미리보기에서 화면 UI 없이 확인서 레이아웃만 단독 렌더링되는 것을 확인.
+
+### 166. 외부 CLI 자동화는 기억한 플래그가 아니라 실제 설치된 command의 help와 비대화형 실행으로 검증한다 (2026-07-26)
+<!-- tier: tactical -->
+- **상황**: 외부 CLI(supabase 등)를 스크립트/서버에서 자동 호출하도록 감쌀 때, 모델이 기억하고 있던 플래그 조합을 그대로 사용했다.
+- **발견**: 설치된 버전에 따라 서브커맨드·플래그·대화형 프롬프트 동작이 달라진다. 기억한 플래그는 조용히 무시되거나, TTY가 없는 실행 경로에서 프롬프트를 띄운 채 무한 대기한다.
+- **교훈**: 외부 CLI를 자동화 경로에 넣기 전에 (1) `<cmd> --help` / `<cmd> <sub> --help`를 **실제로 실행**해 플래그 존재를 확인하고, (2) 비대화형(no-TTY) 조건에서 1회 실행해 프롬프트 대기·exit code를 확인한다. 두 검증 전에는 해당 호출을 기본 경로로 승격하지 않는다.
+- **근거**: portmanagement `.agent-memory/CORE.md:99-106,140-149`; Claude/Codex 실행 이력
+<!-- provenance: candidate=btw-provenance-db03bdb2aa3aa12f423113db; memory=884575df-63c4-407c-8b43-860d1295e663 -->

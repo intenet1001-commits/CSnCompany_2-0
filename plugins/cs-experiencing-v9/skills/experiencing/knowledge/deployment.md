@@ -46,6 +46,8 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **근거**: `app/api/cron/auto-register/route.ts` L30-33 — `process.env.SUPABASE_SERVICE_ROLE_KEY!` + 주석 "서버 전용 route — anon key 대신 service role key 사용 (RLS 우회)"
 - **addendum (2026-07-03)**: 같은 프로젝트(먹고공부하자) 내 서로 다른 파일에서 이 패턴이 두 번째로 재현됨. `app/api/bot-improve/route.ts`가 anon 클라이언트 + `void anonSupabase.update(...)`(fire-and-forget, unawaited)로 `improvement_status`를 쓰고 있었는데, API 응답은 "1개 오분류 감지" 성공을 보고했지만 DB 컬럼은 계속 null이었다 — RLS UPDATE 정책 부재로 조용히 거부됐기 때문. `getServerSupabase()`(service role) + `await`로 교체 후 `curl`로 실제 DB 반영 확인. **동시에 같은 코드베이스의 `app/api/bot-patterns/route.ts`도 동일한 anon+`void`+`.update()` 패턴을 그대로 갖고 있음을 발견 (아직 미수정)** — 이 항목이 이미 문서화돼 있었음에도 재발했다는 것 자체가 교훈: `void`로 감싼 Supabase write는 실패해도 아무 신호가 없으므로, "성공 응답 = 실제 반영"이라고 가정하지 말고 (1) write 성공이 중요한 모든 `.update()`/`.delete()`는 항상 `await`할 것, (2) 결과를 curl/DB 조회로 별도 검증할 것. lint rule 제안만으로는 재발을 막지 못했다 — 실제로 lint rule을 CI에 넣거나, 매 세션 종료 시 `grep -rn "void.*\.update(\|void.*\.delete("` 로 전체 API route를 스캔하는 게 더 신뢰할 수 있는 방어선이다.
 - **근거(addendum)**: `app/api/bot-improve/route.ts:245,310-314,321-324` (fixed: awaited service-role update) / `app/api/bot-patterns/route.ts:8-14,99` (`void markResolvedLogs(pattern_regex);` — 여전히 anon+fire-and-forget, 미수정)
+- **addendum (2026-07-26, 로컬 설치 저장소)**: anon key + RLS 비활성 조합을 "trusted local installation이니 괜찮다"로 두는 구성은 보안 설계가 아니라 **호환성 부채**다. 로컬 전용 동안은 동작하지만, 같은 프로젝트가 공유·다중 사용자·원격 노출로 넘어가는 순간 그대로 권한 없는 전면 접근이 된다. 노출 범위를 넓히기 **전에** authenticated RLS로 전환하고, 그 전까지는 해당 저장소를 신뢰 경계 안에서만 유지한다는 점을 문서에 명시한다. 검증: RLS를 켠 상태에서 anon 클라이언트가 실제로 거부되는지 확인한 뒤 전환을 완료로 본다.
+- **근거(addendum 2026-07-26)**: portmanagement `.agent-memory/CORE.md:152-156`; `supabase/migrations/20260726000100_project_memory_revisions.sql:21` <!-- provenance: candidate=btw-provenance-7d574f9ef6b6224e51d1ee89; memory=884575df-63c4-407c-8b43-860d1295e663 -->
 
 ### 78. 멀티-phase 서버리스 함수는 phase 경계마다 wall-clock 예산 점검을 삽입한다 (2026-06-14)
 <!-- tier: principle -->
@@ -82,3 +84,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: minified JS는 지역 변수명(rollingTraderTotal 등)을 단축 식별자로 치환하므로 원본 변수명으로 grep해도 검색 불가. 반면 객체 property name(`d8_total_uv`), 문자열 리터럴, 특징적인 연산자 패턴(`??` + 삼항 조합)은 minify 후에도 보존되어 배포 여부 판별 지표로 사용 가능.
 - **교훈**: 배포 검증 시 변수명 대신 property name, 문자열 리터럴, 로직 패턴(??/삼항 조합)을 grep 대상으로 사용한다.
 - **근거**: `rollingTraderTotal` grep → 검색 불가, `d8_total_uv` property name + `??` 패턴으로 Before/After 구분 성공 (page-7236727e66aef288.js, dash1-v2 세션 2026-06-17)
+
+### 167. Loopback bind는 authorization이 아니다 — 민감한 로컬 API는 Origin 검증 + 설치별 capability + canonical root allowlist가 모두 필요하다 (2026-07-26)
+<!-- tier: principle -->
+- **상황**: 로컬 전용 API 서버를 `127.0.0.1`에 바인드하고, 그 사실만으로 접근 통제가 끝났다고 가정한 채 파일시스템을 건드리는 엔드포인트를 노출했다.
+- **발견**: loopback bind가 막는 것은 원격 네트워크 도달성뿐이다. 같은 머신의 브라우저에서 열린 아무 웹페이지나 해당 포트로 요청을 보낼 수 있고(DNS rebinding·CSRF 포함), 같은 머신의 다른 프로세스도 자유롭게 호출한다.
+- **교훈**: 민감한 로컬 API는 세 가지를 **모두** 요구한다 — (1) `Origin`/`Host` 검증으로 브라우저발 교차 출처 호출 차단, (2) 설치별 비밀 토큰/capability로 프로세스 신원 확인, (3) 경로 파라미터는 canonical하게 resolve한 뒤 등록된 root allowlist에 대조. 셋 중 하나라도 빠지면 "로컬이니 안전"은 성립하지 않는다. 검증: 브라우저 콘솔에서 교차 출처 `fetch`가 거부되는지, allowlist 밖 경로가 거부되는지 실제로 확인한다.
+- **근거**: portmanagement `project-memory-server.ts:63-75`, `api-server.ts:848-867,934-1094`; `CORE.md:270-273`
+<!-- provenance: candidate=btw-provenance-e8f843cfc3e75d86bbb5a28c; memory=884575df-63c4-407c-8b43-860d1295e663 -->

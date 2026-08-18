@@ -82,7 +82,7 @@
       "name": "cs-experiencing",
       "description": "📚 Knowledge Backend — cs-memory가 검증된 교훈을 관련 CS 에이전트에 반영할 때 사용하는 내부 저장소.",
       "source": "./plugins/cs-experiencing-v9",
-      "version": "9.1.0"
+      "version": "9.1.1"
     },
     {
       "name": "convo-maker",

@@ -4,7 +4,7 @@ description: |
   CS 에이전트가 참조하는 내부 경험 지식 저장소.
   Use for relevant prior-lesson recall or when invoked internally by cs-memory upgrade.
   Do not use it as a public test/plan/review/design wrapper or unconditional version-up command.
-version: 9.1.0
+version: 9.1.1
 allowed-tools:
   - Read
   - Write
@@ -267,6 +267,13 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 163 | Electron fetch+blob 다운로드에서 revokeObjectURL을 너무 빨리 호출하면 큰 파일에서 실패 — 서버가 이미 로컬 저장한 파일은 blob 재다운로드 자체가 불필요 (2026-07-22) | tactical | electron, blob, revokeObjectURL, filesystem, download | knowledge/download-pipeline.md |
 | 164 | `.git`을 재귀 삭제·재초기화하는 엔드포인트는 절대 경로와 호출별 확인만으로 부족하다 — canonical root와 no-follow entry 분류가 필요 (2026-07-26) | principle | git, destructive-action, worktree, symlink, lstat | knowledge/git-worktree.md |
 | 165 | 배치 TTS 자막 경계는 글자수 추정이 아니라 문장별 합성 오디오의 실측 길이를 누적해 생성한다 (2026-07-26) | tactical | tts, ffprobe, subtitles, srt, vtt | knowledge/download-pipeline.md |
+| 166 | 외부 CLI 자동화는 기억한 플래그가 아니라 실제 설치된 command의 help와 비대화형 실행으로 검증한다 (2026-07-26) | tactical | cli, automation, flag-drift, non-interactive, verification | knowledge/misc-tooling.md |
+| 167 | Loopback bind는 authorization이 아니다 — 민감한 로컬 API는 Origin 검증 + 설치별 capability + canonical root allowlist가 모두 필요하다 (2026-07-26) | principle | localhost, loopback, authorization, origin, allowlist, local-api | knowledge/deployment.md |
+| 168 | 복제 문서의 충돌 안전성은 local expected-hash CAS와 remote expected-parent CAS를 모두 요구하며 첫 동기화는 명시적 adoption이어야 한다 (2026-07-26) | principle | sync, cas, conflict, adoption, replication | knowledge/data-sync-db.md |
+| 169 | 파생·복원 콘텐츠는 출처 상태를 타입 필드로 보존하고 최종 UI까지 노출해 원문 오인을 막는다 (2026-07-26) | principle | provenance, derived-content, type-field, ui-disclosure | knowledge/react-frontend.md |
+| 170 | Next.js 16.2.11 Turbopack은 macOS NFD 한글 경로에서 UTF-8 경계 패닉 — 경로/upstream 수정 전까지 webpack parity 유지 (2026-07-26) | tactical | nextjs, turbopack, macos, nfd, unicode, panic | knowledge/debugging.md |
+| 171 | AgentsToZ project-memory 마커 블록은 기계 관리 영역 — 계약을 의도적으로 바꿀 때만 마커 안을 편집한다 (2026-08-18) | tactical | agentstoz, project-memory, marker, generated-block, claude-md | knowledge/claude-code-platform.md |
+| 172 | 텔레메트리성 UserPromptSubmit 훅은 메타데이터만 기록하고 프롬프트 본문은 절대 담지 않는다 (2026-08-18) | principle | hooks, userpromptsubmit, telemetry, token-free, privacy | knowledge/claude-code-platform.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.

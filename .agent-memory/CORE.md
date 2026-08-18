@@ -2,7 +2,7 @@
 
 **Project**: CSnCompany_2-0
 **Created**: 2026-07-26
-**Last Updated**: 2026-08-15
+**Last Updated**: 2026-08-18
 
 > Curated long-term memory for this project. Keep durable decisions and repeated
 > lessons here; do not store secrets, credentials, environment values, raw chat logs,
@@ -14,7 +14,7 @@
 - Also registered for Codex (via `.codex/`), not just Claude Code.
 - Design reference plugins: `cs-design-sample1` (CS Archive tokens — warm paper `#F4EFE3` + deep teal accent by default, near-black + cyan dark toggle, single `--cs-accent` token re-skins everything) and `cs-design-sample2` (dark editorial/terminal style — near-black navy `#05070d` background, cyan accent, grid-overlay + glow decor); both use IBM Plex Mono + Noto Serif KR.
 - Installation is via the Claude Code plugin marketplace (`/plugin marketplace add intenet1001-commits/CSnCompany_2-0`), with plugins installed à la carte (`/plugin install <name>@CSnCompany_2-0`); `uv` is an optional dependency that reduces code-analysis token usage.
-- Scheduled/automated work for the author's projects lives in **claude.ai cloud routines**, not in local `cron`/`launchd` — this repo has no local scheduled jobs. Routines are inspected via the remote-trigger API and viewed at `https://claude.ai/code/routines/<trigger_id>`.
+- Scheduled/automated work for the author's projects lives mainly in **claude.ai cloud routines**, inspected via the remote-trigger API and viewed at `https://claude.ai/code/routines/<trigger_id>`. Exception since 2026-08-18: `/cs-memory:schedule install` registers a real local **launchd** agent (`~/Library/LaunchAgents/com.csncompany.memory-learning.plist`, registry scope, 6h) that runs the model-free collector — so "is it cloud or local?" must now be checked in both places.
 
 ## Key Decisions
 
@@ -25,6 +25,7 @@
 - 2026-07-26: Replaced the old `cs-core-memory` plugin with `cs-memory`, which condenses its commands into three slim ones (`learn` / `upgrade` / `status`); upgrading users must uninstall `cs-core-memory` before installing `cs-memory`.
 - 2026-07-30: Added `cs-design-sample2` (dark editorial/terminal design guide) and replaced `cs-design-sample1`'s prior design language with CS Archive tokens (paper/dark toggle), bringing the marketplace to 13 plugins total.
 - 2026-08-02: Plugin renames must propagate to every internal identifier, not just the directory — `cs-smart-run` v1.1.1 fixed leftover `smart-run` values in both the Claude (`.claude-plugin/plugin.json`) and Codex (`.codex-plugin/plugin.json`) manifests, plus the `/smart-run` trigger phrases and invocation examples in `skills/smart-run/SKILL.md`.
+- 2026-08-18: First full `/cs-memory:learn` → `/cs-memory:upgrade` cycle run end-to-end. 8 candidates promoted into `cs-experiencing` (INDEX #166-172 plus an addendum merged into existing #76 rather than a duplicate rule), and the one lesson that changed agent behavior — "loopback bind is not authorization" — went to `CS-codebase-review` 노하우 #9 with its security-reviewer row widened. Versions bumped in place: `cs-experiencing` 9.1.0 → 9.1.1, `CS-codebase-review` 29.0.1 → 29.0.2. Rule that held: a reusable fact may enter the experiencing store **without** upgrading any agent; only a lesson that changes a concrete checklist/gate touches an owner plugin.
 - Skill directory names may keep the pre-rename name after a plugin rename (`cs-smart-run/skills/smart-run/`); the user-facing trigger phrases and manifest `name` are what must match the new plugin name.
 
 ## Strategic Patterns
@@ -57,6 +58,7 @@
 - Renaming a plugin leaves stale identifiers behind. Root cause: the name appears in the directory, both manifests, the skill's `description` trigger phrases, and its usage examples — renaming the directory alone leaves the rest inconsistent. Seen with `cs-sync` → `csn-sync` (2026-07-24) and `smart-run` → `cs-smart-run` (fixed 2026-08-02). Reliable workaround: grep the whole plugin directory for the old name after any rename.
 - Skill frontmatter `version:` can drift from the plugin's `VERSION` file, since they are edited independently (`cs-smart-run` SKILL.md sat at 1.0.0 while VERSION was 1.1.0). Check both when bumping.
 - Duplicate command wrappers have been shipped by mistake and needed removal after the fact (2026-07-26, commit 5076a27, `cs-memory`). Root cause: adding commands in more than one place during a plugin restructure.
+- The BTW learning queue (`~/.claude/.experiencing-btw.json`) holds **two different row schemas**: lesson rows (`idea`/`evidence`/`tier`/`provenance`) and patch rows (`type: pending-patch` with `target`/`change`). Triaging by reading `idea` alone makes every patch row look empty — during the 2026-08-18 upgrade four legitimate `pending-patch` rows targeting `plugins/shared/LOOP-PROTOCOL.md`, `plugins/shared/agents/verifier.md`, and `cs-end` were wrongly rejected as unsupported and had to be restored to `pending`. Always branch on the row's `type` before scoring.
 - `VERSION` files have been written without a trailing newline (`cs-smart-run` 1.1.0); write them with one.
 - Cloud routines silently fail to run when their schedule is malformed or mis-specified — a routine whose prompt says "매주 일요일마다 점검" can carry an **empty** `cron_expression` (and a `0001-01-01` `next_run_at`), so it never fires, and another can sit on `0 3 1 1 *` (once a year on Jan 1) when a frequent schedule was intended. Root cause: the natural-language intent in the prompt is not validated against the stored cron expression. Verify `cron_expression` and `next_run_at` after creating or editing a routine — observed 2026-08-06 on `freeparking` and `앱 자동 수정 에이전트`.
 
@@ -65,6 +67,7 @@
 - Do not store secrets, credentials, environment values, raw chat logs, temporary status, or speculative claims in core memory.
 - `.agent-memory/config.json` and its project-relative `sourcePath` should be read before substantial work when historical decisions may matter.
 - Plugin names must not collide with globally available skill names (the reason for the `cs-sync` → `csn-sync` rename); the `cs-`/`CS-` prefix convention serves this purpose.
+- CS tooling CLIs do not take the positional arguments the skill docs show. `memory_learning_schedule.py install` needs `--scope {registry,pc,folder}` (+ `--root` for folder), and `run_prepass.sh version-check` takes a **plugin directory path**, not `--plugin <name>`. Run the documented form once and read the usage error rather than assuming the doc's shape.
 - The `cs-experiencing` learnings push is author-only; other users consume the versioned learnings rather than pushing to them.
 - Cloud-routine schedules and their effects are outward-facing; changing or manually triggering a routine is confirmed with the user rather than done unilaterally during a status check.
 

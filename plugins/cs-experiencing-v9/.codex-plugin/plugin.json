@@ -1,6 +1,6 @@
 {
   "name": "cs-experiencing",
-  "version": "9.1.0",
+  "version": "9.1.1",
   "description": "Internal accumulated knowledge backend for targeted CS agent upgrades and lesson recall.",
   "author": {
     "name": "gwanli",

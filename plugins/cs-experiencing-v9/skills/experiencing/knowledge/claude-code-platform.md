@@ -136,3 +136,19 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **발견**: 완전히 다른 프로젝트 디렉토리(`/Users/gwanli/CS_V6`)에서 `claude -p "<질문>" --dangerously-skip-permissions`로 새 헤드리스 프로세스를 띄우는 것이 실제 세션 재시작을 정확히 흉내내는 검증 방법이었다. 캐시 갱신 전에는 이 방법으로 구버전 경로가 재현됐고, 갱신 후 동일한 방법으로 재실행하니 새 경로가 정상 반환됐다 — 파일 재확인이 아니라 실제 실행으로 검증했기 때문에 신뢰할 수 있는 결과였다.
 - **교훈**: 글로벌 `~/.claude` 설정이나 플러그인 캐시 수정이 "다른 프로젝트/세션에도 적용되는가"를 검증해야 할 때는, 파일을 다시 열어보는 대신 다른 작업 디렉토리에서 `claude -p "<질문>" --dangerously-skip-permissions` 헤드리스 프로세스를 새로 실행해 실제 응답을 확인하는 것을 표준 절차로 삼는다. 이미 실행 중인 세션은 새 프로세스가 아니므로 이 방법으로 검증되지 않으며, 그런 세션은 별도로 `/clear` + 재시작이 필요하다는 점도 함께 안내한다.
 - **근거**: 캐시 갱신 전 `claude -p "convo-maker 실행하면 어디에 저장돼?"` (cwd: `/Users/gwanli/CS_V6`) → "Obsidian 영어메모" 구버전 경로 반환. `claude plugin marketplace update` + `claude plugin update` 실행 후 동일 명령 재실행 → "`/Users/gwanli/CS_V7_eng/raw/`" 신버전 경로 정상 반환 (2026-07-19).
+
+### 171. AgentsToZ project-memory 마커 블록은 기계 관리 영역 — 계약을 의도적으로 바꿀 때만 마커 안을 편집한다 (2026-08-18)
+<!-- tier: tactical -->
+- **상황**: `AGENTS.md` / `CLAUDE.md` 안에 `<!-- AgentsToZ project-memory:start -->` ~ `<!-- AgentsToZ project-memory:end -->`로 둘러싸인 블록이 존재한다.
+- **발견**: 이 구간은 AgentsToZ가 생성·재작성하는 영역이라 손으로 고친 내용은 다음 재생성에서 사라지고, 마커가 깨지면 블록 전체가 중복 삽입되거나 인식 불가가 된다.
+- **교훈**: 마커 안쪽은 계약을 의도적으로 바꿀 때만 편집한다. 일반적인 지침 추가는 마커 **바깥**에 쓴다. 검증: 편집 후 start/end 마커가 각각 정확히 1개씩 남아 블록을 감싸는지 grep으로 확인한다.
+- **근거**: 회의실 프로젝트 기억 entry `576a4efd20010af66c98ae9e@6e557faefc0ced1ee350a3ad9f4e37ce`
+<!-- provenance: candidate=btw-memory-4278124a6b47338f44752417; memory=0fcbc2e2-da92-4c65-9fdc-a713dc8502df -->
+
+### 172. 텔레메트리성 UserPromptSubmit 훅은 메타데이터만 기록하고 프롬프트 본문은 절대 담지 않는다 (2026-08-18)
+<!-- tier: principle -->
+- **상황**: AgentsToZ가 생성하는 `UserPromptSubmit` 훅은 "세션 기억하기 필요" 판정을 위해 마지막 활동 시각과 에이전트 종류만 기록한다.
+- **발견**: 프롬프트 본문을 기록하도록 확장하면 훅이 토큰-프리 계약을 깨고, 대화 원문이 프로젝트 밖 상태 파일에 축적되어 비밀·개인정보 노출 경로가 된다. 활동 감지에 본문은 필요하지 않다.
+- **교훈**: 활동 감지 목적의 훅은 **메타데이터(타임스탬프·에이전트 식별자)만** 기록한다. 훅에 프롬프트/응답 본문을 캡처해 달라는 요청이 오면 그대로 구현하지 말고, 계약이 깨진다는 점을 알리고 확인을 받는다. 검증: 훅이 쓰는 상태 파일에 자유 텍스트 필드가 없는지 확인한다.
+- **근거**: 회의실 프로젝트 기억 entry `5c2011a868bf9f501e26bd25@31cde8c61ff403a583a6ff8a3c5fa6b0`; 관련 인라인 #11(훅 exit code)
+<!-- provenance: candidate=btw-memory-d10bdca6d839eacb373f5cd7; memory=0fcbc2e2-da92-4c65-9fdc-a713dc8502df -->

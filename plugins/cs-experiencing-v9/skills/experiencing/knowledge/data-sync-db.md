@@ -74,3 +74,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **근거**: `last-visits.json`을 `~/Library/Application Support/com.portmanager.portmanager/`에 신설, `POST /api/last-visits`(웹) + `save_last_visit` Tauri invoke(앱) 양쪽 구현 → 브라우저에서 실행한 포트가 앱에서도 동일한 "마지막 실행" 시각으로 표시됨 확인 (2026-07-09 세션, PR #4)
 - **추가 (2026-07-26)**: 여러 runtime/agent가 소비하지만 host `PortInfo` lifecycle과 독립적인 project-scoped state는 host mega DTO에 편입하기보다 project-local canonical document와 작은 config로 둘 수 있다. runtime별 adapter/bridge는 projection이며 authority가 아니고 marker/version과 idempotent upgrader로 갱신한다. 이번 관찰의 localhost bridge는 local dev/API-server에서만 검증됐고 packaged Tauri에는 backend 번들·기동이 빠져 있으므로 cross-runtime 완성으로 일반화하지 않는다.
 <!-- provenance: candidate=btw-provenance-085ef3d96d757c84af6e55fd; run=9eed3fbd-5a8b-4a10-91ff-32dd357c4cdc; memory=884575df-63c4-407c-8b43-860d1295e663; range=git:8b4bc0ae03bf556eebe0a76f694c7f7a950d4fc7..beecbff7a96de131a08553d4e195c90d036c84b7;dirty:9c216341282624b328db07058c32ca6cad3d7f0176f0426aa70ebb575f49de6a;truncated=true -->
+
+### 168. 복제 문서의 충돌 안전성은 local expected-hash CAS와 remote expected-parent CAS를 모두 요구하며 첫 동기화는 명시적 adoption이어야 한다 (2026-07-26)
+<!-- tier: principle -->
+- **상황**: 같은 문서를 로컬 파일과 원격 저장소 양쪽에 복제해 두고 push/pull로 동기화했다.
+- **발견**: 한쪽에만 compare-and-swap을 걸면 다른 쪽에서 lost update가 난다. 로컬 파일은 읽은 시점의 내용 해시를 기대값으로 검증해야 하고, 원격은 기대 parent revision에 대한 원자적 CAS여야 한다. 또한 로컬과 원격이 각자 내용을 갖고 처음 만나는 순간은 merge가 아니라 "어느 쪽을 계보의 기준으로 채택할지" 결정하는 국면이다.
+- **교훈**: 복제 문서 동기화는 (1) local expected-hash CAS + (2) remote expected-parent atomic CAS를 **동시에** 건다. 첫 동기화는 자동 병합하지 말고 명시적 adoption 상태로 표면화해 사용자가 기준 계보를 고르게 한다. divergence는 conflict로 반환하고 명시적 force에서만 덮어쓴다.
+- **근거**: portmanagement `project-memory-server.ts:688-758,942-1083`; `CORE.md:278-281,329-348`
+<!-- provenance: candidate=btw-provenance-8f3a1201bb9eff1f59d25a51; memory=884575df-63c4-407c-8b43-860d1295e663 -->

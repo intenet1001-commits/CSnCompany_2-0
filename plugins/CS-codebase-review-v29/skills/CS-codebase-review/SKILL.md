@@ -2,7 +2,7 @@
 name: CS-codebase-review
 user-invocable: false
 description: 5-agent parallel codebase review
-version: 29.0.1
+version: 29.0.2
 ---
 
 # CS-codebase-review 실행 프로토콜
@@ -70,7 +70,7 @@ ToolSearch(query: "+serena symbol")
 |-------|------|----------------|
 | architecture-reviewer | 의존성 구조, 레이어 분리 | SUMMARY (import 그래프) |
 | quality-reviewer | 코드 품질, 복잡도 | SUMMARY (함수 목록, LoC) |
-| security-reviewer | 취약점, 하드코딩 | ABSPATH (절대경로 hit) |
+| security-reviewer | 취약점, 하드코딩, 로컬 바인드 API의 인가 (노하우 #9) | ABSPATH (절대경로 hit) |
 | performance-reviewer | 병목, 비효율 패턴 | SUMMARY (파일 크기, LoC) |
 | maintainability-reviewer | 유지보수성, struct 동기화 | TS_RUST (필드 불일치) |
 
@@ -192,3 +192,9 @@ Python pre-pass(abspath_check, ts_rust_diff) 결정론적 출력으로 이미 �
 - **상황**: Next.js API 라우트(`/api/build-dmg`)에서 빌드 전 `killall -9 node`를 실행했더니 SSE 스트림이 즉시 끊겨 빌드가 실패처럼 보임. 빌드 npm 스크립트에 `rm -rf .next`가 포함돼 있어 빌드 실행 중 dev 서버가 불능 상태가 됨.
 - **발견**: `killall -9 node`는 OS 전체 node 프로세스를 종료 — Next.js 개발 서버, VS Code, 모든 node 기반 앱 포함. API 라우트는 dev 서버 내에서 실행되므로 자기 자신도 종료됨 → SSE 스트림 즉시 단절. `rm -rf .next`는 dev 서버가 읽는 컴파일 캐시 디렉토리를 삭제 → 서버가 응답 불능 상태로 전환. `next.config.js`의 `distDir: NODE_ENV=production ? '.next-build' : '.next'` 설정으로 production 빌드는 `.next-build`에 출력되므로 `rm -rf .next`가 불필요함.
 - **교훈**: API 라우트에서 프로세스 종료 시 `pkill -f "AppName"`으로 특정 앱만 종료. `killall -9 node` 절대 사용 금지. 빌드 스크립트에서 `rm -rf .next` 제거 — next.config.js의 distDir 분리로 대체. production 빌드가 별도 디렉토리를 사용하면 dev 서버 캐시 삭제 불필요.
+
+### 9. Loopback bind는 authorization이 아니다 — 로컬 API는 Origin + capability + root allowlist 3중 검증 (2026-07-26)
+
+- **트리거**: 리뷰 대상에 `127.0.0.1`/`localhost`에 바인드하는 HTTP 서버가 있고, 그 엔드포인트가 파일시스템·DB·셸을 건드릴 때.
+- **행동**: "로컬 전용이라 안전"이라는 주석·전제를 그대로 통과시키지 말고 다음 3가지의 존재 여부를 각각 확인해 없는 항목마다 finding을 올린다 — (1) `Origin`/`Host` 검증(브라우저발 교차 출처·DNS rebinding 차단), (2) 설치별 토큰/capability로 호출자 신원 확인, (3) 경로 파라미터를 canonical resolve 후 등록된 root allowlist에 대조. anon key + RLS 비활성을 "trusted local"로 정당화하는 저장소도 같은 등급으로 본다.
+- **검증**: 세 방어선 중 빠진 것이 있으면 HIGH로 보고하고, 근거로 bind 라인과 해당 핸들러 라인을 함께 인용한다. 셋 다 있으면 finding 없음으로 종료한다.
