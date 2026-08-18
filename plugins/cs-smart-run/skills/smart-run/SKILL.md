@@ -6,9 +6,9 @@ description: |
   Opus analyzes the task and produces a structured plan; Sonnet agents
   execute each step in parallel where possible; an independent verifier
   checks the Definition of Done with tool evidence.
-  Use when asked to "smart run", "/smart-run", "플랜실행", or when the user
+  Use when asked to "smart run", "/cs-smart-run", "플랜실행", or when the user
   wants Opus-quality planning with Sonnet-speed execution across multiple skills.
-version: 1.0.0
+version: 1.1.1
 allowed-tools:
   - Agent
   - Read
@@ -275,7 +275,7 @@ learning entry (task, plan shape, failed step, correction) and end the report wi
 
 ## Invocation
 
-When the user runs `/smart-run <task>` or `/플랜실행 <task>`:
+When the user runs `/cs-smart-run <task>` or `/플랜실행 <task>`:
 
 1. Confirm you understood the task (one line)
 2. Run Phase 0 (SPEC CHECK); ask clarifying questions only if goal/constraints/acceptance criteria are missing

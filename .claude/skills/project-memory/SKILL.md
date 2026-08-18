@@ -3,7 +3,7 @@ name: project-memory
 description: Recall project-local long-term memory for Claude. Use before substantial project work or when asked about past decisions, constraints, recurring issues, and validated workflows.
 ---
 
-<!-- AgentsToZ memory-agent-version:11 -->
+<!-- AgentsToZ memory-agent-version:12 -->
 # Project Memory
 
 ## Recall
