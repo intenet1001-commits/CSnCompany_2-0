@@ -92,3 +92,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **교훈**: 민감한 로컬 API는 세 가지를 **모두** 요구한다 — (1) `Origin`/`Host` 검증으로 브라우저발 교차 출처 호출 차단, (2) 설치별 비밀 토큰/capability로 프로세스 신원 확인, (3) 경로 파라미터는 canonical하게 resolve한 뒤 등록된 root allowlist에 대조. 셋 중 하나라도 빠지면 "로컬이니 안전"은 성립하지 않는다. 검증: 브라우저 콘솔에서 교차 출처 `fetch`가 거부되는지, allowlist 밖 경로가 거부되는지 실제로 확인한다.
 - **근거**: portmanagement `project-memory-server.ts:63-75`, `api-server.ts:848-867,934-1094`; `CORE.md:270-273`
 <!-- provenance: candidate=btw-provenance-e8f843cfc3e75d86bbb5a28c; memory=884575df-63c4-407c-8b43-860d1295e663 -->
+
+### 173. 체크인된 정책 SQL은 의도이고 배포 상태가 아니다 — 접근제어 시행은 라이브 프로브로만 확정된다 (2026-08-22)
+<!-- tier: principle -->
+- **상황**: 저장소에 RLS 정책 SQL과 마이그레이션이 들어 있어 "접근제어가 걸려 있다"고 간주한 상태에서, 실제 배포본을 클라이언트와 같은 등급의 anon key로 프로브했다.
+- **발견**: 프로브 결과 대상 테이블이 읽기/쓰기 모두 열려 있었고 다른 동종 테이블도 읽혔다. 체크인된 SQL은 목표 상태를 서술할 뿐 배포된 데이터베이스의 시행 상태를 증명하지 않는다. 또한 포털·UI 측 이메일 필터링은 PostgREST 같은 직접 접근 경로를 전혀 제약하지 못한다.
+- **교훈**: 접근제어(RLS·GRANT·row policy)를 "적용됨"으로 선언하기 전에 클라이언트가 쓰는 키 등급으로 라이브 엔드포인트를 직접 프로브하고, 동시에 인증된 앱 세션이 여전히 동작하는지 확인한다. 정책을 켜는 변경과 앱의 read/write 경로를 보존하는 변경은 분리된 두 작업이 아니라 하나의 변경이다. UI 계층 필터링을 시행 근거로 인정하지 않는다.
+- **근거**: portmanagement 2026-08-11 anon-key 프로브 — `portmgr_ports` readable/writable, 기타 `portmgr_*` readable; memory entry `9cf62fbdd48820f80f8342f5@23e563c4ae1ce8de34bfba8c59d23fab`
+<!-- provenance: candidate=btw-memory-4799e9d64c619bf2bda899bd; memory=884575df-63c4-407c-8b43-860d1295e663 -->

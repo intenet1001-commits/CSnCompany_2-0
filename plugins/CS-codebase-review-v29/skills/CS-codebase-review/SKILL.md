@@ -2,7 +2,7 @@
 name: CS-codebase-review
 user-invocable: false
 description: 5-agent parallel codebase review
-version: 29.0.2
+version: 29.0.3
 ---
 
 # CS-codebase-review 실행 프로토콜
@@ -198,3 +198,15 @@ Python pre-pass(abspath_check, ts_rust_diff) 결정론적 출력으로 이미 �
 - **트리거**: 리뷰 대상에 `127.0.0.1`/`localhost`에 바인드하는 HTTP 서버가 있고, 그 엔드포인트가 파일시스템·DB·셸을 건드릴 때.
 - **행동**: "로컬 전용이라 안전"이라는 주석·전제를 그대로 통과시키지 말고 다음 3가지의 존재 여부를 각각 확인해 없는 항목마다 finding을 올린다 — (1) `Origin`/`Host` 검증(브라우저발 교차 출처·DNS rebinding 차단), (2) 설치별 토큰/capability로 호출자 신원 확인, (3) 경로 파라미터를 canonical resolve 후 등록된 root allowlist에 대조. anon key + RLS 비활성을 "trusted local"로 정당화하는 저장소도 같은 등급으로 본다.
 - **검증**: 세 방어선 중 빠진 것이 있으면 HIGH로 보고하고, 근거로 bind 라인과 해당 핸들러 라인을 함께 인용한다. 셋 다 있으면 finding 없음으로 종료한다.
+
+### 10. 체크인된 스키마/정책 SQL은 의도이지 배포 상태가 아니다 — 접근제어는 라이브 프로브로만 확정한다 (2026-08-22)
+
+- **트리거**: 리뷰 대상 저장소에 RLS 정책·GRANT·row policy를 정의하는 SQL/마이그레이션이 있고, 그것을 근거로 "접근제어가 걸려 있다"고 결론 내리려는 순간.
+- **행동**: 체크인된 SQL을 시행(enforcement) 증거로 채택하지 않는다. (1) 클라이언트가 쓰는 것과 같은 등급의 키(anon key 등)로 라이브 엔드포인트를 직접 프로브한 결과가 있는지 확인하고, (2) 없으면 "배포 상태 미검증"으로 finding을 올린다. (3) 포털·UI 측 필터링(이메일 화이트리스트 등)은 PostgREST 같은 직접 접근 경로를 제약하지 못하므로 시행 근거로 인정하지 않는다.
+- **검증**: 접근제어를 켜는 변경과 앱의 Push/Pull 경로를 보존하는 변경은 **하나의 변경**으로 묶어 검토한다 — 정책만 켜고 인증된 앱 세션 동작을 확인하지 않은 상태는 완료가 아니다. 라이브 프로브 증거가 인용되지 않은 "RLS 적용됨" 주장은 HIGH로 보고한다.
+
+### 11. 외부 origin으로 나가는 anchor는 target=_blank 단독 사용 금지 — rel="noopener noreferrer" 동반 필수 (2026-08-22)
+
+- **트리거**: 리뷰 대상에 외부 origin을 가리키는 `<a href>`가 있고 `target="_blank"`가 붙어 있을 때.
+- **행동**: `target="_blank"`만 있고 `rel`에 `noopener`가 없는 링크마다 finding을 올린다. `noopener` 없이 열린 창은 `window.opener`로 원본 문서를 조작할 수 있어 reverse tabnabbing에 노출된다. `noreferrer`는 referrer 유출까지 함께 차단하므로 외부 링크 기본값으로 `rel="noopener noreferrer"`를 제안한다.
+- **검증**: 신규·수정된 아웃바운드 링크를 모두 훑었는지 확인하고, 누락 링크는 file:line과 해당 anchor 태그를 그대로 인용해 보고한다. 내부 origin 링크는 대상이 아니다.

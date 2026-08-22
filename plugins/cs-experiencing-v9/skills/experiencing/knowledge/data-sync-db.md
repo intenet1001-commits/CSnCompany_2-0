@@ -82,3 +82,19 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **교훈**: 복제 문서 동기화는 (1) local expected-hash CAS + (2) remote expected-parent atomic CAS를 **동시에** 건다. 첫 동기화는 자동 병합하지 말고 명시적 adoption 상태로 표면화해 사용자가 기준 계보를 고르게 한다. divergence는 conflict로 반환하고 명시적 force에서만 덮어쓴다.
 - **근거**: portmanagement `project-memory-server.ts:688-758,942-1083`; `CORE.md:278-281,329-348`
 <!-- provenance: candidate=btw-provenance-8f3a1201bb9eff1f59d25a51; memory=884575df-63c4-407c-8b43-860d1295e663 -->
+
+### 175. 콘텐츠 주소형 revision 복원은 검증한 바로 그 바이트를 써야 한다 (2026-07-26)
+<!-- tier: principle -->
+- **상황**: 콘텐츠 주소형 저장소에서 이전 revision을 읽어 현재 문서로 복원하는 경로를 구현했다.
+- **발견**: 크기·content hash·memory identity·lineage를 검증한 뒤 원본을 다시 읽어 쓰면, 검증한 바이트와 기록하는 바이트가 다를 수 있는 창(TOCTOU)이 생긴다. 검증과 기록 대상이 동일 바이트임이 보장되지 않으면 해시 검증 자체가 의미를 잃는다.
+- **교훈**: 복원은 (1) 크기 상한, (2) content hash 일치, (3) memory identity와 lineage 소속을 모두 통과시킨 뒤, **검증에 사용한 그 바이트 그대로** 기록한다. 재읽기·재직렬화를 끼워 넣지 않는다.
+- **근거**: portmanagement `project-memory-server.ts:931-957,1024-1083`; `CORE.md:282-288`
+<!-- provenance: candidate=btw-provenance-c4c309121087471ec125f3d2 -->
+
+### 176. 비대해진 API route table은 기능군 모듈로 분리하고 동기화 충돌은 409로 표면화한다 (2026-07-26)
+<!-- tier: tactical -->
+- **상황**: 단일 파일의 API route table이 계속 커지면서 서로 무관한 기능군이 한 라우터에 누적됐다.
+- **발견**: 기능군을 dedicated module로 옮기고 라우터를 thin dispatch만 남기면 변경 영향 범위가 모듈 경계에 갇힌다. 동기화 계열 엔드포인트에서 충돌을 조용히 병합하거나 마지막 쓰기로 덮지 않고 409 + 명시적 override로 표면화하면 lost update가 사용자에게 보인다.
+- **교훈**: route table이 기능군 여러 개를 담기 시작하면 모듈 분리 + thin router로 재배치하고, 충돌 가능한 쓰기 경로는 자동 병합 대신 409와 explicit override 계약을 둔다.
+- **근거**: portmanagement `project-memory-server.ts` exports, `api-server.ts:1016-1094`; `CORE.md:53-66`
+<!-- provenance: candidate=btw-provenance-bfb28fabaa5f362172b0c717 -->

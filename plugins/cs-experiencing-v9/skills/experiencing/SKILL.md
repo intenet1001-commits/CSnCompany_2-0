@@ -4,7 +4,7 @@ description: |
   CS 에이전트가 참조하는 내부 경험 지식 저장소.
   Use for relevant prior-lesson recall or when invoked internally by cs-memory upgrade.
   Do not use it as a public test/plan/review/design wrapper or unconditional version-up command.
-version: 9.1.1
+version: 9.1.2
 allowed-tools:
   - Read
   - Write
@@ -274,6 +274,12 @@ grep -i -E "worktree|vite" skills/experiencing/SKILL.md | grep "^|" | head -3
 | 170 | Next.js 16.2.11 Turbopack은 macOS NFD 한글 경로에서 UTF-8 경계 패닉 — 경로/upstream 수정 전까지 webpack parity 유지 (2026-07-26) | tactical | nextjs, turbopack, macos, nfd, unicode, panic | knowledge/debugging.md |
 | 171 | AgentsToZ project-memory 마커 블록은 기계 관리 영역 — 계약을 의도적으로 바꿀 때만 마커 안을 편집한다 (2026-08-18) | tactical | agentstoz, project-memory, marker, generated-block, claude-md | knowledge/claude-code-platform.md |
 | 172 | 텔레메트리성 UserPromptSubmit 훅은 메타데이터만 기록하고 프롬프트 본문은 절대 담지 않는다 (2026-08-18) | principle | hooks, userpromptsubmit, telemetry, token-free, privacy | knowledge/claude-code-platform.md |
+| 173 | 체크인된 정책 SQL은 의도이고 배포 상태가 아니다 — 접근제어 시행은 라이브 프로브로만 확정된다 (2026-08-22) | principle | rls, access-control, live-probe, deployed-state, postgrest, supabase | knowledge/deployment.md |
+| 174 | 외부 origin anchor의 target="_blank"는 rel="noopener noreferrer"와 한 쌍이다 (2026-08-22) | tactical | anchor, target-blank, noopener, tabnabbing, outbound-link | knowledge/react-frontend.md |
+| 175 | 콘텐츠 주소형 revision 복원은 검증한 바로 그 바이트를 써야 한다 (2026-07-26) | principle | content-addressed, restore, hash-verify, lineage, toctou | knowledge/data-sync-db.md |
+| 176 | 비대해진 API route table은 기능군 모듈로 분리하고 동기화 충돌은 409로 표면화한다 (2026-07-26) | tactical | api-route, module-split, thin-router, 409, conflict | knowledge/data-sync-db.md |
+| 177 | 화면 표시용 표현과 음성 낭독용 원고는 같은 의미의 별도 필드로 모델링한다 (2026-07-26) | principle | tts, accessibility, content-modeling, dual-representation | knowledge/misc-tooling.md |
+| 178 | 없는 커버리지는 없다고 보고한다 — 미룬 작업은 구조화된 revisit 트리거와 함께 남긴다 (2026-08-22) | principle | coverage-honesty, deferred-work, revisit-trigger, reporting, absent-coverage | knowledge/multi-agent-orchestration.md |
 
 > 참고: #7-9, #12-71은 프로젝트-특화 학습으로 `knowledge/` 파일에 이관됨 (2026-06 재구조화).
 > 과거 어긋났던 #8의 배치 순서도 이관 시 번호순으로 정렬 수정됨. 번호는 전역 유일하며 재사용하지 않는다.

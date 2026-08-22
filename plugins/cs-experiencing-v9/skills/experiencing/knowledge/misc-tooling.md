@@ -89,3 +89,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **교훈**: 외부 CLI를 자동화 경로에 넣기 전에 (1) `<cmd> --help` / `<cmd> <sub> --help`를 **실제로 실행**해 플래그 존재를 확인하고, (2) 비대화형(no-TTY) 조건에서 1회 실행해 프롬프트 대기·exit code를 확인한다. 두 검증 전에는 해당 호출을 기본 경로로 승격하지 않는다.
 - **근거**: portmanagement `.agent-memory/CORE.md:99-106,140-149`; Claude/Codex 실행 이력
 <!-- provenance: candidate=btw-provenance-db03bdb2aa3aa12f423113db; memory=884575df-63c4-407c-8b43-860d1295e663 -->
+
+### 177. 화면 표시용 표현과 음성 낭독용 원고는 같은 의미의 별도 필드로 모델링한다 (2026-07-26)
+<!-- tier: principle -->
+- **상황**: 수식을 화면에 렌더링하면서 같은 문자열을 TTS 낭독에도 그대로 넘겼다.
+- **발견**: 표시용 표기(수식 기호, 약물, 마크업)와 낭독용 원고는 같은 의미를 담지만 요구 형태가 다르다. 하나의 문자열로 둘을 겸하면 어느 한쪽이 반드시 열화되고, 낭독 품질 개선이 화면 표기를 훼손하는 결합이 생긴다.
+- **교훈**: 표시 표현과 낭독 원고를 타입 수준에서 별도 필드로 분리하고 각각 독립적으로 개선한다. 접근성·음성 출력이 붙는 모든 콘텐츠 타입에 적용되는 일반 패턴이다.
+- **근거**: final-study-web `content/types.ts:8-10,62-63`, `README.md:88-97`; `CORE.md:33-40` (gimal)
+<!-- provenance: candidate=btw-provenance-9bff7158289f1b218ff123c5 -->

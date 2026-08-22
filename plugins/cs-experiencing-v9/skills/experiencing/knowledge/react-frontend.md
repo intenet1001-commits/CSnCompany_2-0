@@ -168,3 +168,11 @@ cs-end Forget Gate(Phase 2.5)가 이 파일의 `<!-- tier: tactical -->` 항목�
 - **교훈**: 파생/복원 여부를 **타입 시스템의 필드**(`source: 'original' | 'derived' | 'restored'` 등)로 모델링하고, 그 값을 최종 UI까지 그대로 전달해 사용자에게 표시한다. 검증: 파생 경로로 만든 샘플이 화면에서 원문과 시각적으로 구분되는지 확인한다.
 - **근거**: final-study-web `content/types.ts:41-50`, `app/q/[id]/page.tsx:73-87`; `CORE.md:23-32`
 <!-- provenance: candidate=btw-provenance-c9052599bdf983c89f07e08f; memory=b58470d0-e11d-49be-882a-4fb62c5bdf38 -->
+
+### 174. 외부 origin anchor의 target="_blank"는 rel="noopener noreferrer"와 한 쌍이다 (2026-08-22)
+<!-- tier: tactical -->
+- **상황**: 외부 사이트로 나가는 링크를 `target="_blank"`로만 열도록 두고 새 링크를 계속 추가했다.
+- **발견**: `noopener` 없이 열린 탭은 `window.opener`를 통해 원본 문서를 조작할 수 있어 reverse tabnabbing에 노출된다. `noreferrer`는 여기에 referrer 유출 차단을 더한다. 내부 origin 링크는 대상이 아니다.
+- **교훈**: 외부 origin을 가리키는 anchor는 `target="_blank"`와 `rel="noopener noreferrer"`를 함께 붙이는 것을 기본값으로 하고, 링크를 새로 만들거나 수정한 뒤 마무리 전에 아웃바운드 링크를 한 번 훑어 누락을 확인한다.
+- **근거**: memory entry `5adaccf11a117a6961cba78d@2bfb007559cf424ab2d0f8aaa8067e1e` (linksv1)
+<!-- provenance: candidate=btw-memory-af051a8f7ca61f38658f010c -->
