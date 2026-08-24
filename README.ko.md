@@ -60,6 +60,28 @@
 
 ---
 
+## 🆕 새로운 기능 (2026-07)
+
+**`/cs-company` — 명령 하나로 회사 전체 가동.** 한 문장만 입력하면 `CLARIFY → PLAN → IMPLEMENT → REVIEW → TEST → SHIP` 전체 SDLC 파이프라인이 돌아갑니다. 단계 사이에는 게이트로 산출물을 넘기고, 문제가 생기면 알맞은 단계로 되돌아갑니다(예: 테스트 실패 → IMPLEMENT 재작업, 요구사항 누락 → PLAN 재작업).
+
+```
+/cs-company "설정 저장되는 다크모드 토글 추가해줘"
+```
+
+**공유 프로토콜 계층.** 이제 모든 팀원이 `plugins/shared/`의 동일한 프로토콜을 따르므로, 어느 플러그인을 쓰든 일관되게 동작합니다:
+
+| 프로토콜 | 표준화하는 것 |
+|----------|--------------|
+| `AGENT-CARD.md` | 에이전트당 카드 1장: 목표, 배경, 소유 범위, 기대 산출물 |
+| `TASK-CONTRACT.md` | 모든 에이전트 스폰에 기계 검증 가능한 산출물 계약 부착 |
+| `DEBATE-PROTOCOL.md` | 판정이 갈리는 발견은 조용히 버리지 않고 반론 라운드 진행 |
+| `ARTIFACT-CONTRACTS.md` | CLARIFY.md → PLAN.md → 리포트가 플러그인 사이를 자동으로 흐름 |
+| `MEMORY-PROTOCOL.md` | 리드가 작업 시작 전에 과거 학습·산출물을 먼저 회상 |
+| `HITL-POLICY.md` | 핵심 결정 지점의 사람 확인 체크포인트 (`--hitl auto/gate/always`) |
+| `PIPELINE-PROTOCOL.md` | `/cs-company`의 단계 테이블, 게이트, 재작업 라우팅 |
+
+---
+
 ## 🚀 60초 안에 설치하기
 
 ### 사전 준비

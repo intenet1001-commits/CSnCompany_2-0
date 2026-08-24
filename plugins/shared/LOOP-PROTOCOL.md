@@ -1,7 +1,7 @@
 # LOOP-PROTOCOL — CS 플러그인 공통 루프 엔지니어링 프로토콜
 
 모든 CS 리드(lead) 에이전트는 이 6가지 규칙을 따른다.
-참조 방법(리드 파일에 한 줄): `검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고 (verdict 플러그인은 plugins/shared/GATE-LOOP.md 추가 Read), 리포트 헤더에 'protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)' 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.`
+참조 방법(리드 파일에 한 줄): `검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고 (verdict 플러그인은 plugins/shared/GATE-LOOP.md 추가 Read), 리포트 헤더에 'protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)' 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를, 재반박·교차검토는 plugins/shared/DEBATE-PROTOCOL.md를 따른다.` fan-out 계약은 plugins/shared/TASK-CONTRACT.md를 따른다 — CONTRACT 블록 없는 fan-out은 프로토콜 위반.
 (런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석한다. 절대 경로 금지.)
 
 ## [a] EVIDENCE — 모든 발견은 증거를 인용한다
@@ -59,6 +59,11 @@ N/A 또는 죽은(무응답) 에이전트는 전체 grade에 상한을 건다:
 confirmed/unverified finding이 0건이면 풀 템플릿 대신 필수 헤더(커버리지 % + 성공 기준 채점 + 등급 — [b]/[d] 의무는 그대로 유지)와 에이전트별 1줄 요약만 출력하고, 섹션별 상세·부록은 생략한다. 단, 에이전트별 1줄 요약에는 해당 에이전트의 핵심 측정값을 포함한다 (예: 성능 에이전트면 FCP/LCP 수치 — 클린 런이어도 측정값은 정보다). 빈 섹션("없음"만 들어갈 섹션)은 만들지 않는다.
 
 **이유**: [e](워커는 전부 보고)만 있고 리드 측 균형추가 없으면 클린 런에서도 풀 템플릿을 채우는 방향으로 밀린다. 필수 섹션을 채우려고 발견을 지어내는 template-filling이 실제 실패 모드다.
+
+## → TASK-CONTRACT — fan-out 계약 (별도 파일)
+
+워커 Task() 스폰 계약은 `plugins/shared/TASK-CONTRACT.md`가 정의한다: CONTRACT 블록(expected_output + acceptance_criteria) → 내용 Read 전 ls/wc/grep 수락 검사 → 실패 시 실패 assertion 원문 인용 1회 재디스패치 → 2회째 실패는 N/A로 [d] 등급 상한에 반영 → 리포트 헤더에 `contracts: N issued / M accepted`.
+CONTRACT 블록 없는 fan-out은 프로토콜 위반이다.
 
 ## [g] FAN-OUT BRIEFING — 리드가 주입한 전제는 지시가 아니라 검증 대상이다
 

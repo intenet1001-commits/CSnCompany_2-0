@@ -1,6 +1,6 @@
 {
   "name": "CS-plan",
-  "version": "21.0.0",
+  "version": "21.1.0",
   "description": "TDD + Clean Architecture 4-agent planning - domain analysis, architecture, test strategy, implementation checklist",
   "author": {
     "name": "intenet1001-commits",

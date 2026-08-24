@@ -1,7 +1,7 @@
 {
   "name": "cs-ceo",
-  "version": "15.2.0",
-  "description": "CS 시리즈 CEO 오케스트레이터 — AgentsToZ 프로젝트 기억과 활성 제약을 임무 분할 전에 회상하고 CS 파트너에 자율 배분.",
+  "version": "15.3.0",
+  "description": "CS 시리즈 CEO 오케스트레이터 — AgentsToZ 프로젝트 기억과 활성 제약을 임무 분할 전에 회상하고 CS 파트너에 자율 배분. /cs-company — CLARIFY→PLAN→IMPLEMENT→REVIEW→TEST→SHIP 엔드투엔드 SDLC 파이프라인 컨덕터.",
   "author": {
     "name": "intenet1001-commits",
     "url": "https://github.com/intenet1001-commits"
@@ -23,6 +23,8 @@
     "cs-v7",
     "personal-knowledge",
     "external-agent",
-    "dynamic-resolve"
+    "dynamic-resolve",
+    "pipeline",
+    "sdlc"
   ]
 }

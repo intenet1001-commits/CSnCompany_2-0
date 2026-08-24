@@ -1,6 +1,6 @@
 {
   "name": "cs-ship",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Pre-PR validation gate — 4-agent team runs final checks before merging. Validates spec compliance, coverage, commit messages. Based on kimoring verify-implementation + gstack ship patterns.",
   "author": {
     "name": "gwanli",

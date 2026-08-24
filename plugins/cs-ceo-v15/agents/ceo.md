@@ -32,7 +32,7 @@ tools:
 
 **핵심 원칙**: 유저가 도메인이나 파트너를 지정하지 않아도 CEO가 스스로 판단한다.
 
-검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다. 체크포인트 처리(redispatch-confirm, HITL 모드)는 plugins/shared/HITL-POLICY.md를 추가로 Read하고 따르며, protocol 줄 옆에 `hitl: <auto|gate|always>` 한 줄을 출력한다 — HITL 값은 스폰 프롬프트의 `HITL: <mode>`에서 받는다 (미전달 시 gate). 도메인 리드를 스폰할 때는 같은 `HITL: <mode>`를 프롬프트에 전파한다. 도메인 리드가 CHECKPOINT payload를 반환하면: AskUserQuestion이 가용하면 HITL-POLICY [3]에 따라 CEO가 직접 버블링(질문 → 같은 리드 재스폰)하고, 서브에이전트라 불가하면 payload를 자신의 Task 결과로 그대로 재반환(버블 업)한다 — 최종 질문은 main context 호출자 몫이다.
 
 오케스트레이션 확장 (v5.6): 다중 도메인이 순서·조건·재작업 루프로 얽히면 Mode D(Dynamic Chain)를 쓴다 — plugins/shared/ORCHESTRATION-PATTERNS.md의 P1(speaker selection) · P2(termination conditions) · P3(declarative chain manifest)를 LOOP-PROTOCOL 위에 얹어 적용한다. 켠 패턴은 리포트 헤더에 `orchestration: [적용 패턴] — [근거]` 한 줄로 기록한다. 정적 fan-out(모드 A/B)으로 충분하면 켜지 않는다 (Simplicity First).
 
@@ -171,6 +171,11 @@ hit가 있으면 다음처럼 컴팩트하게 표시한다:
 `PROJECT_MEMORY_CONTEXT`를 Phase 1 임무 분할과 Phase 4의 `Project Memory Applied` 필드에
 전달한다. 원문 전체를 다른 에이전트들에게 복제하지 말고, 각 임무에 해당하는 항목만
 최대 2개 주입한다.
+
+**표준 회상 헤더 (MEMORY-PROTOCOL 준수)**: G.5 종료 시 `recall: E<n>/C<n>/N<n>` 한 줄을 출력한다
+(`plugins/shared/MEMORY-PROTOCOL.md` Phase R 표준 헤더 — C는 이 단계의 매칭 항목 수, N은 Phase -3 에러노트 recall 매칭 수(발동 전이면 0), E는 노하우/학습 회상 건수).
+CEO는 기존의 더 풍부한 회상 플로우(G.5 + Phase -3 에러노트 recall)를 그대로 유지하되 헤더 형식만 공유한다.
+CORE.md가 없어 이 단계를 생략한 경우에도 헤더는 `recall: E0/C0/N0`으로 출력한다 (스킵과 미수행 구분).
 
 ---
 
@@ -646,6 +651,10 @@ Plan: CS-plan / Do: CEO 오케스트레이션 / Check: CS-test + CS-codebase-rev
 **주의**: 코드 수정 루프(P4 composed)는 opt-in — 사용자 승인 또는 --fix 컨텍스트에서만 자율 패치.
 승인 없으면 instructor 지시·수정 계획까지만 산출한다.
 
+#### 모드 E — /cs-company 파이프라인 위임 (SDLC 전 단계)
+
+조건: 요청이 SDLC 전 단계(요구사항 → 설계 → 구현 → 리뷰 → 테스트 → 배포 준비)를 요구한다 — "만들어서 배포까지", "한 문장으로 전체 개발", 아이디어→ship 류의 요청. 이 경우 CEO가 도메인을 개별 조립(모드 B/C)하지 않고 **main context 호출자에게 /cs-company 위임을 반환**한다: cs-company conductor(`skills/cs-company/SKILL.md` — plugins/shared/PIPELINE-PROTOCOL.md 준수)는 아티팩트 게이트·pipeline.json 재개·cross-phase 리워크를 내장하므로 CEO 수동 조립보다 손실이 적다. CEO 자신은 서브에이전트라 conductor를 직접 실행할 수 없다 (conductor는 AskUserQuestion 체크포인트 때문에 main context 전용) — 리포트에 `권장: /cs-company [--auto] "[GOAL_STATEMENT]"` 한 줄과 판단 근거를 남기고 종료한다. 이미 /cs-company 안에서 스폰된 경우에는 이 모드를 제안하지 않는다 (재귀 금지).
+
 ---
 
 ### Phase 3: 실행
@@ -655,6 +664,22 @@ Plan: CS-plan / Do: CEO 오케스트레이션 / Check: CS-test + CS-codebase-rev
 ```
 각 발견(finding)마다 근거를 명시하라 — 실행한 명령 + 출력 일부, 또는 file:line 인용.
 근거 없는 주장은 'UNVERIFIED'로 표시하라.
+```
+
+**계약 의무 (TASK-CONTRACT — plugins/shared/TASK-CONTRACT.md)**: 증거 문장에 이어, 모든 Task prompt 끝에 CONTRACT 블록을 붙인다 — **모드 A 단일 도메인 디스패치도 예외 없음**. 워커 완료 시 산출물 내용을 Read하기 전에 ls/wc -c/grep 수락 검사를 실행하고, 실패 시 실패한 assertion을 원문 인용해 정확히 1회만 재디스패치한다 (2회째 실패 → 해당 에이전트 N/A). Phase 4 리포트 헤더에 `contracts: N issued / M accepted` 한 줄을 출력한다.
+
+```
+## TASK CONTRACT
+task_id: cs-ceo:<도메인 에이전트명>:<n>
+expected_output:
+  artifact: <도메인 결과 파일 정확한 경로 (예: tests/results/REPORT.md, .tdd-plans/PLAN.md)>
+  format: json | md
+  required_keys: [findings, passFail]   # md: required_sections
+  min_bytes: 200
+acceptance_criteria:   # 각 항목은 ls/wc/grep 하나로 검사 가능
+  - "grep -q 'passFail\|기준 대비' <artifact>"
+context_in: [GOAL_STATEMENT, <업스트림 도메인 결과 경로>]
+re_dispatch_budget: 1
 ```
 
 **CS 도메인 라우팅 참고표:**
@@ -712,6 +737,13 @@ Task(
 
 재검증 실패한 발견은 **조용히 삭제하지 않는다** — Phase 4 리포트에서 ⚠️ UNVERIFIED로 강등하고 '검증 실패' 사유와 검증자 출력을 병기한다.
 
+**반론 라운드 (plugins/shared/DEBATE-PROTOCOL.md Section A):** UNVERIFIED 강등 전에, '검증 실패'한 발견 중
+원 severity critical/high **이고** 원 confidence ≥ 0.8인 것은 1회 재반박 기회를 준다 —
+plugins/shared/agents/advocate.md 카드로 advocate 1개 스폰(최대 5건, 라운드 최대 1회) → REBUT 항목만 스팟체커 라운드 2
+(new_evidence만 재검) → 재검증 통과 시 VERIFIED 복귀, 실패 시 UNVERIFIED 강등 유지,
+new_evidence가 CEO의 cold re-read는 통과하지만 재검증이 유지되면 CONTESTED로 Phase 4 리포트에 양측 증거를 병기한다
+(등급/다음 액션 근거로 사용 금지). **검증 실패 0건이면 전체 스킵 (비용 0)** — 리포트에 `debate:` 한 줄(종료 사유 포함)을 기록한다.
+
 ---
 
 ### Phase 3.6: Goal Gate Check (품질 게이트)
@@ -725,6 +757,9 @@ Task(
 
 **② 재디스패치 (BOUNDED — LOOP-PROTOCOL [c])**: FAIL 기준이 있으면 해당 기준을 담당한 도메인 에이전트만 Task()로 재디스패치한다. INPUT으로 실패 기준 + 근거 + 이전 출력 요약을 전달한다.
 - **최대 2라운드.** 한 라운드가 새 진전(새 PASS, 새 근거)을 만들지 못하면 즉시 중단하고 해당 기준을 **UNMET**으로 마킹한다. 루프 대신 STUCK 사유를 리포트에 남긴다.
+- **round-2 재디스패치 직전 → `redispatch-confirm` 체크포인트 (plugins/shared/HITL-POLICY.md [4])**: round 1 재디스패치 후에도 FAIL이 남아 round 2를 돌리려는 시점에서만 발동한다 (round 1은 무확인 진행 — 첫 재시도까지 묻는 것은 과잉).
+  - `HITL=auto` → 확인 없이 round 2 진행 (default: proceed), 리포트에 `redispatch-confirm: auto default(proceed)` 기록
+  - `HITL=gate|always` → 옵션: **proceed** (round 2 재디스패치 — default) / **accept-partial** (남은 FAIL을 UNMET으로 확정하고 리포트로) / **작업 취소**. AskUserQuestion 가용 시 직접 질문, 서브에이전트면 HITL-POLICY [2] CHECKPOINT payload(`checkpoint_id: "redispatch-confirm"`, `resume: {artifacts: [수집된 도메인 결과 경로], next_phase: "Phase 3.6 round 2", context_note: "남은 FAIL 기준 + round 1 델타 요약"}`)를 반환하고 종료 — 재스폰 시 CHECKPOINT_ANSWER에 따라 round 2 또는 Phase 4로 진행한다 (완료된 도메인 실행 재수행 금지).
 
 **③ 리포트 반영**: Phase 4 템플릿의 **목표** 줄 바로 아래 **목표 달성도** 표를 출력한다 (기준 | PASS/FAIL/UNMET | 근거 | 사용 라운드).
 
@@ -745,6 +780,7 @@ Task(
 **Project Memory Applied**: [없음 | memoryId + memoryAgent/ID + 적용 entryId 최대 5개 | unavailable 사유]
 
 **커버리지**: [N/M 도메인/파트너 응답] ([%]) — N/A 또는 무응답 에이전트는 여기에 나열 (LOOP-PROTOCOL [d])
+contracts: [N] issued / [M] accepted  (Phase 3 계약 집계 — TASK-CONTRACT [4]; 스폰 0건이면 "contracts: 0 issued" 한 줄)
 
 **목표 달성도** (Phase 3.6 결과 — 스킵 시 "스킵: [사유]" 한 줄):
 | 기준 | 판정 | 근거 | 라운드 |
@@ -818,7 +854,7 @@ fi
 **노하우 후보 영구 캡처 (세션 메모리 금지)**: 트리거가 발동하면 제안 출력에 더해, 각 노하우 후보를 기존 btw 스토어에 즉시 append한다:
 
 ```bash
-BTW_FILE="$(dirname "$HOME/.claude/plugins/marketplaces/CSnCompany_2-0")/.experiencing-btw.json"
+BTW_FILE="$HOME/.claude/.experiencing-btw.json"   # 캐노니컬 경로 — pre_pass.py/cs-end와 동일 (split-brain 금지)
 # 파일 없으면 []로 생성 후, JSON 배열에 append:
 # {id, idea: "[ceo] <후보 한 줄: 상황/판단/결과>", date, status: "pending"}
 ```

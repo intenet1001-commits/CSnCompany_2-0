@@ -11,7 +11,7 @@ Key routing rules:
 - Codebase review, architecture review, code quality check → invoke CS-codebase-review
 - Design review, UI audit, UX analysis, 디자인 리뷰, anti-pattern detection → invoke cs-design
 - Sync plugins, push to GitHub, update marketplace → invoke cs-sync
-- Complex multi-step task, plan then execute in parallel → invoke smart-run
+- Complex multi-step task, plan then execute in parallel, 플랜 실행, execute a CS-plan PLAN.md → invoke smart-run (registered PLAN.md auto-detected — Phase 0.7 PLAN INTAKE)
 - English conversation, convert session to dialog → invoke convo-maker
 - Product ideas, "is this worth building", brainstorming → invoke office-hours
 - Bugs, errors, "why is this broken" → invoke investigate
@@ -21,6 +21,7 @@ Key routing rules:
 - Save progress, checkpoint, resume → invoke checkpoint
 - "목표", complex multi-step task, unsure which domain, /goal → invoke cs-ceo
 - Complex task routing, effort estimation, domain dispatch → invoke cs-ceo
+- 한 문장으로 전체 개발, one-sentence to shipped, full SDLC pipeline (요구사항→배포 준비) → invoke cs-company
 - Error capture, error note, 에러노트, 에러 기록, 오류 정리 → invoke cs-error-notes
 - 프로젝트 장기기억 학습, 장기기억 학습 → invoke learn
 - 장기기억 기반 에이전트 개선, 에이전트 업그레이드 → invoke upgrade
@@ -44,6 +45,8 @@ Key routing rules:
   P5 persona+output 계약 — CrewAI/AutoGen/ChatDev 벤치마크 이식)를 LOOP-PROTOCOL 위에 얹는다.
   선언적 파이프라인은 plugins/shared/chains/, 페르소나 계약은 plugins/shared/agents/AGENT-PERSONA-CONTRACT.md.
   정적 fan-out으로 충분하면 켜지 않는다 (Simplicity First).
+  파이프라인 아티팩트(CLARIFY/PLAN/IMPLEMENT-REPORT/REVIEW/TEST-REPORT/SHIP-REPORT)를 생산/소비하는
+  리드는 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 따른다 (frontmatter + register/find-meta 계약).
 - 학습 반영 규칙: 교훈이 프로토콜 변경을 지시하면 같은 커밋에서 해당 SKILL/agents/*.md에
   반영하고 ✅ 반영됨 표시한다. 미반영 교훈은 실행되지 않는다.
 - 통합 제거 규칙: 외부 시스템 통합·의존성을 제거하는 변경은 같은 커밋에서 커플링된
@@ -68,6 +71,7 @@ Key routing rules:
 | cs-ceo | `./plugins/cs-ceo-v15` | 🧭 CEO |
 | goal | `./plugins/cs-ceo-v15` | 🎯 Goal |
 | cs-partnership | `./plugins/cs-ceo-v15` | 🤝 Partnership |
+| cs-company | `./plugins/cs-ceo-v15` | 🏢 Company Pipeline |
 | cs-clarify | `./plugins/cs-clarify-v1` | 💬 PM |
 | CS-plan | `./plugins/CS-plan-v21` | 🏗️ Architect |
 | cs-design | `./plugins/cs-design-v20` | 🎨 Designer |
@@ -79,7 +83,7 @@ Key routing rules:
 | cs-smart-run | `./plugins/cs-smart-run` | ⚡ Team Lead |
 | cs-experiencing | `./plugins/cs-experiencing-v9` | 📚 Knowledge Backend |
 | convo-maker | `./plugins/convo-maker` | 🗣️ Language Coach |
-| cs-memory | `./plugins/cs-core-memory-v1` | 🧠 Memory Trainer |
+| cs-memory | `./plugins/cs-core-memory-v1` | 🧠 Memory Learner |
 | csn-sync | `./plugins/csn-sync` | 🔄 Marketplace Sync |
 
 <!-- AUTO-PLUGIN-INVENTORY:END -->

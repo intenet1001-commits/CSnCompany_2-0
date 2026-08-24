@@ -1,5 +1,53 @@
 # Changelog
 
+## [integration] 2026-08-25 — csn-upgrade-u1-u7(PR #3) 통합
+
+7주간 48커밋 앞서간 main 위로 U1~U7을 통합했다. 31개 충돌은 **main의 학습 승격분을 보존하는 쪽**으로 해소했다.
+
+### 보존한 main 내용 (브랜치가 덮어쓰려던 것)
+- LOOP-PROTOCOL `[g] FAN-OUT BRIEFING` / `[h] PARALLEL WRITE ISOLATION` (8/22 승격, 근거 #119/#122) — 브랜치의 TASK-CONTRACT 포인터와 **병기**
+- cs-design design-lead: design-system-consistency ↔ anti-pattern-detector 중복 채점 분리 규칙
+- CS-codebase-review SKILL: finding ID F001 재부여 + 필터링 금지 계약 (브랜치의 카드 채택 지시 `FIRST ACTION`은 추가)
+- cs-ship ship-lead: `GATE-LOOP RECORD(verdict 기록)` OWNS, "cs-ship은 별도 verifier를 스폰하지 않는다"
+- CS-plan plan-lead: 테스트명 문자열 완전 일치 규칙 (브랜치의 2-wave 스팟체크 위에 유지)
+- cs-smart-run 매니페스트 `name` — 브랜치의 `smart-run` 회귀를 차단 (1.1.1에서 고친 rename 버그)
+
+### 번호 충돌 재부여
+- CS-test `Phase 2.6` 중복 → 2.5 검증 → **2.6 반론 라운드**(DEBATE) → **2.7 게이트 루프**(GATE-LOOP)
+- cs-ceo `모드 D` 중복 → main의 Dynamic Chain이 D 유지(37행이 참조), `/cs-company` 위임은 **모드 E**
+
+### 제외
+- `cs-end-v4` — marketplace의 `cs-end`를 v3에서 v4로 재지정해 main의 3.2.0을 대체하게 됨. v4(4.1.0)는 번호가 높지만 AgentsToZ 위임 참조 0건, v3는 6개 파일 보유 — v3가 실질적 최신
+- `cs-experiencing-v8`(23파일), `cs-ceo-v14`, `cs-design-v19`, `cs-end-v1/v2` — main이 아카이브한 구버전
+- v8 `knowledge/llm-api.md` — 항목 87/88이 v9 `llm-patterns.md`에 이미 존재(중복)
+
+### Fixed
+- Codex 매니페스트 8종이 VERSION과 어긋나 있던 것을 동기화 (CS-codebase-review·cs-ceo·cs-smart-run·CS-plan·CS-test·cs-clarify·cs-design·cs-ship)
+- plugins/CLAUDE.md 인벤토리를 `routing_sync.py write`로 marketplace.json 기준 재생성
+
+### 미배선 (후속)
+- `cs-worktree-v1` — 파일만 존재, marketplace 미등록. 짝인 `/cs-end --merge-worktree`가 cs-end-v4에만 있어 v3에는 없음
+
+
+## [session] 2026-07-02 — 프레임워크 업그레이드 U1-U7: 공유 프로토콜 계층 7종 + /cs-company 엔드투엔드 파이프라인
+
+### Added
+- **U1 AGENT-CARD 표준** (`plugins/shared/AGENT-CARD.md`): 필수 frontmatter(name/description/model/tools) + 5개 본문 섹션(Goal/Backstory/OWNS/Expected Output/Escalates when) 표준화. cs-design 인라인 분석가 5개 + CS-codebase-review 리뷰어 5개를 실제 에이전트 카드로 추출, 기존 17개 에이전트 파일 backfill, card-Read 스폰 패턴(≤5줄 delta)으로 3중 중복 제거
+- **U2 TASK-CONTRACT** (`plugins/shared/TASK-CONTRACT.md`): 모든 Task 스폰에 기계 검증 가능한 CONTRACT 블록(expected_output/acceptance_criteria/re_dispatch_budget: 1) 의무화. 리드는 산출물을 읽기 전에 ls/wc -c/grep 수락 검사 → 실패 시 1회 재디스패치 후 N/A. 리포트 헤더에 `contracts: N issued / M accepted`
+- **U3 DEBATE-PROTOCOL** (`plugins/shared/DEBATE-PROTOCOL.md` + `shared/agents/advocate.md`): REFUTED critical/high 판정에 1회 반론 라운드 + CONTESTED 상태 + '## 쟁점' 리포트 섹션, 워커 ≥3 & finding ≥8이면 peer cross-exam(DUPLICATE_OF/CORROBORATES/CONFLICTS_WITH)
+- **U4 ARTIFACT-CONTRACTS** (`plugins/shared/ARTIFACT-CONTRACTS.md`): cs_artifact frontmatter + registry 등록/staleness 가드로 CLARIFY→PLAN→IMPLEMENT→REVIEW 아티팩트 체인 수리. CS-plan이 CLARIFY.md를 verbatim 인수, smart-run이 PLAN.md 자동 감지(Phase 0.7) + IMPLEMENT-REPORT.md 기록, CS-codebase-review가 REVIEW.md 게이트 기록
+- **U5 MEMORY-PROTOCOL** (`plugins/shared/MEMORY-PROTOCOL.md`): Phase R(Recall) — 단기(registry)/일화(cs-experiencing INDEX)/전략(CORE.md)/에러노트 4계층 회상, 예산 상한(≤3 grep + ≤2 Read) + `recall: E<n>/C<n>/N<n>` 준수 헤더. BTW 경로 split-brain 수정(정본 ~/.claude/.experiencing-btw.json), cs-experiencing 학습 93건으로 재구조화(knowledge/llm-api.md 신설)
+- **U6 HITL-POLICY** (`plugins/shared/HITL-POLICY.md`): auto/gate/always 모드 + --hitl 플래그, 서브에이전트용 CHECKPOINT payload + 버블링 규칙(재상신 1회, 런당 3회 상한), 명명된 체크포인트 5종 레지스트리. CS-plan 2-wave(arch-choice), CS-test build-blocker, smart-run plan-approval, cs-ceo redispatch-confirm, cs-design direction-choice
+- **U7 /cs-company 파이프라인** (`plugins/shared/PIPELINE-PROTOCOL.md` + `cs-ceo-v15/commands/cs-company.md` + `skills/cs-company/`): CLARIFY→PLAN→IMPLEMENT→REVIEW→TEST→SHIP 엔드투엔드 SDLC 컨덕터 — frontmatter+registry 게이트, pipeline.json 상태/--from 재개, 스킵 규칙, cross-phase 리워크 라우팅(게이트당 ≤2, 총 ≤4 hop), GATE-LOOP에 5행 fault-routing 테이블
+
+### Changed
+- 버전업(minor): CS-plan 21.1.0, CS-test 26.1.0, CS-codebase-review 29.1.0, cs-design 20.1.0, cs-clarify 1.1.0, cs-ship 1.1.0
+  (2026-08-25 통합 시 정정: cs-ceo는 main 15.2.0 위에 올려 **15.3.0**, cs-smart-run은 1.1.1 위에 올려 **1.2.0**.
+  cs-end 4.1.0과 cs-experiencing 8.1.0은 반영하지 않음 — main의 cs-end-v3 3.2.0·cs-experiencing-v9 9.1.2가 실질적으로 최신)
+- marketplace.json에 cs-company 항목 추가 (source ./plugins/cs-ceo-v15, 신규 플러그인 디렉토리 없음)
+- plugins/CLAUDE.md: cs-company 라우팅 규칙 + Loop Engineering 공유 프로토콜 인덱스 갱신
+- artifact_registry.py: REVIEW/IMPLEMENT-REPORT/TEST-REPORT 타입 추가 + `register` CLI 서브커맨드 노출; pre_pass.py ceo-preflight에 ship 경로 추가
+
 
 ## [session] 2026-06-12 — BTW pending 해소: plugins/CLAUDE.md 통합 제거 규칙 (goal-statement 재작성)
 

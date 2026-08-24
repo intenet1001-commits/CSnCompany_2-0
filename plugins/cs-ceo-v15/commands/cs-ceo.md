@@ -15,7 +15,20 @@ CS 시리즈 총괄 CEO. 자연어로 요청하면 CEO가 공수를 추정하고
 /cs-ceo 새 결제 기능 설계해줘
 /cs-ceo 전체 코드베이스 분석해줘
 /cs-ceo 뭔가 이상한 것 같아 찾아봐줘
+/cs-ceo --hitl=auto 밤새 전체 분석 돌려줘   # 무인 실행 — 중간 체크포인트에서 묻지 않음
 ```
+
+## HITL 옵션 (plugins/shared/HITL-POLICY.md)
+
+`--hitl [auto|gate|always]`를 요청에서 파싱해 CEO 스폰 프롬프트에 `HITL: <mode>`로 전달한다 (미지정 시 `gate`; `--auto`는 `--hitl=auto` 별칭).
+
+| 모드 | 동작 |
+|------|------|
+| `auto` | 중간에 절대 묻지 않음 — 모든 체크포인트 default 채택 (야간 위임 — CEO 노하우 #14) |
+| `gate` (기본) | 등록된 체크포인트(redispatch-confirm 등 — HITL-POLICY [4])에서만 질문 |
+| `always` | 모든 Phase 전환마다 확인 |
+
+CEO는 도메인 리드 스폰 시 같은 HITL 값을 전파하고, 리드의 CHECKPOINT payload는 HITL-POLICY [3] 버블링 규칙으로 처리한다.
 
 ## 파트너십 사용법 — 어떤 스킬이든 가능
 

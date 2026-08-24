@@ -7,7 +7,7 @@ description: |
   게이트는 cs_artifact frontmatter + artifact_registry verdict 판독 (게이트키퍼 에이전트 없음).
   세션 사망 후 --from <phase>로 재개, --checkpoint에서 인간 확인, --auto로 무인 실행.
   Use when user types "/cs-company" or asks for one-sentence-to-shipped full pipeline development.
-version: 1.0.0
+version: 15.3.0
 allowed-tools:
   - Task
   - Skill

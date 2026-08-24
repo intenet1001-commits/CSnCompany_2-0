@@ -1,6 +1,6 @@
 ---
 name: cs-clarify
-version: 1.0.0
+version: 1.1.0
 description: |
   Socratic requirements clarification — sequential interview→scope→assumptions→CLARIFY.md.
   Use when user types "/cs-clarify", "요구사항 명료화", "clarify", "플랜 전 정리",
@@ -47,10 +47,14 @@ Phase 2: clarify-lead synthesizes → CLARIFY.md
 ### Step 1: 인자 파싱
 
 ```
-FEATURE = 큰따옴표 안의 텍스트, 또는 --quick 제외 나머지 텍스트
+FEATURE = 큰따옴표 안의 텍스트, 또는 --quick/--hitl 제외 나머지 텍스트
 QUICK   = --quick 플래그 존재 여부 (true/false)
+HITL    = --hitl [auto|gate|always] (미지정 시 "gate"; --auto는 --hitl=auto 별칭 — plugins/shared/HITL-POLICY.md [1])
 OUTPUT  = .cs-artifacts (기본값, 없으면 PWD)
 ```
+
+cs-ceo/cs-company 등 상위 호출자가 `HITL: <mode>`를 전달했으면 그 값을 사용한다.
+**HITL=auto면 QUICK=true를 강제한다** (인터뷰 생략 — HITL-POLICY [2]의 cs-clarify 예외 (b): 런 중간에 절대 묻지 않는다).
 
 기능 설명이 없으면 사용자에게 요청 후 중단:
 ```
@@ -64,6 +68,7 @@ OUTPUT  = .cs-artifacts (기본값, 없으면 PWD)
 🔍 CS-clarify 시작
 📋 기능: [FEATURE]
 ⚡ 모드: [전체 명료화 / --quick 빠른 명료화]
+🤝 hitl: [HITL]
 📁 아티팩트: [OUTPUT]/
 
 clarify-lead가 순차적 3단계 파이프라인을 실행합니다...
@@ -83,6 +88,7 @@ Task(
 
 FEATURE: [FEATURE]
 QUICK_MODE: [true/false]
+HITL: [HITL]
 OUTPUT_DIR: [OUTPUT]
 
 [clarify-lead.md 전체 내용 삽입]
@@ -90,6 +96,7 @@ OUTPUT_DIR: [OUTPUT]
 CRITICAL: 순차 실행을 강제합니다.
 - QUICK_MODE=false: STEP 1 → STEP 2 → STEP 3 순서로 실행. 이전 STEP 완료 확인 후 다음 스폰.
 - QUICK_MODE=true: STEP 1 스킵, STEP 2 → STEP 3 순서로 실행.
+- HITL=auto: QUICK_MODE=true 경로 + Phase 3 재명료화 AskUserQuestion 생략(opt-out default 채택 — plugins/shared/HITL-POLICY.md [2] cs-clarify 예외).
 
 노하우 섹션의 과거 학습을 인터뷰 질문 우선순위에 반영하세요.
 검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md를 Read하고, 리포트 헤더에 'protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)' 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다."
@@ -200,15 +207,30 @@ SCOPE_REPORT: [STEP 2 output]
 - HIGH: 전체 방향 재검토 필요
 
 assumption_report를 clarify-assumptions.md에 저장.
+파일 끝에 machine-readable JSON 요약 블록 필수 (assumption-mapper.md 출력 포맷 참조):
+{\"assumptions_total\": N, \"assumptions_high\": N, \"categories\": {...}} — 실제 테이블 행 수 기준, 자리표시 행 제외.
+이 블록이 없으면 clarify-lead가 산출물을 수락하지 않습니다.
 SendMessage(recipient: 'clarify-lead', content: assumption_report)"
 )
 ```
 
 ### Phase 2: CLARIFY.md 합성
 
-모든 스폰된 에이전트 완료 후 (QUICK_MODE: 2개) clarify-lead가 합성:
+모든 스폰된 에이전트 완료 후 (QUICK_MODE: 2개) clarify-lead가 `[OUTPUT_DIR]/CLARIFY.md`(기본 `.cs-artifacts/CLARIFY.md`)로 합성:
 
 ```markdown
+---
+clarify_cycles: [N]
+cs_artifact:
+  type: CLARIFY.md
+  producer: cs-clarify
+  produced_at: [ISO timestamp]
+  status: [ready | blocked]      # ready_for_plan=true → ready
+  gate:
+    passed: [ready_for_plan]
+    criterion: "clarify_score >= 7"
+    blocking_items: [미해결 HIGH 가정 목록]
+---
 # CLARIFY.md — [FEATURE]
 
 > Generated: [ISO timestamp]
@@ -269,16 +291,27 @@ SendMessage(recipient: 'clarify-lead', content: assumption_report)"
 - `clarify_score`: 3개 차원 평균
 - `ready_for_plan`: `clarify_score >= 7`이면 `true`
 
+**registry 등록 (plugins/shared/ARTIFACT-CONTRACTS.md [2])** — CLARIFY.md 생성 직후 clarify-lead가 실행:
+
+```bash
+REGISTRY="${CLAUDE_PLUGIN_ROOT}/../shared/artifact_registry.py"
+if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+$RUN_PY "$REGISTRY" register CLARIFY.md "[OUTPUT_DIR]/CLARIFY.md" cs-clarify
+```
+
+이 등록이 CS-plan Step 1.4(Upstream intake)가 CLARIFY.md를 자동 감지하는 경로다.
+
 ### Phase 2.5: Self-audit (점수 산정은 반드시 아티팩트에서)
 
 clarify-lead는 자기 출력에 자기 점수를 매기지 않습니다. 점수 JSON 산출 전에:
 
-1. **Artifact check** (Bash): `wc -c [OUTPUT_DIR]/clarify-interview.md [OUTPUT_DIR]/clarify-scope.md [OUTPUT_DIR]/clarify-assumptions.md`
-   — 파일 누락 또는 200바이트 미만이면 `ready_for_plan=false`로 설정하고 실패 파일을 보고 후 중단 (clarify_score 미출력).
+1. **Artifact check** (Bash — TASK-CONTRACT [2] 수락 검사): `wc -c [OUTPUT_DIR]/clarify-interview.md [OUTPUT_DIR]/clarify-scope.md [OUTPUT_DIR]/clarify-assumptions.md`
+   + required_keys 검사: `grep -q '"assumptions_high"' [OUTPUT_DIR]/clarify-assumptions.md` (JSON 요약 블록 존재 확인)
+   — 파일 누락, 200바이트 미만, 또는 JSON 요약 블록 부재면 실패 assertion 원문 인용 1회 재디스패치, 그래도 실패 시 `ready_for_plan=false`로 설정하고 실패 파일을 보고 후 중단 (clarify_score 미출력).
    (`--quick` 모드: clarify-interview.md 면제)
 2. **점수 재계산** — 기억이 아니라 파일 내용에서 도출:
    - `requirements_clarity`: clarify-interview.md에 기록된 최종 차원별 점수
-   - `assumptions_mapped`: `grep -c '| HIGH' [OUTPUT_DIR]/clarify-assumptions.md` — 가정 목록 테이블 행만 카운트 (섹션 헤더 '### HIGH 위험 가정'은 매칭되지 않음) → 0개=10, 1-2개=7, 3+개=4
+   - `assumptions_mapped`: clarify-assumptions.md 끝의 JSON 요약 블록에서 `assumptions_high` 값을 읽어 산정 → 0개=10, 1-2개=7, 3+개=4 (테이블 행 grep 카운트 금지 — 자리표시 행 오탐)
    - `scope_defined`: clarify-scope.md의 "MVP Phase 1" 섹션 + 구체 항목 1개 이상=10 / 과대설계 플래그+MVP 존재=5 / MVP 섹션 없음=1
 3. **Refutation pass**: 미래 CS-plan 작성자 입장에서 질문 3개 작성 → 각각 CLARIFY.md에서 답이 되는 라인 인용.
    인용 불가 질문 존재 → `ready_for_plan=false`, clarify_score 상한 6, 완료 메시지에 "⚠️ 미해결 질문" 목록 출력.
@@ -301,6 +334,9 @@ clarify-lead는 자기 출력에 자기 점수를 매기지 않습니다. 점수
 Phase 2.5 Artifact check에서 200바이트 미만/누락으로 판정된 워커는 분자에서 제외한다 (LOOP-PROTOCOL [d] COVERAGE HONESTY).
 
 **`ready_for_plan=false`인 경우 — 경계 있는 재명료화 루프** (단순 종료 금지):
+
+**HITL=auto면 이 루프를 실행하지 않는다** — opt-out과 동일하게 `ready_for_plan=false`(현재 점수)로 확정하고
+미해결 HIGH 가정을 CLARIFY.md '미해결 가정' 섹션에 나열한 뒤 종료한다 (frontmatter `status: blocked` — 성공 위장 금지).
 
 `cycle_count < 2`이면 (`--quick`: `cycle_count < 1`):
 
@@ -358,7 +394,9 @@ Phase 2.5 Artifact check에서 200바이트 미만/누락으로 판정된 워커
 /CS-plan "[FEATURE]"
 ```
 
-CLARIFY.md가 PWD에 있으면 CS-plan이 자동으로 컨텍스트로 활용합니다.
+registry에 등록된 CLARIFY.md는 CS-plan Step 1.4(Upstream intake)가 자동 소비합니다 —
+Context Anchor 테이블 + `→ verify:` 성공 기준 + HIGH 위험 가정이 FEATURE 브리프에 원문 병합되고,
+CS-plan의 중복 모호성 질문(Step 1.5 AskUserQuestion)은 스킵됩니다.
 
 ---
 

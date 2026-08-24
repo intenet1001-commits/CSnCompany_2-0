@@ -1,5 +1,11 @@
 # cs-ceo CHANGELOG
 
+## 15.3.0 — 2026-08-25
+- `/cs-company` 파이프라인 컨덕터 추가 (commands/cs-company.md + skills/cs-company/) — CLARIFY→PLAN→IMPLEMENT→REVIEW→TEST→SHIP, 아티팩트 게이트 + pipeline.json 재개(--from) + cross-phase 리워크.
+- ceo.md에 **모드 E — /cs-company 파이프라인 위임** 추가. main의 모드 D(Dynamic Chain)는 그대로 유지한다 (37행이 Mode D를 참조하므로 재부여하지 않음).
+- Phase 4 리포트 헤더에 `contracts: N issued / M accepted` 집계 추가 (TASK-CONTRACT [4]).
+- 15.2.0의 AgentsToZ 프로젝트 기억 recall과 커버리지 리포팅은 그대로 보존.
+
 ## 15.2.0 — 2026-08-15
 - AgentsToZ 프로젝트 기억을 임무 분할 전 Phase G.5에서 읽기 전용 recall한다.
 - 최대 2개 active constraints + 목표 관련 항목으로 총 5개 이하의 two-budget 컨텍스트를 사용한다.

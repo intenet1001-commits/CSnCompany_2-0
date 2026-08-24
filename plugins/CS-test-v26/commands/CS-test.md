@@ -12,7 +12,14 @@ CS-test 도메인의 15-agent AI Teams 웹 테스트를 실행합니다.
 ```
 /CS-test https://example.com
 /CS-test http://localhost:3000
+/CS-test --hitl=auto http://localhost:3000   # 무인 실행 — build-blocker 체크포인트에서 묻지 않음
 ```
+
+## 옵션
+
+| 옵션 | 설명 | 기본값 |
+|------|------|--------|
+| `--hitl` | HITL 모드: `auto`(중간 질문 없음 — 빌드 F여도 default로 전체 테스트 진행) / `gate`(build-blocker 체크포인트에서 continue/Quick/abort 질문) / `always`(모든 Phase 전환마다 확인). `--auto`는 `--hitl=auto` 별칭. plugins/shared/HITL-POLICY.md 참조 | `gate` |
 
 ## 에이전트 팀 (15개)
 
