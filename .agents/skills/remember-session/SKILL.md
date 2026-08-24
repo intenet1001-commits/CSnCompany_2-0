@@ -3,7 +3,7 @@ name: remember-session
 description: Save durable learnings from the current project session to local long-term memory and optionally back them up to Supabase. Use when the user says 세션 기억하기, 세션 기억해줘, 작업 내용 기억해줘, session memory, 세션 종료, or 작업 마무리.
 ---
 
-<!-- AgentsToZ memory-agent-version:12 -->
+<!-- AgentsToZ memory-agent-version:14 -->
 # 세션 기억하기
 
 ## Goal

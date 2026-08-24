@@ -1,7 +1,7 @@
 <!-- AgentsToZ project-memory:start -->
 ## Project memory integration
 
-<!-- AgentsToZ memory-agent-version:12 -->
+<!-- AgentsToZ memory-agent-version:14 -->
 - Read `.agent-memory/config.json` and its project-relative `sourcePath` before substantial work when historical decisions may matter.
 - Once the memory outgrows a single file, `sourcePath` holds an **index** of entry titles and
   `.agent-memory/notes/` holds the bodies. Read the index, then only the notes whose titles
