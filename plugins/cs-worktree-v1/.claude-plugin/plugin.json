@@ -1,0 +1,19 @@
+{
+  "name": "cs-worktree",
+  "version": "1.0.0",
+  "description": "Git worktree launcher for CS workflows — /cs-start creates an isolated worktree + branch for a target project and records a manifest so cs-end can later merge it back to the base branch. Pairs with cs-end --merge-worktree. Non-destructive by default: never force-pushes, never auto-resolves conflicts.",
+  "author": {
+    "name": "gwanli",
+    "url": "https://github.com/intenet1001-commits"
+  },
+  "repository": "https://github.com/intenet1001-commits/CSnCompany_2-0",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "worktree",
+    "branch",
+    "workflow",
+    "cs-end",
+    "isolation"
+  ]
+}

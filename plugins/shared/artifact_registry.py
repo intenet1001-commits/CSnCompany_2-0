@@ -9,6 +9,9 @@ DEFAULTS = {
     "PLAN.md":          ["PLAN.md", ".cs-artifacts/PLAN.md"],
     "DESIGN-REVIEW.md": ["DESIGN-REVIEW.md", ".cs-artifacts/DESIGN-REVIEW.md"],
     "SHIP-REPORT.md":   [".cs-artifacts/SHIP-REPORT.md", "SHIP-REPORT.md"],
+    "REVIEW.md":        [".cs-artifacts/REVIEW.md", "REVIEW.md"],
+    "IMPLEMENT-REPORT.md": [".cs-artifacts/IMPLEMENT-REPORT.md"],
+    "TEST-REPORT.md":   ["tests/results/REPORT.md"],
 }
 
 def _load(root):
@@ -86,7 +89,15 @@ def record_verdict(atype, verdict, rnd, blocking_items, root=None):
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "state"
-    if cmd == "find" and len(sys.argv) > 2:
+    if cmd == "register":
+        # register <type> <path> <plugin> [root] — ARTIFACT-CONTRACTS [2] 생산 등록
+        if len(sys.argv) < 5:
+            print("usage: register <type> <path> <plugin> [root]", file=sys.stderr)
+            sys.exit(2)
+        register(sys.argv[2], sys.argv[3], sys.argv[4],
+                 sys.argv[5] if len(sys.argv) > 5 else None)
+        print("ok")
+    elif cmd == "find" and len(sys.argv) > 2:
         print(find(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None) or "")
     elif cmd == "find-meta" and len(sys.argv) > 2:
         print(json.dumps(find_meta(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None),
