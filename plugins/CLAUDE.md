@@ -47,6 +47,11 @@ Key routing rules:
   정적 fan-out으로 충분하면 켜지 않는다 (Simplicity First).
   파이프라인 아티팩트(CLARIFY/PLAN/IMPLEMENT-REPORT/REVIEW/TEST-REPORT/SHIP-REPORT)를 생산/소비하는
   리드는 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 따른다 (frontmatter + register/find-meta 계약).
+- 장기기억 회상: 모든 리드는 fan-out 전 plugins/shared/MEMORY-PROTOCOL.md의 Phase R을 1회 수행하고
+  `recall: E<n>/C<n>/N<n>` 헤더를 출력한다. **AgentsToZ가 `<PROJECT_ROOT>/.agent-memory/`에 적재(write)하고
+  CS 플러그인이 소비(read)하는 구조**이며, 전략 계층([R-c])의 단일 진입점은
+  `plugins/shared/scripts/recall_project_memory.py`다 (읽기 전용, 항상 exit 0, 미연동 프로젝트에서는 무출력).
+  리드가 `.agent-memory/`에 쓰거나 폐기된 `~/.claude/core-memory`로 폴백하는 것은 금지된다.
 - 학습 반영 규칙: 교훈이 프로토콜 변경을 지시하면 같은 커밋에서 해당 SKILL/agents/*.md에
   반영하고 ✅ 반영됨 표시한다. 미반영 교훈은 실행되지 않는다.
 - 통합 제거 규칙: 외부 시스템 통합·의존성을 제거하는 변경은 같은 커밋에서 커플링된

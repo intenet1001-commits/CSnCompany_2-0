@@ -2,13 +2,13 @@
 name: CS-codebase-review
 user-invocable: false
 description: 5-agent parallel codebase review
-version: 29.1.0
+version: 29.2.0
 
 ---
 
 # CS-codebase-review 실행 프로토콜
 
-검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 시)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다. 아티팩트 생산(REVIEW.md — Phase 2.5)은 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 Read하고 따른다.
+검증 프로토콜 (BLOCKING 첫 단계): fan-out 전 첫 행동으로 plugins/shared/LOOP-PROTOCOL.md와 plugins/shared/GATE-LOOP.md(verdict 산출 시)를 Read하고, 리포트 헤더에 `protocol: LOOP-PROTOCOL [a-f] loaded (round budget N)` 한 줄을 출력한다. 이 줄이 없는 리포트는 프로토콜 미적용으로 간주한다. verifier 디스패치는 plugins/shared/agents/verifier.md를 따른다. 아티팩트 생산(REVIEW.md — Phase 2.5)은 plugins/shared/ARTIFACT-CONTRACTS.md를 추가로 Read하고 따른다. LOOP-PROTOCOL Read 직후 plugins/shared/MEMORY-PROTOCOL.md의 Phase R(회상)을 수행하고, protocol 줄 다음에 `recall: E<n>/C<n>/N<n>` 한 줄을 출력한다 — [R-c]가 돌려주는 AgentsToZ `## Recurring Issues`는 이 저장소에서 이미 반복 확인된 결함 패턴이므로 리뷰어 CONTEXT에 verbatim 주입해 같은 지적을 처음부터 다시 발견하게 하지 않는다. 이 줄이 없는 리포트는 회상 미수행으로 간주한다.
 
 ## Phase 0 — Python Pre-Pass (선택적, 토큰 절감)
 

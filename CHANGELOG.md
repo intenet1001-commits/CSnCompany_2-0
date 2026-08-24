@@ -1,5 +1,32 @@
 # Changelog
 
+## [fix] 2026-08-25 — AgentsToZ 회상 이음매 복구 (MEMORY-PROTOCOL [R-c])
+
+### 문제
+[R-c] STRATEGIC이 `~/.claude/core-memory/CORE.md`를 가리키고 있었다. 그 경로는 AgentsToZ 이관 때
+폐기됐고(cs-ceo 15.2.0 "구형 전역 폴백 제거") 어떤 머신에도 존재하지 않는다. [R-c]는 "파일이 없으면
+조용히 스킵"으로 설계돼 있어 **에러 없이 항상 스킵**됐고, 리드들은 전략 메모리를 한 번도 읽지 않은 채
+`recall: C0`을 정상 출력했다 — AgentsToZ가 적재해도 CSnCompany가 소비하지 않는 상태였다.
+repo 전체에서 이 죽은 경로를 가리키던 실행 참조는 `MEMORY-PROTOCOL.md:42` 단 1곳이었다.
+
+### Added
+- `plugins/shared/scripts/recall_project_memory.py` — AgentsToZ 전략 메모리 회상 단일 진입점.
+  프로젝트 루트 탐색(상위 방향 `.agent-memory/config.json`), cs-memory 경로 해석(Claude 마켓플레이스 →
+  Codex 캐시 → repo-local), 질의 240자 상한, `digest|json|header` 출력. **읽기 전용이며 항상 exit 0** —
+  미연동 프로젝트에서는 무출력. cs-ceo Phase G.5가 이미 풀어 둔 로직을 한 곳으로 모은 것이다.
+- `contested` 항목을 확정 사실과 분리해 "미해결 대립" 블록으로 출력하고, `knowledgeTimeHint`가 있으면
+  `[기록 시점 YYYY-MM-DD — 현재 저장소 증거로 재확인 필요]`를 붙인다.
+- `plugins/shared/tests/test_recall_project_memory.py` (15건), `test_memory_protocol_wiring.py` (6건).
+  후자는 폐기 경로 참조·어댑터 부재·리드 미배선을 기계로 잡는 회귀 가드다 — 원래 버그를 재현하면 실패한다.
+
+### Fixed
+- MEMORY-PROTOCOL [R-c]를 AgentsToZ 경로로 재작성. 헤더의 저장소 설명·예산(어댑터 Bash 1회)·
+  적용 범위도 함께 갱신.
+- `CS-codebase-review`에 Phase R이 아예 없던 것을 추가 (29.1.0 → **29.2.0**). `## Recurring Issues`는
+  이 저장소에서 이미 반복 확인된 결함 패턴이므로 리뷰어 CONTEXT에 verbatim 주입한다.
+- `plugins/CLAUDE.md` 공유 프로토콜 색인에 MEMORY-PROTOCOL이 0건이던 것을 추가 —
+  "AgentsToZ가 적재(write)하고 CS 플러그인이 소비(read)한다"는 역할 분담을 명시.
+
 ## [integration] 2026-08-25 — csn-upgrade-u1-u7(PR #3) 통합
 
 7주간 48커밋 앞서간 main 위로 U1~U7을 통합했다. 31개 충돌은 **main의 학습 승격분을 보존하는 쪽**으로 해소했다.

@@ -2,10 +2,14 @@
 
 모든 CS 리드(lead) 에이전트는 fan-out 전에 아래 **Phase R (Recall)** 을 정확히 1회 수행한다.
 참조 방법(리드 파일의 검증 프로토콜 줄에 덧붙이는 한 구절): `LOOP-PROTOCOL Read 직후 plugins/shared/MEMORY-PROTOCOL.md의 Phase R(회상)을 수행하고, 리포트 헤더에 'recall: E<n>/C<n>/N<n>' 한 줄을 출력한다. 이 줄이 없는 리포트는 회상 미수행으로 간주한다.`
-(런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석한다. 절대 경로 금지. `~/.claude/...` 경로는 사용자 홈 저장소 — core-memory, error-notes — 에만 허용된다.)
+(런타임 경로는 `${CLAUDE_PLUGIN_ROOT}/../shared/`로 해석한다. 절대 경로 금지.
+전략 메모리는 프로젝트 로컬 `<PROJECT_ROOT>/.agent-memory/`이며 AgentsToZ가 소유한다 — `~/.claude/core-memory`는 폐기된 저장소로 읽지도 쓰지도 않는다.
+`~/.claude/...` 경로는 사용자 홈 저장소 중 **error-notes에만** 허용된다.)
 
-**왜 이 프로토콜인가**: 이 스위트의 최대 자산(90+ 누적 학습, CORE.md 전략 메모리, 에러 아카이브)이 write-only였다 —
+**왜 이 프로토콜인가**: 이 스위트의 최대 자산(90+ 누적 학습, AgentsToZ 전략 메모리, 에러 아카이브)이 write-only였다 —
 CS-plan·cs-design·cs-ship·CS-test는 런타임에 아무것도 읽지 않았다. Phase R은 학습 루프의 read 쪽을 닫는다.
+역할 분담이 핵심이다: **AgentsToZ가 적재(write)하고 CSnCompany가 소비(read)한다.** 소비 경로가 끊기면
+적재는 계속돼도 성능은 오르지 않는다 — Phase R은 그 이음매이고, [R-c]가 그중 전략 계층을 담당한다.
 
 ## Phase R (Recall) — LOOP-PROTOCOL Read 직후, fan-out 전 1회
 
@@ -37,15 +41,37 @@ grep -i -E "<키워드1>|<키워드2>" "$EXP_DIR/skills/experiencing/SKILL.md" |
 
 > 예시: 태스크 "worktree에서 vite dev server 안 뜸" → `grep -i -E "worktree|vite" ... | grep "^|" | head -3` → #30 매칭 → `knowledge/git-worktree.md`에서 #30 본문만 Read → 워커 CONTEXT에 주입.
 
-### [R-c] STRATEGIC — CORE.md의 제약·반복 이슈 섹션만 Read
+### [R-c] STRATEGIC — AgentsToZ 프로젝트 장기기억 회상 (Bash 1회)
 
-`~/.claude/core-memory/CORE.md`가 존재할 때만 `## Key Decisions`(constraint 항목)와 `## Recurring Issues` 섹션을 Read한다.
-파일이 없으면 **조용히 스킵** (0 output, 0 extra tool calls — 기존 graceful-degradation 관례와 동일).
-`constraint: yes` 결정과 `hit_count >= 2` 이슈만 워커 CONTEXT에 반영한다.
+전략 메모리는 **AgentsToZ가 프로젝트 로컬 `<PROJECT_ROOT>/.agent-memory/`에 적재**한다.
+리드는 그것을 직접 파싱하지 않고 공유 어댑터를 **정확히 1회** 호출한다:
 
-**이유**: 전략 메모리는 "하지 말 것"의 목록이다 — 제약을 모르는 fan-out은 이미 기각된 방향을 다시 실행한다.
+```bash
+RECALL="${CLAUDE_PLUGIN_ROOT}/../shared/scripts/recall_project_memory.py"
+if command -v python3 >/dev/null 2>&1; then RUN_PY="python3"; else RUN_PY="uv run --quiet --no-project python"; fi
+$RUN_PY "$RECALL" --query "<목표·도메인 핵심 명사 2-5개, 한/영 동의어 포함>" --limit 5
+```
 
-> 예시: CORE.md Key Decisions에 `constraint: yes — vercel --prod는 auto-mode에서 hard block` → ship-lead가 배포 단계를 사용자 실행 안내로 설계.
+출력이 있으면 그 텍스트를 워커 CONTEXT에 **그대로(verbatim)** 주입하고, 없으면 주입을 생략한다.
+어댑터는 프로젝트 루트 탐색·cs-memory 경로 해석(Claude 마켓플레이스 / Codex 캐시 / repo-local)·
+부재 시 무출력을 모두 내부에서 처리하며 **항상 exit 0**이다 — 실패해도 리드를 막지 않는다.
+`--format header`는 `recall:` 헤더에 쓸 `C<n>`만 출력한다.
+
+**금지**: 이 단계는 읽기 전용이다. AgentsToZ가 프로젝트 메모리의 **유일한 writer**이며,
+리드가 `.agent-memory/`에 쓰거나 구세대 전역 `~/.claude/core-memory`로 폴백하는 것은 금지된다
+(그 저장소는 소유권이 없다 — cs-memory `learn/SKILL.md` 참조).
+
+**Contested 취급**: 어댑터가 `미해결 대립 (Contested — ...)` 블록을 출력하면 그 항목들은 **확정 사실이 아니다**.
+어느 한쪽을 전제로 fan-out을 설계하지 말고, 워커에게 양측을 병기해 현재 저장소 증거로 판별하게 한다.
+`[기록 시점 YYYY-MM-DD]` 표시가 붙은 항목도 그 시점의 관측이므로, 그것을 근거로 쓰기 전에 현재 코드로 재확인한다.
+
+**이유**: 전략 메모리는 "하지 말 것"과 "여기서 전에 데었다"의 목록이다 — 제약과 반복 이슈를 모르는
+fan-out은 이미 기각된 방향을 다시 실행한다. 그리고 이 회상 경로를 리드마다 각자 구현하면 경로 해석과
+graceful degradation이 리드 수만큼 갈라진다 (cs-ceo Phase G.5가 이미 풀어 둔 문제를 재발명하게 된다).
+
+> 예시: 태스크 "플러그인 이름 변경" → `--query "플러그인 rename 매니페스트 식별자"` →
+> `(Recurring Issues · topical) Renaming a plugin leaves stale identifiers behind ... 워크어라운드: rename 후 플러그인 디렉터리 전체를 old name으로 grep` 주입
+> → 워커가 디렉터리만 바꾸고 매니페스트·트리거 문구를 놓치는 실패를 반복하지 않는다.
 
 ### [R-d] ERROR — 에러 시그니처가 있을 때만 error-notes grep
 
@@ -59,7 +85,8 @@ grep -i -E "<키워드1>|<키워드2>" "$EXP_DIR/skills/experiencing/SKILL.md" |
 
 ## 예산 (BOUNDED — 상한 고정, 초과 금지)
 
-- grep **≤ 3회** + Read **≤ 2회** (LOOP-PROTOCOL/GATE-LOOP Read와 [R-a]의 find-meta는 이 예산에 포함하지 않는다)
+- grep **≤ 3회** + Read **≤ 2회** + [R-c] 어댑터 Bash **1회** (LOOP-PROTOCOL/GATE-LOOP Read와 [R-a]의 find-meta는 이 예산에 포함하지 않는다)
+  — [R-c]는 회상 결과를 이미 요약된 텍스트로 돌려주므로 별도 Read가 필요 없다. 어댑터를 두 번 호출하지 않는다.
 - 워커 CONTEXT에 verbatim 주입하는 학습 본문 **≤ 3건**
 - 예산 내에서 다 못 담으면 확장하지 말고 매칭 점수 상위만 남긴다. 상한 도달 시 회상을 종료하고
   `recall:` 헤더에 그 시점까지의 카운트를 기록한다 (종료 사유 = budget cap).
@@ -85,6 +112,7 @@ recall: E<episodic 매칭 수>/C<core 반영 항목 수>/N<error 노트 매칭 �
 
 ## 적용 범위
 
-- **표준 Phase R 수행**: plan-lead(CS-plan), design-lead(cs-design), ship-lead(cs-ship), test-lead(CS-test SKILL preflight).
+- **표준 Phase R 수행**: plan-lead(CS-plan), design-lead(cs-design), ship-lead(cs-ship), test-lead(CS-test SKILL preflight),
+  CS-codebase-review(SKILL 검증 프로토콜 — [R-c]의 `## Recurring Issues`가 리뷰 관점에 직접 대응한다).
 - **기존 풍부한 플로우 유지 + 헤더만 공유**: cs-ceo(Phase G.5 Core Memory Injection + Phase -3 에러노트 recall),
   cs-experiencing(공통 학습 회상 단계) — 자체 플로우를 그대로 수행하되 동일한 `recall: E/C/N` 헤더를 출력한다.
